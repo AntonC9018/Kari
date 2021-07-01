@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net4.7.2</TargetFramework>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="CodeGeneration.Roslyn.Tool" Version="0.7.63">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    
+    <!-- This ProjectReference to the generator needs to have the OutputItemType metadata -->
+    <ProjectReference Include="..\Kari.Generators\Kari.Generators.csproj"
+                      ReferenceOutputAssembly="false"
+                      SetTargetFramework="TargetFramework=net4.7.2"
+                      OutputItemType="CodeGenerationRoslynPlugin" />
+
+    <ProjectReference Include="..\Kari.Shared\Kari.Shared.csproj"
+                      ExcludeAssets="runtime"
+                      SetTargetFramework="TargetFramework=net4.7.2"
+                      PrivateAssets="all" />
+    
+  </ItemGroup>
+
+</Project>

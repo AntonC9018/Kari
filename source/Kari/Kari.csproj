@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="CodeGeneration.Roslyn.PluginMetapackage.Sdk" Version="0.7.63" />
+
+  <PropertyGroup>
+    <TargetFrameworks>net4.7.2</TargetFrameworks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Kari.Shared/Kari.Shared.csproj" />
+    <NupkgAdditionalDependency Include="Kari.Generators" IncludeAssets="all" />
+  </ItemGroup>
+
+</Project>

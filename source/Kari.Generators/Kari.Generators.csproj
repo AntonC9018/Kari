@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="CodeGeneration.Roslyn.Plugin.Sdk" Version="0.7.63" />
+
+  <PropertyGroup>
+    <TargetFrameworks>net4.7.2</TargetFrameworks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Kari.Shared/Kari.Shared.csproj" />
+  </ItemGroup>
+
+</Project>
