@@ -1,0 +1,23 @@
+<Project>
+  
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+    <OutputPath>$(MSBuildThisFileDirectory)bin/$(MSBuildProjectName)/$(Configuration)/</OutputPath>
+
+    <!-- PackageOutputPath gets evaluated after RestoreAdditionalProjectSources, so we need a throwaway variable here -->
+    <_SamplePackages>$(MSBuildThisFileDirectory)bin/Packages/$(Configuration)/</_SamplePackages>
+
+    <PackageOutputPath>$(_SamplePackages)</PackageOutputPath>
+    <RestorePackagesPath>$(MSBuildThisFileDirectory)/.nuget/</RestorePackagesPath>
+    <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);@(CustomLocalFeed);</RestoreAdditionalProjectSources>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+        This indirectness madness is only needed to ensure A FOLDER HAS BEEN CREATED.
+        No wonder people hate MSBuild.
+    -->
+    <CustomLocalFeed Include="$(_SamplePackages)" Condition="Exists($(_SamplePackages))" />
+  </ItemGroup>
+  
+</Project>
