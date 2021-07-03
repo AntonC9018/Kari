@@ -5,6 +5,7 @@
     <OutputPath>$(MSBUILD_OUTPUT_PATH)/$(MSBuildProjectName)/$(Configuration)/</OutputPath>
     <PackageOutputPath>$(CUSTOM_LOCAL_FEED)</PackageOutputPath>
     <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);$(CUSTOM_LOCAL_FEED);</RestoreAdditionalProjectSources>
+    <RestorePackagesPath>$(MSBUILD_DOT_NUGET)</RestorePackagesPath>
   </PropertyGroup>
   
 </Project>
