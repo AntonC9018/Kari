@@ -1,8 +1,8 @@
 <Project>
   
   <PropertyGroup>
-    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
-    <OutputPath>$(MSBuildThisFileDirectory)bin/$(MSBuildProjectName)/$(Configuration)/</OutputPath>
+    <BaseIntermediateOutputPath>$(MSBUILD_INTERMEDIATE_OUTPUT_PATH)/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+    <OutputPath>$(MSBUILD_OUTPUT_PATH)/$(MSBuildProjectName)/$(Configuration)/</OutputPath>
     <PackageOutputPath>$(CUSTOM_LOCAL_FEED)</PackageOutputPath>
     <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);$(CUSTOM_LOCAL_FEED);</RestoreAdditionalProjectSources>
   </PropertyGroup>
