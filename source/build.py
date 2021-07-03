@@ -42,13 +42,11 @@ def try_make_dir(path):
     os.makedirs(path, exist_ok = True)
 
 
-NUGET_COPY_TO_PATH               = "destination"
-NUGET_REPOSITORY_PATH            = ".nuget"
-MSBUILD_INTERMEDIATE_OUTPUT_PATH = "obj"
-MSBUILD_OUTPUT_PATH              = "bin"
+CUSTOM_LOCAL_FEED                = os.path.abspath("bin/Packages")
+MSBUILD_INTERMEDIATE_OUTPUT_PATH = os.path.abspath("obj")
+MSBUILD_OUTPUT_PATH              = os.path.abspath("bin")
 
 # Clear all previous output
-try_delete(NUGET_REPOSITORY_PATH)
 try_delete(MSBUILD_INTERMEDIATE_OUTPUT_PATH)
 try_delete(MSBUILD_OUTPUT_PATH)
 
@@ -56,37 +54,19 @@ try_delete(MSBUILD_OUTPUT_PATH)
 # By convention, also their assembly names
 nuget_projects = ["Kari.Generators", "Kari.Shared", "Kari"]
 
-def copy_nuget_output(assembly_name):
-    dest_dir   = os.path.join(NUGET_COPY_TO_PATH, assembly_name)
-    source_dir = os.path.join(NUGET_REPOSITORY_PATH, assembly_name)
-    copy_tree_if_modified(dest_dir, source_dir)
-    
-def copy_all_nuget_output():
-    nuget_packages = os.listdir(NUGET_REPOSITORY_PATH)
-
-    for item in nuget_packages:
-        copy_nuget_output(item)
-
-    print(f'Copied {len(nuget_packages)} assemblies from nuget repo folder')
 
 try:
+    try_make_dir(CUSTOM_LOCAL_FEED)
+
+    os.environ["CUSTOM_LOCAL_FEED"] = CUSTOM_LOCAL_FEED
+
     # Invoke nuget packing commands
     for p in nuget_projects:
         run_sync(f'dotnet pack {p}')
     
     # TODO: actually test if it works
     run_sync("dotnet run -p Kari.Test")
-    
-    try_make_dir(NUGET_COPY_TO_PATH)
 
-    # Move files to the needed folder
-    for p in nuget_projects:
-        copy_nuget_output(p)
-        print(f'Copied {p} assembly NuGet output')
-
-    # TODO: Maybe copy all assembiles? Will there be conflicts?
-    if False:
-        copy_all_nuget_output()
         
 
 except subprocess.CalledProcessError as err:
