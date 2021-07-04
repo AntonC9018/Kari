@@ -2,11 +2,11 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net4.7.2</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
   </PropertyGroup>
   
-  <ItemGroup>
-    <PackageReference Include="Kari" Version="1.0.0"/>
-  </ItemGroup>
+  <!-- <ItemGroup>
+    <ProjectReference Include="../Kari.Shared/Kari.Shared.csproj"/>
+  </ItemGroup> -->
 
 </Project>

@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
-using CodeGeneration.Roslyn;
 using Kari.Shared;
 
 namespace Kari.Test

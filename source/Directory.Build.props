@@ -1,11 +1,10 @@
 <Project>
-  
   <PropertyGroup>
-    <BaseIntermediateOutputPath>$(MSBUILD_INTERMEDIATE_OUTPUT_PATH)/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
-    <OutputPath>$(MSBUILD_OUTPUT_PATH)/$(MSBuildProjectName)/$(Configuration)/</OutputPath>
-    <PackageOutputPath>$(CUSTOM_LOCAL_FEED)</PackageOutputPath>
-    <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);$(CUSTOM_LOCAL_FEED);</RestoreAdditionalProjectSources>
-    <RestorePackagesPath>$(MSBUILD_DOT_NUGET)</RestorePackagesPath>
+    <!-- If not run by the python script, set these variables to a reasonale default -->
+    <MSBUILD_OUTPUT_PATH Condition="'$(MSBUILD_OUTPUT_PATH)' == ''">$(MSBuildThisFileDirectory)/Build/bin</MSBUILD_OUTPUT_PATH>
+    <MSBUILD_INTERMEDIATE_OUTPUT_PATH Condition="'$(MSBUILD_INTERMEDIATE_OUTPUT_PATH)' == ''">$(MSBuildThisFileDirectory)/Build/obj</MSBUILD_INTERMEDIATE_OUTPUT_PATH>
+    
+    <BaseIntermediateOutputPath>$(MSBUILD_OUTPUT_PATH)/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+    <OutputPath>$(MSBUILD_INTERMEDIATE_OUTPUT_PATH)/$(MSBuildProjectName)/$(Configuration)/</OutputPath>
   </PropertyGroup>
-  
 </Project>

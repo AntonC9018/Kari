@@ -1,0 +1,64 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <RootNamespace>Kari.GeneratorCore</RootNamespace>
+    <AssemblyName>Kari.GeneratorCore</AssemblyName>
+
+    <!-- <SignAssembly>True</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\..\opensource.snk</AssemblyOriginatorKeyFile> -->
+    <LangVersion>9</LangVersion>
+    <TransformOnBuild>true</TransformOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="CodeAnalysis\TextTemplate1.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>TextTemplate1.tt</DependentUpon>
+    </None>
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.10.0" />
+    <PackageReference Include="Microsoft.Build" Version="16.5.0" />
+    <PackageReference Include="System.CodeDom" Version="4.7.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Kari.Shared\Kari.Shared.csproj" />
+  </ItemGroup>
+
+  <!-- Templates dependencies -->
+  <ItemGroup>
+    <Compile Update="CodeAnalysis\DummyAttributes.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>CodeAnalysis\DummyAttributes.tt</DependentUpon>
+    </Compile>
+    <Compile Update="Generator\TestTemplate.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Generator\TestTemplate.tt</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <!-- Generated templates list -->
+  <ItemGroup>
+    <None Update="Generator\TestTemplate.tt">
+      <LastGenOutput>Generator\TestTemplate.cs</LastGenOutput>
+      <Generator>TextTemplatingFilePreprocessor</Generator>
+    </None>
+    <None Update="CodeAnalysis\DummyAttributes.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>CodeAnalysis\DummyAttributes.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- This is the Visual Studio text templating service, added automatically -->
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
+
+</Project>

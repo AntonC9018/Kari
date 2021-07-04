@@ -1,10 +1,15 @@
-﻿namespace Kari.Shared
+﻿
+namespace Kari.GeneratorCore.CodeAnalysis
+{
+	public static class DummyAttributes
+	{
+		public const string Text = @"namespace Kari.Shared
 {
     using System;
     using System.Diagnostics;
 
     [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = true)]
-    [Conditional("CodeGeneration")]
+    [Conditional(""CodeGeneration"")]
     public class KariTestAttribute : Attribute
     {
         public KariTestAttribute(string name)
@@ -14,8 +19,7 @@
 
         public string Name { get; } 
     }
-
-    [AttributeUsage(AttributeTargets.Delegate)]
-    [Conditional("CodeGeneration")]
-    public class WeirdDetectionAttribute : Attribute{}
+}
+";
+	}
 }
