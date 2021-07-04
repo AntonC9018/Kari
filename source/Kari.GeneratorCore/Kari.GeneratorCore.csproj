@@ -12,15 +12,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="CodeAnalysis\TextTemplate1.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>TextTemplate1.tt</DependentUpon>
-    </None>
-  </ItemGroup>
-
-
-  <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.10.0" />
     <PackageReference Include="Microsoft.Build" Version="16.5.0" />
     <PackageReference Include="System.CodeDom" Version="4.7.0" />
@@ -40,19 +31,19 @@
     <Compile Update="Generator\TestTemplate.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
-      <DependentUpon>Generator\TestTemplate.tt</DependentUpon>
+      <DependentUpon>TestTemplate.tt</DependentUpon>
     </Compile>
   </ItemGroup>
 
   <!-- Generated templates list -->
   <ItemGroup>
-    <None Update="Generator\TestTemplate.tt">
-      <LastGenOutput>Generator\TestTemplate.cs</LastGenOutput>
-      <Generator>TextTemplatingFilePreprocessor</Generator>
-    </None>
     <None Update="CodeAnalysis\DummyAttributes.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
       <LastGenOutput>CodeAnalysis\DummyAttributes.cs</LastGenOutput>
+    </None>
+    <None Update="Generator\TestTemplate.tt">
+      <LastGenOutput>TestTemplate.cs</LastGenOutput>
+      <Generator>TextTemplatingFilePreprocessor</Generator>
     </None>
   </ItemGroup>
 
