@@ -134,6 +134,8 @@ namespace Kari.GeneratorCore
         {
             File.WriteAllText(fileName, TransformText(), Encoding.UTF8);
         }
+
+        public virtual void Initialize(){}
         
         public class ToStringInstanceHelper 
         {

@@ -14,6 +14,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.10.0" />
     <PackageReference Include="Microsoft.Build" Version="16.5.0" />
+    <PackageReference Include="Mono.TextTemplating" Version="2.2.1" />
     <PackageReference Include="System.CodeDom" Version="4.7.0" />
   </ItemGroup>
 
@@ -21,35 +22,20 @@
     <ProjectReference Include="..\Kari.Shared\Kari.Shared.csproj" />
   </ItemGroup>
 
-  <!-- Templates dependencies -->
   <ItemGroup>
-    <Compile Update="CodeAnalysis\DummyAttributes.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>CodeAnalysis\DummyAttributes.tt</DependentUpon>
-    </Compile>
-    <Compile Update="Generator\TestTemplate.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>TestTemplate.tt</DependentUpon>
-    </Compile>
+    <PackageReference Include="Mono.TextTemplating" Version="2.2.1" />
+    <TextTemplate_CodeAnalysis Include="CodeAnalysis\*.tt" />
+    <TextTemplate_Generator Include="Generator\*.tt" />
+    <Generated Include="**\*.Generated.cs" />
   </ItemGroup>
 
-  <!-- Generated templates list -->
-  <ItemGroup>
-    <None Update="CodeAnalysis\DummyAttributes.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <LastGenOutput>CodeAnalysis\DummyAttributes.cs</LastGenOutput>
-    </None>
-    <None Update="Generator\TestTemplate.tt">
-      <LastGenOutput>TestTemplate.cs</LastGenOutput>
-      <Generator>TextTemplatingFilePreprocessor</Generator>
-    </None>
-  </ItemGroup>
+  <Target Name="TextTemplateTransform" BeforeTargets="BeforeBuild">
+    <Exec WorkingDirectory="$(ProjectDir)\Generator" Command="dotnet t4 %(TextTemplate_Generator.Filename).tt -c Kari.GeneratorCore.Generator.%(TextTemplate_Generator.Filename) -o %(TextTemplate_Generator.Filename).Generated.cs" />
+    <Exec WorkingDirectory="$(ProjectDir)\CodeAnalysis" Command="dotnet t4 %(TextTemplate_CodeAnalysis.Filename).tt -o %(TextTemplate_CodeAnalysis.Filename).Generated.cs" />
+  </Target>
 
-  <ItemGroup>
-    <!-- This is the Visual Studio text templating service, added automatically -->
-    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
-  </ItemGroup>
+  <Target Name="TextTemplateClean" AfterTargets="Clean">
+    <Delete Files="@(Generated)" />
+  </Target>
 
 </Project>
