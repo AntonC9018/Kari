@@ -23,7 +23,7 @@ namespace Kari.GeneratorCore
         public StringBuilder GenerationEnvironment 
         {
             get => builder;
-            set => this.builder = value;
+            set { if (value == null) this.builder.Clear(); else this.builder = value; }
         }
         protected CompilerErrorCollection Errors => errors;
         public string CurrentIndent => currentIndent;
