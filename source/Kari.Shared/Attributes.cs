@@ -17,5 +17,5 @@
 
     [AttributeUsage(AttributeTargets.Delegate)]
     [Conditional("CodeGeneration")]
-    public class WeirdDetectionAttribute : Attribute{}
+    public class KariWeirdDetectionAttribute : Attribute{}
 }

@@ -42,7 +42,7 @@ namespace Kari.GeneratorCore
            string @namespace)
         {
             var namespaceDot = string.IsNullOrWhiteSpace(@namespace) ? string.Empty : @namespace + ".";
-            bool hadAnnotations = compilation.ContainsSymbolsWithName(nameof(Kari.Shared.WeirdDetectionAttribute));
+            bool hadAnnotations = compilation.ContainsSymbolsWithName(nameof(Kari.Shared.KariWeirdDetectionAttribute));
 
             // Perhaps not the most ideal check, but I'm sure it will work out.
             if (!hadAnnotations)
@@ -86,7 +86,7 @@ namespace Kari.GeneratorCore
 
                 if (!hadAnnotations)
                 {
-                    await OutputAsync(Path.Combine(output, "/Annotations.cs"), DummyAttributes.Text, cancellationToken);
+                    await OutputAsync(Path.Combine(output, "Annotations.cs"), DummyAttributes.Text, cancellationToken);
                 }
             }
             logger("Output Generation Complete:" + sw.Elapsed.ToString());
