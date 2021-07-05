@@ -46,7 +46,9 @@ namespace Kari.Generator
             [Option("Conditional compiler symbols, split with ','. Ignored if a project file is specified for input.")] 
             string? conditionalSymbol = null,
             [Option("Set namespace root name.")] 
-            string @namespace = "Kari")
+            string @namespace = "Kari",
+            [Option("Whether the attrbiutes should be written to output. The attrbiutes are never written if they already exist among the source files.")]
+            bool writeAttributes = true)
         {
             output = Path.GetFullPath(output);
             Workspace? workspace = null;
@@ -67,7 +69,8 @@ namespace Kari.Generator
                     .GenerateFileAsync(
                         compilation,
                         output,
-                        @namespace).ConfigureAwait(false);
+                        @namespace,
+                        writeAttributes).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

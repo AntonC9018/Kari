@@ -39,7 +39,8 @@ namespace Kari.GeneratorCore
         public async Task GenerateFileAsync(
            Compilation compilation,
            string output,
-           string @namespace)
+           string @namespace,
+           bool writeAttributes)
         {
             var namespaceDot = string.IsNullOrWhiteSpace(@namespace) ? string.Empty : @namespace + ".";
             bool hadAnnotations = compilation.ContainsSymbolsWithName(nameof(Kari.Shared.KariWeirdDetectionAttribute));
@@ -71,7 +72,7 @@ namespace Kari.GeneratorCore
                 sb.AppendLine(t.TransformText());
                 sb.AppendLine();
 
-                if (!hadAnnotations)
+                if (writeAttributes && !hadAnnotations)
                 {
                     sb.AppendLine(DummyAttributes.Text);
                 }
@@ -84,7 +85,7 @@ namespace Kari.GeneratorCore
                 var t = new TestTemplate { Namespace = @namespace + "Generated" };
                 await OutputToDirAsync(output, t.Namespace, "TestName.cs", t.TransformText(), cancellationToken);
 
-                if (!hadAnnotations)
+                if (writeAttributes && !hadAnnotations)
                 {
                     await OutputAsync(Path.Combine(output, "Annotations.cs"), DummyAttributes.Text, cancellationToken);
                 }
