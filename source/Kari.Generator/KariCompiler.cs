@@ -43,11 +43,10 @@ namespace Kari.Generator
             string input,
             [Option("Output file path(.cs) or directory (multiple-file output).")] 
             string output,
-            [Option("Conditional compiler symbols, split with ','. Ignored if a project file is specified for input.")] string? conditionalSymbol = null,
+            [Option("Conditional compiler symbols, split with ','. Ignored if a project file is specified for input.")] 
+            string? conditionalSymbol = null,
             [Option("Set namespace root name.")] 
-            string @namespace = "Kari",
-            [Option("Ignore type names.")] 
-            string[]? externalIgnoreTypeNames = null)
+            string @namespace = "Kari")
         {
             output = Path.GetFullPath(output);
             Workspace? workspace = null;
@@ -68,8 +67,7 @@ namespace Kari.Generator
                     .GenerateFileAsync(
                         compilation,
                         output,
-                        @namespace,
-                        externalIgnoreTypeNames).ConfigureAwait(false);
+                        @namespace).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

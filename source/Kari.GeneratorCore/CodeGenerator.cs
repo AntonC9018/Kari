@@ -35,13 +35,11 @@ namespace Kari.GeneratorCore
         /// <param name="compilation">The compilation to read types from as an input to code generation.</param>
         /// <param name="output">The name of the generated source file.</param>
         /// <param name="namespace">The namespace for the generated type to be created in. May be null.</param>
-        /// <param name="externalIgnoreTypeNames"> May be null.</param>
         /// <returns>A task that indicates when generation has completed.</returns>
         public async Task GenerateFileAsync(
            Compilation compilation,
            string output,
-           string @namespace,
-           string[] externalIgnoreTypeNames)
+           string @namespace)
         {
             var namespaceDot = string.IsNullOrWhiteSpace(@namespace) ? string.Empty : @namespace + ".";
             bool hadAnnotations = compilation.ContainsSymbolsWithName(nameof(Kari.Shared.WeirdDetectionAttribute));
@@ -67,7 +65,7 @@ namespace Kari.GeneratorCore
             if (Path.GetExtension(output) == ".cs")
             {
                 // Single-file output
-                var t = new TestTemplate { Namespace = "Generated" };
+                var t = new TestTemplate { Namespace = @namespace + "Generated" };
 
                 var sb = new StringBuilder();
                 sb.AppendLine(t.TransformText());
@@ -83,7 +81,7 @@ namespace Kari.GeneratorCore
             else
             {
                 // Multiple-file output
-                var t = new TestTemplate { Namespace = "Generated" };
+                var t = new TestTemplate { Namespace = @namespace + "Generated" };
                 await OutputToDirAsync(output, t.Namespace, "TestName.cs", t.TransformText(), cancellationToken);
 
                 if (!hadAnnotations)
