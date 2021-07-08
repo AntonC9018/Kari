@@ -4,6 +4,6 @@ namespace Kari.GeneratorCore.Generator
 {
     partial class TestTemplate 
     {
-        public string Namespace { get; init; }
+        public string Namespace { get; set; }
     }
 }
