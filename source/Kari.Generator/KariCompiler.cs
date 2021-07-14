@@ -1,6 +1,4 @@
-﻿// Copyright (c) All contributors. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
-
+﻿
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -45,8 +43,10 @@ namespace Kari.Generator
             string output,
             [Option("Conditional compiler symbols, split with ','. Ignored if a project file is specified for input.")] 
             string? conditionalSymbol = null,
-            [Option("Set namespace root name.")] 
-            string @namespace = "Kari",
+            [Option("Set output namespace root name.")] 
+            string outNamespace = "Kari",
+            [Option("Set input namespace root name.")]
+            string rootNamespace,
             [Option("Whether the attrbiutes should be written to output. The attrbiutes are never written if they already exist among the source files.")]
             bool writeAttributes = true)
         {
@@ -68,8 +68,9 @@ namespace Kari.Generator
                 await new Kari.GeneratorCore.CodeGenerator(x => Console.WriteLine(x), this.Context.CancellationToken)
                     .GenerateFileAsync(
                         compilation,
+                        rootNamespace,
                         output,
-                        @namespace,
+                        outNamespace,
                         writeAttributes).ConfigureAwait(false);
             }
             catch (OperationCanceledException)

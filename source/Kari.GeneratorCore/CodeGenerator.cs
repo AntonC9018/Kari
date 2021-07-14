@@ -1,6 +1,4 @@
-﻿// Copyright (c) All contributors. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
-
+﻿
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -9,7 +7,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Kari.GeneratorCore.CodeAnalysis;
-using Kari.Generator;
 using Kari.GeneratorCore.Generator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -43,7 +40,7 @@ namespace Kari.GeneratorCore
            bool writeAttributes)
         {
             var namespaceDot = string.IsNullOrWhiteSpace(@namespace) ? string.Empty : @namespace + ".";
-            bool hadAnnotations = compilation.ContainsSymbolsWithName(nameof(Kari.Shared.KariWeirdDetectionAttribute));
+            bool hadAnnotations = compilation.ContainsSymbolsWithName(nameof(Kari.KariWeirdDetectionAttribute));
 
             // Perhaps not the most ideal check, but I'm sure it will work out.
             if (!hadAnnotations)
@@ -53,7 +50,9 @@ namespace Kari.GeneratorCore
             
             var sw = Stopwatch.StartNew();
             logger("Project Compilation Start:" + compilation.AssemblyName);
-            // var collector = new TypeCollector(compilation, true, useMapMode, externalIgnoreTypeNames, x => Console.WriteLine(x));
+
+
+
             logger("Project Compilation Complete:" + sw.Elapsed.ToString());
 
             logger("Method Collect Start");

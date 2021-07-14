@@ -1,6 +1,4 @@
-﻿// Copyright (c) All contributors. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
-
+﻿
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +6,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace Kari.Generator
+namespace Kari.GeneratorCore.CodeAnalysis
 {
     // Utility and Extension methods for Roslyn
     internal static class RoslynExtensions
@@ -142,7 +140,7 @@ namespace Kari.Generator
                 .Concat(symbol.AllInterfaces.SelectMany(x => x.GetMembers()));
         }
 
-        public static bool ApproximatelyEqual(this INamedTypeSymbol left, INamedTypeSymbol right)
+        public static bool ApproximatelyEqual(this ITypeSymbol left, ITypeSymbol right)
         {
             if (left is IErrorTypeSymbol || right is IErrorTypeSymbol)
             {
