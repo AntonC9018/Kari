@@ -20,29 +20,52 @@ namespace Kari.GeneratorCore.CodeAnalysis
         public CommandAttribute CommandAttribute { get; }
     }
 
-    public class ArgumentInfo
+    public interface IArgumentInfo
+    {
+        IParameterSymbol Symbol { get; }
+        IArgument GetAttribute();
+    }
+
+    public class ArgumentInfo : IArgumentInfo
     {
         public ArgumentInfo(IParameterSymbol symbol, ArgumentAttribute argumentAttribute)
         {
             Symbol = symbol;
-            ArgumentAttribute = argumentAttribute;
+            Attribute = argumentAttribute;
         }
 
         public IParameterSymbol Symbol { get; }
-        public ArgumentAttribute ArgumentAttribute { get; }
-        public string Name => ArgumentAttribute.IsOptionLike ? ArgumentAttribute.Name : Symbol.Name;
+        public ArgumentAttribute Attribute { get; }
+        public string Name => Attribute.IsOptionLike ? Attribute.Name : Symbol.Name;
+
+        IArgument IArgumentInfo.GetAttribute() => Attribute;
     }
 
-    public class OptionInfo
+    public class OptionInfo : IArgumentInfo
     {
         public OptionInfo(IParameterSymbol symbol, OptionAttribute optionAttribute)
         {
             Symbol = symbol;
-            OptionAttribute = optionAttribute;
+            Attribute = optionAttribute;
         }
 
         public IParameterSymbol Symbol { get; }
-        public OptionAttribute OptionAttribute { get; }
-        public string Name => OptionAttribute.Name;
+        public OptionAttribute Attribute { get; }
+        public string Name => Attribute.Name;
+        IArgument IArgumentInfo.GetAttribute() => Attribute;
+    }
+
+    public class ParserInfo
+    {
+        public ParserInfo(IMethodSymbol symbol, ParserAttribute attribute)
+        {
+            Symbol = symbol;
+            Attribute = attribute;
+            Next = null;
+        }
+
+        public IMethodSymbol Symbol { get; }
+        public ParserAttribute Attribute { get; }
+        public ParserInfo Next { get; set; }
     }
 }

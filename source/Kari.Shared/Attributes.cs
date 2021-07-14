@@ -33,29 +33,37 @@
         public string Help { get; set; } 
     }
 
+    public interface IArgument
+    {
+        string Name { get; set; }
+        string Parser { get; set; }
+        string Help { get; set; }
+    }
+
     [AttributeUsage(AttributeTargets.Parameter)]
     [Conditional("CodeGeneration")]
-    public class OptionAttribute : Attribute
+    public class OptionAttribute : Attribute, IArgument
     {
         public string Name { get; set; }
         public string Help { get; set; }
         public bool IsFlag { get; set; }
+        public string Parser { get; set; }
 
-        public OptionAttribute(string name, string help, bool isFlag = false)
+        public OptionAttribute(string name, string help)
         {
             Name = name;
             Help = help;
-            IsFlag = isFlag;
         }
     }
 
     [AttributeUsage(AttributeTargets.Parameter)]
     [Conditional("CodeGeneration")]
-    public class ArgumentAttribute : Attribute
+    public class ArgumentAttribute : Attribute, IArgument
     {
         public string Name { get; set; }
         public bool IsOptionLike => Name != null;
         public string Help { get; set; }
+        public string Parser { get; set; }
 
         public ArgumentAttribute(string help)
         {
@@ -66,6 +74,22 @@
         {
             Name = name;
             Help = help;
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Method)]
+    [Conditional("CodeGeneration")]
+    public class ParserAttribute : Attribute
+    {
+        public string Name { get; set; }
+
+        public ParserAttribute()
+        {
+        }
+
+        public ParserAttribute(string name)
+        {
+            Name = name;
         }
     }
 }

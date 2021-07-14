@@ -59,11 +59,12 @@ namespace Kari.GeneratorCore.CodeAnalysis
         }
         public static bool TryGetAttributeData(this ISymbol symbol, ISymbol attributeType, out AttributeData attributeData)
         {
-            foreach (var a in symbol.GetAttributes())
+            var attrs = symbol.GetAttributes();
+            for (int i = 0; i < attrs.Length; i++)
             {
-                if (SymbolEqualityComparer.Default.Equals(a.AttributeClass, attributeType))
+                if (SymbolEqualityComparer.Default.Equals(attrs[i].AttributeClass, attributeType))
                 {
-                    attributeData = a;
+                    attributeData = attrs[i];
                     return true;
                 }
             }

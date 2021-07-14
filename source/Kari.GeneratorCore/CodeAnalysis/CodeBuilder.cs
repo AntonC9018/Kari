@@ -6,7 +6,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
     {
         public StringBuilder _stringBuilder;
 
-        public CodeBuilder(string indentation = "")
+        public CodeBuilder(string indentation)
         {
             _stringBuilder = new StringBuilder();
             CurrentIndentation = indentation;
@@ -48,18 +48,20 @@ namespace Kari.GeneratorCore.CodeAnalysis
         }
     }
 
-    public struct ParameterAppender
+    public struct ListBuilder
     {
         public StringBuilder _stringBuilder;
+        public string _separator;
 
-        public ParameterAppender(int _ = 0)
+        public ListBuilder(string separator)
         {
             _stringBuilder = new StringBuilder();
+            _separator = separator;
         }
 
         public void Append(string parameter)
         {
-            _stringBuilder.Append(parameter + ", ");
+            _stringBuilder.Append(parameter + _separator);
         }
 
         public override string ToString()
@@ -68,7 +70,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
             {
                 return "";
             }
-            return _stringBuilder.ToString().Substring(0, _stringBuilder.Length - 2);
+            return _stringBuilder.ToString().Substring(0, _stringBuilder.Length - _separator.Length);
         }
     }
 }

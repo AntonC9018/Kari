@@ -43,7 +43,7 @@
     <!-- %(Whatever) does iteration over the given 'Glob', representing an individual element of the sequence. -->
     <!-- The path to the file is %(TextTemplate_Generator.Filename).tt, because I've set the wd to the folder  -->
     <!-- it is contained. The same for %(TextTemplate_CodeAnalysis.Filename).tt.                               -->
-    <Exec WorkingDirectory="$(ProjectDir)\Generator" Command="dotnet t4 %(TextTemplate_Generator.Filename).tt -class Kari.GeneratorCore.Generator.%(TextTemplate_Generator.Filename) -out %(TextTemplate_Generator.Filename).Generated.cs" />
+    <Exec WorkingDirectory="$(ProjectDir)\Generator" Command="dotnet t4 %(TextTemplate_Generator.Filename).tt -class Kari.GeneratorCore.%(TextTemplate_Generator.Filename) -out %(TextTemplate_Generator.Filename).Generated.cs" />
 
     <!-- There is no -class option, because this is a design time template, I think it is called. -->
     <Exec WorkingDirectory="$(ProjectDir)\CodeAnalysis" Command="dotnet t4 %(TextTemplate_CodeAnalysis.Filename).tt -out %(TextTemplate_CodeAnalysis.Filename).Generated.cs" />

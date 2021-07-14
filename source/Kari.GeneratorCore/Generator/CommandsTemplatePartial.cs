@@ -1,46 +1,95 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
+using Kari.GeneratorCore.CodeAnalysis;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace Kari.GeneratorCore.CodeAnalysis
+namespace Kari.GeneratorCore
 {
-
-    public class CommandMethodPrinter
+    public partial class CommandsTemplate
     {
-        public CommandMethodInfo info;
-        public RelevantSymbols symbols;
-        public Dictionary<ITypeSymbol, string> converters;
+        public List<CommandMethodInfo> _infos;
+        public RelevantSymbols _symbols;
+        public INamespaceSymbol _rootNamespace;
+        public Dictionary<ITypeSymbol, string> _builtinConverters;
+        public Dictionary<ITypeSymbol, ParserInfo> _customConverters;
 
-        public CommandMethodPrinter(CommandMethodInfo info, RelevantSymbols symbols)
+        public CommandsTemplate(CodeAnalysis.Environment environment)
         {
-            this.info = info;
-            converters = new Dictionary<ITypeSymbol, string>
+            this._rootNamespace = environment.RootNamespace;
+            this._symbols = environment.Symbols;
+            this._builtinConverters = new Dictionary<ITypeSymbol, string>
             {
-                { symbols.Bool, "bool.Parse" },
-                { symbols.Int, "int.Parse" },
-                { symbols.String, "" }
+                { _symbols.Bool, "bool.Parse" },
+                { _symbols.Int, "int.Parse" },
+                { _symbols.String, "" }
             };
-            this.symbols = symbols;
+            this._customConverters = new Dictionary<ITypeSymbol, ParserInfo>();
         }
 
-        public string GetConverter(IParameterSymbol parameter)
+        public void Collect()
         {
-            return converters[(parameter.Type)];
-            // if (parameter.Type.ApproximatelyEqual(symbols.String))
-            // {
-            //     return "";
-            // }
-            // if (parameter.Type is INamedTypeSymbol namedType && namedType.SpecialType != SpecialType.None)
-            // {
-            //     return SpecialTypes
-            // }
+            foreach (var type in _rootNamespace.GetNotNestedTypes())
+            foreach (var method in type.GetMethods())
+            {
+                if (!method.IsStatic) continue;
+
+                if (method.TryGetAttribute(_symbols.ParserAttribute, out var parserAttr))
+                {
+                    if (_customConverters.TryGetValue(method.ReturnType, out var converter))
+                    {
+                        while (converter.Next != null)
+                        {
+                            converter = converter.Next;
+                        }
+                        converter.Next = new ParserInfo(method, parserAttr);
+                    }
+                }
+
+                if (method.TryGetAttribute(_symbols.CommandAttribute, out var commandAttribute))
+                {
+                    _infos.Add(new CommandMethodInfo(method, commandAttribute));
+                }
+            }
         }
 
-        public void Go()
+        public string GetConverter(IArgumentInfo argument)
         {
-            var classBuilder = new CodeBuilder();
+            var customParser = argument.GetAttribute().Parser;
+
+            if (!(customParser is null))
+            {
+                if (_customConverters.TryGetValue(argument.Symbol.Type, out var converter))
+                {
+                    while (converter.Attribute.Name != customParser)
+                    {
+                        if (converter.Next is null)
+                        {
+                            throw new Exception($"No such converter {converter.Attribute.Name} for type {argument.Symbol.Type}");
+                        }
+                        converter = converter.Next;
+                    }
+                    return converter.Symbol.GetFullyQualifiedName();
+                }
+            }
+            {
+                if (_builtinConverters.TryGetValue(argument.Symbol.Type, out var result))
+                {
+                    return result;
+                }
+
+                if (_customConverters.TryGetValue(argument.Symbol.Type, out var converter))
+                {
+                    return converter.Symbol.GetFullyQualifiedName();
+                }
+            }
+
+            throw new Exception($"Found no converters for type {argument.Symbol.Type}");
+        }
+
+        public string TransformSingle(CommandMethodInfo info, string initialIndentation = "")
+        {
+            var classBuilder = new CodeBuilder(initialIndentation);
             classBuilder.AppendLine($"public class {info.Name}Command : ICommand");
             classBuilder.StartBlock();
 
@@ -48,9 +97,6 @@ namespace Kari.GeneratorCore.CodeAnalysis
             executeBuilder.AppendLine("public string Execute(CommandContext context)");
             executeBuilder.StartBlock();
 
-            // Positional arguments: arguments that are not option-like
-            // Must be the first ones.
-            // Option-like arguments:
             List<OptionInfo> options = new List<OptionInfo>();
             List<ArgumentInfo> positionalArguments = new List<ArgumentInfo>();
             List<ArgumentInfo> optionLikeArguments = new List<ArgumentInfo>();
@@ -58,7 +104,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
             for (int i = 0; i < info.Symbol.Parameters.Length; i++)
             {
                 var parameter = info.Symbol.Parameters[i];
-                if (parameter.TryGetAttribute(symbols.ArgumentAttributeWrapper, out var argumentAttribute))
+                if (parameter.TryGetAttribute(_symbols.ArgumentAttribute, out var argumentAttribute))
                 {
                     var argInfo = new ArgumentInfo(parameter, argumentAttribute);
                     if (!argumentAttribute.IsOptionLike)
@@ -71,7 +117,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
                     }
                     continue;
                 }
-                if (parameter.TryGetAttribute(symbols.OptionAttributeWrapper, out var optionAttribute))
+                if (parameter.TryGetAttribute(_symbols.OptionAttribute, out var optionAttribute))
                 {
                     options.Add(new OptionInfo(parameter, optionAttribute));
                 }
@@ -85,27 +131,27 @@ namespace Kari.GeneratorCore.CodeAnalysis
             {
                 var arg = positionalArguments[i];
                 usageBuilder.Append($"{arg.Name} ");
-                argsBuilder.AppendLine($"{arg.Symbol.Name} ({arg.Symbol.Type.Name}): {arg.ArgumentAttribute.Help}");
+                argsBuilder.AppendLine($"{arg.Symbol.Name} ({arg.Symbol.Type.Name}): {arg.Attribute.Help}");
             }
 
             for (int i = 0; i < optionLikeArguments.Count; i++)
             {
                 var arg = positionalArguments[i];
-                usageBuilder.Append($"{arg.ArgumentAttribute.Name}|-{arg.ArgumentAttribute.Name}=value ");
-                argsBuilder.AppendLine($"{arg.ArgumentAttribute.Name}|-{arg.ArgumentAttribute.Name} ({arg.Symbol.Type.Name}): {arg.ArgumentAttribute.Help}");
+                usageBuilder.Append($"{arg.Attribute.Name}|-{arg.Attribute.Name}=value ");
+                argsBuilder.AppendLine($"{arg.Attribute.Name}|-{arg.Attribute.Name} ({arg.Symbol.Type.Name}): {arg.Attribute.Help}");
             }
             
             for (int i = 0; i < options.Count; i++)
             {
                 var op = options[i];
                 usageBuilder.Append($"[-{op.Name}=value] ");
-                if (op.OptionAttribute.IsFlag)
+                if (op.Attribute.IsFlag)
                 {
-                    argsBuilder.AppendLine($"-{op.Name} (flag, default {op.Symbol.GetDefaultValueText()}): {op.OptionAttribute.Help}");
+                    argsBuilder.AppendLine($"-{op.Name} (flag, default {op.Symbol.GetDefaultValueText()}): {op.Attribute.Help}");
                 }
                 else
                 {
-                    argsBuilder.AppendLine($"-{op.Name} ({op.Symbol.Type.Name}): {op.OptionAttribute.Help}");
+                    argsBuilder.AppendLine($"-{op.Name} ({op.Symbol.Type.Name}): {op.Attribute.Help}");
                 }
             }
 
@@ -128,7 +174,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
             executeBuilder.AppendLine("// Take in all the positional arguments");
             for (int i = 0; i < positionalArguments.Count; i++)
             {
-                var converterText = GetConverter(positionalArguments[i].Symbol);
+                var converterText = GetConverter(positionalArguments[i]);
                 executeBuilder.AppendLine($"string __posInput{i} = context.Parser.GetString();");
                 executeBuilder.AppendLine($"if (__posInput{i} == null)");
                 executeBuilder.StartBlock();
@@ -153,7 +199,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
                 executeBuilder.StartBlock();
                 for (int i = 0; i < optionLikeArguments.Count; i++)
                 {
-                    var converterText = GetConverter(positionalArguments[i].Symbol);
+                    var converterText = GetConverter(positionalArguments[i]);
                     executeBuilder.AppendLine($"var __input = context.Parser.GetString()");
                     executeBuilder.AppendLine($"if (__input is null)");
                     executeBuilder.StartBlock();
@@ -161,7 +207,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
                     executeBuilder.EndBlock();
                     executeBuilder.AppendLine("context.Parser.SkipWhitespace();");
                     executeBuilder.AppendLine($"__isPresentOptionLikeArg{i} = true;");
-                    executeBuilder.AppendLine($" __optionLikeArg{i} = {converterText}(__input);");
+                    executeBuilder.AppendLine($"__optionLikeArg{i} = {converterText}(__input);");
                 }
                 executeBuilder.AppendLine("__afterOptionLike:");
                 executeBuilder.EndBlock();
@@ -187,13 +233,13 @@ namespace Kari.GeneratorCore.CodeAnalysis
                     executeBuilder.AppendLine($"case {options[i].Name}:");
                     executeBuilder.StartBlock();
 
-                    if (options[i].OptionAttribute.IsFlag)
+                    if (options[i].Attribute.IsFlag)
                     {
                         executeBuilder.AppendLine($"__option{i} = __option.GetFlagValue();");
                     }
                     else
                     {
-                        var converterText = GetConverter(options[i].Symbol);
+                        var converterText = GetConverter(options[i]);
                         executeBuilder.AppendLine($"__option{i} = {converterText}(__option.Value);");
                     }
                     executeBuilder.AppendLine("break;");
@@ -202,10 +248,10 @@ namespace Kari.GeneratorCore.CodeAnalysis
 
                 for (int i = 0; i < optionLikeArguments.Count; i++)
                 {
-                    executeBuilder.AppendLine($"case {optionLikeArguments[i].ArgumentAttribute.Name}:");
+                    executeBuilder.AppendLine($"case {optionLikeArguments[i].Attribute.Name}:");
                     executeBuilder.StartBlock();
 
-                    var converterText = GetConverter(optionLikeArguments[i].Symbol);
+                    var converterText = GetConverter(optionLikeArguments[i]);
                     executeBuilder.AppendLine($"__optionLikeArg{i} = {converterText}(__option.Value);");
                     executeBuilder.AppendLine($"__isPresentOptionLikeArg{i} = true;");
                     executeBuilder.AppendLine("break;");
@@ -224,7 +270,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
                 {
                     executeBuilder.AppendLine($"if (!__isPresentOptionLikeArg{i})");
                     executeBuilder.StartBlock();
-                    executeBuilder.AppendLine($"throw new Exception(\"Option-like argument {optionLikeArguments[i].ArgumentAttribute.Name} not given\");");
+                    executeBuilder.AppendLine($"throw new Exception(\"Option-like argument {optionLikeArguments[i].Attribute.Name} not given\");");
                     executeBuilder.EndBlock();
                 }
             }
@@ -240,7 +286,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
                 executeBuilder.Append($"return {info.Symbol.GetFullyQualifiedName()}(");
             }
 
-            var parameters = new ParameterAppender(1);
+            var parameters = new ListBuilder(", ");
 
             for (int i = 0; i < positionalArguments.Count; i++)
             {
@@ -270,38 +316,12 @@ namespace Kari.GeneratorCore.CodeAnalysis
             
             classBuilder.Append("public string HelpMessage => @\"");
             classBuilder.Append(helpMessageBuilder.ToString().Replace("\"", "\"\""));
-            classBuilder.AppendLine("\"");
+            classBuilder.AppendLine("\";");
             classBuilder.Append(executeBuilder.ToString());
             classBuilder.AppendLine("");
             classBuilder.EndBlock();
-        }
-    }
 
-    
-
-    public class TypeCollector
-    {
-        private Compilation _compilation;
-        private RelevantSymbols _relevantSymbols;
-        private INamespaceSymbol _rootNamespace;
-        
-        public TypeCollector(Compilation compilation, string rootNamespace, Action<string> logger)
-        {
-            _compilation = compilation;
-            _relevantSymbols = new RelevantSymbols(compilation, logger);
-            _rootNamespace = compilation.GetNamespace(rootNamespace);
-        }
-
-        public IEnumerable<CommandMethodInfo> GetCommandMethods()
-        {
-            foreach (var type in _rootNamespace.GetNotNestedTypes())
-            foreach (var method in type.GetMethods())
-            {
-                if (method.TryGetAttribute(_relevantSymbols.CommandAttributeWrapper, out var commandAttribute))
-                {
-                    yield return new CommandMethodInfo(symbol: method, commandAttribute);
-                }
-            }
+            return classBuilder.ToString();
         }
     }
 }
