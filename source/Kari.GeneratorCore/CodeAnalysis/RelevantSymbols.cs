@@ -39,7 +39,6 @@ namespace Kari.GeneratorCore.CodeAnalysis
 			ArgumentAttribute.Init(compilation);
 			ParserAttribute.Init(compilation);
 
-
 			Short = compilation.GetSpecialType(SpecialType.System_Int16);
 			Int = compilation.GetSpecialType(SpecialType.System_Int32);
 			Long = compilation.GetSpecialType(SpecialType.System_Int64);

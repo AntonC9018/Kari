@@ -1,20 +1,19 @@
-﻿
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Runtime.Loader;
-using System.Threading;
-using System.Threading.Tasks;
-using ConsoleAppFramework;
-using Microsoft.Build.Locator;
-using Microsoft.Build.Logging;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.MSBuild;
-using Microsoft.Extensions.Hosting;
-
-namespace Kari.Generator
+﻿namespace Kari.Generator
 {
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Runtime.Loader;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using ConsoleAppFramework;
+    using Microsoft.Build.Locator;
+    using Microsoft.Build.Logging;
+    using Microsoft.CodeAnalysis;
+    using Microsoft.CodeAnalysis.CSharp;
+    using Microsoft.CodeAnalysis.MSBuild;
+    using Microsoft.Extensions.Hosting;
+
     public class KariCompiler : ConsoleAppBase
     {
         private static async Task Main(string[] args)
@@ -23,6 +22,7 @@ namespace Kari.Generator
             AssemblyLoadContext.Default.Resolving += (assemblyLoadContext, assemblyName) =>
             {
                 var path = Path.Combine(instance.MSBuildPath, assemblyName.Name + ".dll");
+                Console.WriteLine(path);
                 if (File.Exists(path))
                 {
                     return assemblyLoadContext.LoadFromAssemblyPath(path);
@@ -44,9 +44,9 @@ namespace Kari.Generator
             [Option("Conditional compiler symbols, split with ','. Ignored if a project file is specified for input.")] 
             string? conditionalSymbol = null,
             [Option("Set output namespace root name.")] 
-            string outNamespace = "Kari",
+            string outputNamespace = "Kari",
             [Option("Set input namespace root name.")]
-            string rootNamespace,
+            string rootNamespace = "",
             [Option("Whether the attrbiutes should be written to output. The attrbiutes are never written if they already exist among the source files.")]
             bool writeAttributes = true)
         {
@@ -63,6 +63,11 @@ namespace Kari.Generator
                 else
                 {
                     (workspace, compilation) = await this.OpenMSBuildProjectAsync(input, this.Context.CancellationToken);
+
+                    if (rootNamespace == "" && compilation.AssemblyName != null)
+                    {
+                        rootNamespace = compilation.AssemblyName;
+                    }
                 }
 
                 await new Kari.GeneratorCore.CodeGenerator(x => Console.WriteLine(x), this.Context.CancellationToken)
@@ -70,7 +75,7 @@ namespace Kari.Generator
                         compilation,
                         rootNamespace,
                         output,
-                        outNamespace,
+                        outputNamespace,
                         writeAttributes).ConfigureAwait(false);
             }
             catch (OperationCanceledException)

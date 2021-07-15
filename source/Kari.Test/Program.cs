@@ -1,10 +1,20 @@
 ﻿using System;
-using Kari.Shared;
+using Kari;
 
 namespace Kari.Test
 {
-    [KariTestAttribute("Hello")]
-    public class Hello{}
+    public class Hello
+    {
+        [Command("Hello", "Some parameter")]
+        public static string SomeCommand(
+            [Argument("positional")]                int positional,
+            [Argument("optional", "positional")]    string optional,
+            [Option("flag", "idk", IsFlag = true)]  bool flag,
+            [Option("option", "idk")]               string option)
+        {
+            return $"{positional}; {optional}; {flag}; {option};";
+        }
+    }
 
     class Program
     {

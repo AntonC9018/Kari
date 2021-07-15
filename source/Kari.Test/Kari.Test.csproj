@@ -5,8 +5,8 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
   
-  <!-- <ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../Kari.Shared/Kari.Shared.csproj"/>
-  </ItemGroup> -->
+  </ItemGroup>
 
 </Project>

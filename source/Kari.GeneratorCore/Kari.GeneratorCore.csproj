@@ -54,4 +54,12 @@
     <Delete Files="@(Generated)" />
   </Target>
 
+  <Target Name="WorkaroundAppConfigPathTooLong"
+    BeforeTargets="GenerateBindingRedirects">
+    <PropertyGroup>
+      <_GenerateBindingRedirectsIntermediateAppConfig>$(IntermediateOutputPath)$(TargetFileName).config</_GenerateBindingRedirectsIntermediateAppConfig>
+    </PropertyGroup>
+  </Target>
+
+
 </Project>

@@ -25,6 +25,7 @@ namespace Kari.GeneratorCore
                 { _symbols.String, "" }
             };
             this._customConverters = new Dictionary<ITypeSymbol, ParserInfo>();
+            this._infos = new List<CommandMethodInfo>();
         }
 
         public void Collect()
@@ -120,7 +121,9 @@ namespace Kari.GeneratorCore
                 if (parameter.TryGetAttribute(_symbols.OptionAttribute, out var optionAttribute))
                 {
                     options.Add(new OptionInfo(parameter, optionAttribute));
+                    continue;
                 }
+                positionalArguments.Add(new ArgumentInfo(parameter, new ArgumentAttribute("")));
             }
 
             var usageBuilder = new StringBuilder();

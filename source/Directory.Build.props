@@ -1,15 +1,18 @@
 <Project>
   <PropertyGroup>
-    <!-- If not run by the python script, set these variables to a reasonale default -->
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <!-- If not run by the python script, set these variables to a reasonable default -->
     <MSBUILD_OUTPUT_PATH Condition="'$(MSBUILD_OUTPUT_PATH)' == ''">$(MSBuildThisFileDirectory)/../Build/bin</MSBUILD_OUTPUT_PATH>
     <MSBUILD_INTERMEDIATE_OUTPUT_PATH Condition="'$(MSBUILD_INTERMEDIATE_OUTPUT_PATH)' == ''">$(MSBuildThisFileDirectory)/../Build/obj</MSBUILD_INTERMEDIATE_OUTPUT_PATH>
     
+    <BaseOutputPath>$(MSBUILD_OUTPUT_PATH)/$(MSBuildProjectName)/</BaseOutputPath>
+    <OutputPath>$(BaseOutputPath)$(Configuration)/</OutputPath>
+
     <BaseIntermediateOutputPath>$(MSBUILD_INTERMEDIATE_OUTPUT_PATH)/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
-    <OutputPath>$(MSBUILD_OUTPUT_PATH)/$(MSBuildProjectName)/$(Configuration)/</OutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)/</IntermediateOutputPath>
 
     <!-- Not actually used, since we call the tool just locally -->
-    <MSBUILD_PACKAGE_OUTPUT Condition="'$(MSBUILD_PACKAGE_OUTPUT)' == ''">$(MSBuildThisFileDirectory)/Build/.nupkg</MSBUILD_PACKAGE_OUTPUT>
-    <PackageOutputPath>$(MSBUILD_PACKAGE_OUTPUT)/$(MSBuildProjectName)/$(Configuration)/</PackageOutputPath>
-
+    <!-- <MSBUILD_PACKAGE_OUTPUT Condition="'$(MSBUILD_PACKAGE_OUTPUT)' == ''">$(MSBuildThisFileDirectory)/../Build/.nupkg</MSBUILD_PACKAGE_OUTPUT>
+    <PackageOutputPath>$(MSBUILD_PACKAGE_OUTPUT)/$(MSBuildProjectName)/$(Configuration)/</PackageOutputPath> -->
   </PropertyGroup>
 </Project>
