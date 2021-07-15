@@ -13,6 +13,17 @@ namespace <#= Namespace #>
         Write(TransformSingle(info, "    "));
         Write("\n");
     } #>
+
+    public static readonly class Commands
+    {
+        public static ICommand[] StaticCommands = new ICommand[]
+        {
+<#  foreach (var info in _infos)
+    { #>
+            new <#= info.Name #>Command(),
+<#  } #>            
+        };
+    }
 }
 
 <#@ include file="Snippets/footer.txt" #>

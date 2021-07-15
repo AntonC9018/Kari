@@ -175,9 +175,10 @@ namespace Kari.GeneratorCore.CodeAnalysis
 
         public static bool HasInterface(this ITypeSymbol symbol, ISymbol interfaceType)
         {
-            foreach (var i in symbol.AllInterfaces)
+            var interfaces = symbol.AllInterfaces;
+            for (int i = 0; i < interfaces.Length; i++)
             {
-                if (SymbolEqualityComparer.Default.Equals(i, interfaceType))
+                if (SymbolEqualityComparer.Default.Equals(interfaces[i], interfaceType))
                 {
                     return true;
                 }
@@ -285,6 +286,9 @@ namespace Kari.GeneratorCore.CodeAnalysis
             return result;
         }
 
+        /// <summary>
+        /// Get all top-level type symbols of the given namespace and all namespaces within it.
+        /// </summary>
         public static IEnumerable<INamedTypeSymbol> GetNotNestedTypes(this INamespaceSymbol nspace)
         {
             foreach (var type in nspace.GetTypeMembers())
@@ -295,6 +299,11 @@ namespace Kari.GeneratorCore.CodeAnalysis
                 yield return type;
         }
 
+        /// <summary>
+        /// Returns the value after the '=' of the given parameter within a function.
+        /// If no default value has been given to the parameter, 'default' is returned.
+        /// For some special types, like bool and ints, 'false' and '0' are returned.
+        /// </summary>
         public static string GetDefaultValueText(this IParameterSymbol parameter)
         {
             var syntax = (ParameterSyntax) parameter.DeclaringSyntaxReferences[0].GetSyntax();

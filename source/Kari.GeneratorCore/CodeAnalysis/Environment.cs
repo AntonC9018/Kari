@@ -7,9 +7,9 @@ namespace Kari.GeneratorCore.CodeAnalysis
 {
     public class Environment
     {
-        public Compilation Compilation { get; set; }
-        public RelevantSymbols Symbols { get; set; }
-        public INamespaceSymbol RootNamespace { get; set; }
+        public Compilation Compilation { get; }
+        public RelevantSymbols Symbols { get; }
+        public INamespaceSymbol RootNamespace { get; }
         
         public Environment(Compilation compilation, string rootNamespace, Action<string> logger)
         {

@@ -36,7 +36,8 @@ optional|-optional    String          optional help
             bool __isPresentOptionLikeArg0 = false;
             System.String __optionLikeArg0 = null;
             {
-                var __input = context.Parser.GetString();
+                string __input;
+                __input = context.Parser.GetString();
                 if (__input is null)
                 {
                     goto __afterOptionLike;
@@ -83,6 +84,15 @@ optional|-optional    String          optional help
         
     }
 
+
+    public static class Commands
+    {
+        public static ICommand[] StaticCommands = new ICommand[]
+        {
+            new HelloCommand(),
+            
+        };
+    }
 }
 
 #pragma warning enable

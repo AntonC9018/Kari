@@ -22,22 +22,11 @@ namespace Kari.GeneratorCore.CodeAnalysis
                     .Select(x => semModel.GetDeclaredSymbol(x))
                     .Where(x => x != null))
                 {
-                    var namedType = item as INamedTypeSymbol;
-                    if (namedType != null)
+                    if (item is INamedTypeSymbol namedType)
                     {
                         yield return namedType;
                     }
                 }
-            }
-        }
-
-        public static IEnumerable<INamedTypeSymbol> EnumerateBaseType(this ITypeSymbol symbol)
-        {
-            var t = symbol.BaseType;
-            while (t != null)
-            {
-                yield return t;
-                t = t.BaseType;
             }
         }
 
@@ -89,22 +78,9 @@ namespace Kari.GeneratorCore.CodeAnalysis
 
         public static INamedTypeSymbol FindBaseTargetType(this ITypeSymbol symbol, string typeName)
         {
-            return symbol.EnumerateBaseType()
+            return symbol.BaseType.GetReversedTypeHierarchy()
                 .Where(x => x.OriginalDefinition?.ToDisplayString() == typeName)
                 .FirstOrDefault();
-        }
-
-        public static object GetSingleNamedArgumentValue(this AttributeData attribute, string key)
-        {
-            foreach (var item in attribute.NamedArguments)
-            {
-                if (item.Key == key)
-                {
-                    return item.Value.Value;
-                }
-            }
-
-            return null;
         }
 
         public static bool IsNullable(this INamedTypeSymbol symbol)

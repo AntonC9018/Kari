@@ -47,7 +47,7 @@
             string outputNamespace = "Kari",
             [Option("Set input namespace root name.")]
             string rootNamespace = "",
-            [Option("Whether the attrbiutes should be written to output. The attrbiutes are never written if they already exist among the source files.")]
+            [Option("Whether the attributes should be written to output. The attributes are never written if they already exist among the source files.")]
             bool writeAttributes = true)
         {
             output = Path.GetFullPath(output);
@@ -94,7 +94,7 @@
             return path.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
         }
 
-        private async Task<(Workspace Workspace, Compilation Compilation)> OpenMSBuildProjectAsync(string projectPath, CancellationToken cancellationToken)
+        private async Task<(Workspace, Compilation)> OpenMSBuildProjectAsync(string projectPath, CancellationToken cancellationToken)
         {
             var workspace = MSBuildWorkspace.Create();
             try

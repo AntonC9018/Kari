@@ -17,7 +17,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
         public void Init(Compilation compilation)
         {
             symbol = GetKnownSymbol(compilation, typeof(T));
-            if (symbol is null) throw new Exception($"{typeof(T)} not found in the compuilation");
+            if (symbol is null) throw new Exception($"{typeof(T)} not found in the compilation");
         }
     }
     

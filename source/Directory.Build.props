@@ -16,8 +16,8 @@
     <PackageOutputPath>$(MSBUILD_PACKAGE_OUTPUT)\$(MSBuildProjectName)\$(Configuration)\</PackageOutputPath> -->
   </PropertyGroup>
 
-  <Target Name="WorkaroundAppConfigPathTooLong" BeforeTargets="GenerateBindingRedirects">
-    <!-- <Message Text="$(MSBuildThisFileDirectory)..\Build\bin\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config" Importance="high"\> -->
+  <Target Name="WorkaroundConfigNotFound" BeforeTargets="GenerateBindingRedirects">
+    <Message Text="$(MSBuildThisFileDirectory)..\Build\bin\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config" Importance="high" />
     <PropertyGroup>
       <_GenerateBindingRedirectsIntermediateAppConfig>$(MSBuildThisFileDirectory)..\Build\bin\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config</_GenerateBindingRedirectsIntermediateAppConfig>
     </PropertyGroup>

@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Text;
 using Kari.GeneratorCore.CodeAnalysis;
@@ -8,24 +7,24 @@ namespace Kari.GeneratorCore
 {
     public partial class CommandsTemplate
     {
-        public List<CommandMethodInfo> _infos;
-        public RelevantSymbols _symbols;
-        public INamespaceSymbol _rootNamespace;
-        public Dictionary<ITypeSymbol, string> _builtinConverters;
-        public Dictionary<ITypeSymbol, ParserInfo> _customConverters;
+        private List<CommandMethodInfo> _infos;
+        private RelevantSymbols _symbols;
+        private INamespaceSymbol _rootNamespace;
+        private Dictionary<ITypeSymbol, string> _builtinConverters;
+        private Dictionary<ITypeSymbol, ParserInfo> _customConverters;
 
-        public CommandsTemplate(CodeAnalysis.Environment environment)
+        public CommandsTemplate(Environment environment)
         {
-            this._rootNamespace = environment.RootNamespace;
-            this._symbols = environment.Symbols;
-            this._builtinConverters = new Dictionary<ITypeSymbol, string>
+            _rootNamespace = environment.RootNamespace;
+            _symbols = environment.Symbols;
+            _builtinConverters = new Dictionary<ITypeSymbol, string>
             {
                 { _symbols.Bool, "bool.Parse" },
                 { _symbols.Int, "int.Parse" },
                 { _symbols.String, "" }
             };
-            this._customConverters = new Dictionary<ITypeSymbol, ParserInfo>();
-            this._infos = new List<CommandMethodInfo>();
+            _customConverters = new Dictionary<ITypeSymbol, ParserInfo>();
+            _infos = new List<CommandMethodInfo>();
         }
 
         public void Collect()
@@ -54,7 +53,7 @@ namespace Kari.GeneratorCore
             }
         }
 
-        public string GetConverter(IArgumentInfo argument)
+        private string GetConverter(IArgumentInfo argument)
         {
             var customParser = argument.GetAttribute().Parser;
 
@@ -88,13 +87,13 @@ namespace Kari.GeneratorCore
             throw new System.Exception($"Found no converters for type {argument.Symbol.Type}");
         }
 
-        public string TransformSingle(CommandMethodInfo info, string initialIndentation = "")
+        private string TransformSingle(CommandMethodInfo info, string initialIndentation = "")
         {
             var classBuilder = new CodeBuilder(indentation: "    ", initialIndentation);
             classBuilder.AppendLine($"public class {info.Name}Command : ICommand");
             classBuilder.StartBlock();
 
-            var executeBuilder = classBuilder.NewWithIndentation();
+            var executeBuilder = classBuilder.NewWithPreservedIndentation();
             executeBuilder.AppendLine("public string Execute(CommandContext context)");
             executeBuilder.StartBlock();
 
@@ -204,10 +203,11 @@ namespace Kari.GeneratorCore
                 }
 
                 executeBuilder.StartBlock();
+                executeBuilder.AppendLine("string __input;");
                 for (int i = 0; i < optionLikeArguments.Count; i++)
                 {
                     var converterText = GetConverter(optionLikeArguments[i]);
-                    executeBuilder.AppendLine($"var __input = context.Parser.GetString();");
+                    executeBuilder.AppendLine($"__input = context.Parser.GetString();");
                     executeBuilder.AppendLine($"if (__input is null)");
                     executeBuilder.StartBlock();
                     executeBuilder.AppendLine($"goto __afterOptionLike;");
