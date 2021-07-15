@@ -1,5 +1,4 @@
 ﻿using System;
-using Kari;
 
 namespace Kari.Test
 {
@@ -7,10 +6,10 @@ namespace Kari.Test
     {
         [Command("Hello", "Some parameter")]
         public static string SomeCommand(
-            [Argument("positional")]                int positional,
-            [Argument("optional", "positional")]    string optional,
-            [Option("flag", "idk", IsFlag = true)]  bool flag,
-            [Option("option", "idk")]               string option)
+            [Argument("pos help")]                    int positional,
+            [Argument("optional", "optional help")]   string optional,
+            [Option("flag", "idk1", IsFlag = true)]   bool flag,
+            [Option("option", "idk2")]                string option = "44")
         {
             return $"{positional}; {optional}; {flag}; {option};";
         }
@@ -20,8 +19,17 @@ namespace Kari.Test
     {
         static void Main(string[] args)
         {
-            foreach (var type in typeof(Program).Assembly.GetTypes())
-                Console.WriteLine(type.FullName);
+            var console = new MyConsole();
+            console.Commands.Add("Hello", new HelloCommand());
+
+            Console.WriteLine(console.Invoke("Hello world 123 -flag -option=123"));
+            Console.WriteLine(console.Invoke("Hello 123 456 -flag -option=789"));
+            Console.WriteLine(console.Invoke("Hello 123 world -option=123"));
+            Console.WriteLine(console.Invoke("Hello 123 world"));
+            Console.WriteLine(console.Invoke("Hello 123 -optional=\"world\""));
+            Console.WriteLine(console.Invoke("Hello 123"));
+            Console.WriteLine(console.Invoke("Hello"));
+            Console.WriteLine(console.Invoke("Hello -help"));
         }
     }
 }

@@ -10,7 +10,7 @@ namespace <#= Namespace #>
 {
 <#  foreach (var info in _infos) 
     { 
-        Write(TransformSingle(info, "  "));
+        Write(TransformSingle(info, "    "));
         Write("\n");
     } #>
 }

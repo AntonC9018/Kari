@@ -66,7 +66,7 @@ namespace Kari.GeneratorCore
                     {
                         if (converter.Next is null)
                         {
-                            throw new Exception($"No such converter {converter.Attribute.Name} for type {argument.Symbol.Type}");
+                            throw new System.Exception($"No such converter {converter.Attribute.Name} for type {argument.Symbol.Type}");
                         }
                         converter = converter.Next;
                     }
@@ -85,16 +85,16 @@ namespace Kari.GeneratorCore
                 }
             }
 
-            throw new Exception($"Found no converters for type {argument.Symbol.Type}");
+            throw new System.Exception($"Found no converters for type {argument.Symbol.Type}");
         }
 
         public string TransformSingle(CommandMethodInfo info, string initialIndentation = "")
         {
-            var classBuilder = new CodeBuilder(initialIndentation);
+            var classBuilder = new CodeBuilder(indentation: "    ", initialIndentation);
             classBuilder.AppendLine($"public class {info.Name}Command : ICommand");
             classBuilder.StartBlock();
 
-            var executeBuilder = new CodeBuilder(classBuilder.CurrentIndentation);
+            var executeBuilder = classBuilder.NewWithIndentation();
             executeBuilder.AppendLine("public string Execute(CommandContext context)");
             executeBuilder.StartBlock();
 
@@ -127,35 +127,40 @@ namespace Kari.GeneratorCore
             }
 
             var usageBuilder = new StringBuilder();
-            var argsBuilder = new StringBuilder();
+            var argsBuilder = new EvenTableBuilder("Argument/Option", "Type", "Description");
             
             usageBuilder.Append($"Usage: {info.Name} ");
             for (int i = 0; i < positionalArguments.Count; i++)
             {
                 var arg = positionalArguments[i];
                 usageBuilder.Append($"{arg.Name} ");
-                argsBuilder.AppendLine($"{arg.Symbol.Name} ({arg.Symbol.Type.Name}): {arg.Attribute.Help}");
+                
+                argsBuilder.Append(column: 0, arg.Symbol.Name);
+                argsBuilder.Append(column: 1, arg.Symbol.Type.Name);
+                argsBuilder.Append(column: 2, arg.Attribute.Help);
             }
 
             for (int i = 0; i < optionLikeArguments.Count; i++)
             {
-                var arg = positionalArguments[i];
+                var arg = optionLikeArguments[i];
                 usageBuilder.Append($"{arg.Attribute.Name}|-{arg.Attribute.Name}=value ");
-                argsBuilder.AppendLine($"{arg.Attribute.Name}|-{arg.Attribute.Name} ({arg.Symbol.Type.Name}): {arg.Attribute.Help}");
+
+                argsBuilder.Append(column: 0, $"{arg.Attribute.Name}|-{arg.Attribute.Name}");
+                argsBuilder.Append(column: 1, arg.Symbol.Type.Name);
+                argsBuilder.Append(column: 2, arg.Attribute.Help);
             }
             
             for (int i = 0; i < options.Count; i++)
             {
                 var op = options[i];
                 usageBuilder.Append($"[-{op.Name}=value] ");
-                if (op.Attribute.IsFlag)
-                {
-                    argsBuilder.AppendLine($"-{op.Name} (flag, default {op.Symbol.GetDefaultValueText()}): {op.Attribute.Help}");
-                }
-                else
-                {
-                    argsBuilder.AppendLine($"-{op.Name} ({op.Symbol.Type.Name}): {op.Attribute.Help}");
-                }
+
+                argsBuilder.Append(column: 0, "-" + op.Name);
+                argsBuilder.Append(column: 2, op.Attribute.Help);
+                argsBuilder.Append(column: 1, 
+                    op.Attribute.IsFlag 
+                        ? $"Flag, ={op.Symbol.GetDefaultValueText()}"
+                        : $"{op.Symbol.Type.Name}");
             }
 
             var helpMessageBuilder = new StringBuilder();
@@ -163,7 +168,6 @@ namespace Kari.GeneratorCore
             helpMessageBuilder.AppendLine();
             helpMessageBuilder.AppendLine(info.CommandAttribute.Help);
             helpMessageBuilder.AppendLine();
-            helpMessageBuilder.AppendLine("Arguments:");
             helpMessageBuilder.AppendLine(argsBuilder.ToString());
 
             // If the function takes in any positional arguments, an empty input is considered help
@@ -181,10 +185,10 @@ namespace Kari.GeneratorCore
                 executeBuilder.AppendLine($"string __posInput{i} = context.Parser.GetString();");
                 executeBuilder.AppendLine($"if (__posInput{i} == null)");
                 executeBuilder.StartBlock();
-                executeBuilder.AppendLine($"throw new Exception(\"Expected a positional argument {positionalArguments[i].Symbol.Name}\");");
+                executeBuilder.AppendLine($"throw new System.Exception(\"Expected a positional argument '{positionalArguments[i].Symbol.Name}'\");");
                 executeBuilder.EndBlock();
                 executeBuilder.AppendLine($"var __posArg{i} = {converterText}(__posInput{i});");
-                executeBuilder.AppendLine("context.Parser.SkipWhitespace()");
+                executeBuilder.AppendLine("context.Parser.SkipWhitespace();");
             }
 
             if (optionLikeArguments.Count > 0)
@@ -194,16 +198,16 @@ namespace Kari.GeneratorCore
                 for (int i = 0; i < optionLikeArguments.Count; i++)
                 {
                     executeBuilder.AppendLine($"bool __isPresentOptionLikeArg{i} = false;");
-                    var typeText = positionalArguments[i].Symbol.Type.GetFullyQualifiedName();
-                    var defaultValueText = positionalArguments[i].Symbol.GetDefaultValueText();
-                    executeBuilder.AppendLine($"{typeText} __optionLikeArg{i} = {defaultValueText}");
+                    var typeText = optionLikeArguments[i].Symbol.Type.GetFullyQualifiedName();
+                    var defaultValueText = optionLikeArguments[i].Symbol.GetDefaultValueText();
+                    executeBuilder.AppendLine($"{typeText} __optionLikeArg{i} = {defaultValueText};");
                 }
 
                 executeBuilder.StartBlock();
                 for (int i = 0; i < optionLikeArguments.Count; i++)
                 {
-                    var converterText = GetConverter(positionalArguments[i]);
-                    executeBuilder.AppendLine($"var __input = context.Parser.GetString()");
+                    var converterText = GetConverter(optionLikeArguments[i]);
+                    executeBuilder.AppendLine($"var __input = context.Parser.GetString();");
                     executeBuilder.AppendLine($"if (__input is null)");
                     executeBuilder.StartBlock();
                     executeBuilder.AppendLine($"goto __afterOptionLike;");
@@ -212,7 +216,7 @@ namespace Kari.GeneratorCore
                     executeBuilder.AppendLine($"__isPresentOptionLikeArg{i} = true;");
                     executeBuilder.AppendLine($"__optionLikeArg{i} = {converterText}(__input);");
                 }
-                executeBuilder.AppendLine("__afterOptionLike:");
+                executeBuilder.AppendLine("__afterOptionLike: ;");
                 executeBuilder.EndBlock();
             }
 
@@ -222,7 +226,7 @@ namespace Kari.GeneratorCore
                 {
                     var typeText = options[i].Symbol.Type.GetFullyQualifiedName();
                     var defaultValueText = options[i].Symbol.GetDefaultValueText();
-                    executeBuilder.AppendLine($"{typeText} __option{i} = {defaultValueText}");
+                    executeBuilder.AppendLine($"{typeText} __option{i} = {defaultValueText};");
                 }
 
                 executeBuilder.AppendLine("while (context.Parser.TryGetOption(out Option __option))");
@@ -233,7 +237,7 @@ namespace Kari.GeneratorCore
 
                 for (int i = 0; i < options.Count; i++)
                 {
-                    executeBuilder.AppendLine($"case {options[i].Name}:");
+                    executeBuilder.AppendLine($"case \"{options[i].Name}\":");
                     executeBuilder.StartBlock();
 
                     if (options[i].Attribute.IsFlag)
@@ -251,7 +255,7 @@ namespace Kari.GeneratorCore
 
                 for (int i = 0; i < optionLikeArguments.Count; i++)
                 {
-                    executeBuilder.AppendLine($"case {optionLikeArguments[i].Attribute.Name}:");
+                    executeBuilder.AppendLine($"case \"{optionLikeArguments[i].Attribute.Name}\":");
                     executeBuilder.StartBlock();
 
                     var converterText = GetConverter(optionLikeArguments[i]);
@@ -260,7 +264,7 @@ namespace Kari.GeneratorCore
                     executeBuilder.AppendLine("break;");
                     executeBuilder.EndBlock();
                 }
-                executeBuilder.AppendLine("default: throw new Exception($\"Unknown option: {__option.Name}\");");
+                executeBuilder.AppendLine("default: throw new System.Exception($\"Unknown option: '{__option.Name}'\");");
                 executeBuilder.EndBlock();
                 executeBuilder.EndBlock();
             }
@@ -273,7 +277,7 @@ namespace Kari.GeneratorCore
                 {
                     executeBuilder.AppendLine($"if (!__isPresentOptionLikeArg{i})");
                     executeBuilder.StartBlock();
-                    executeBuilder.AppendLine($"throw new Exception(\"Option-like argument {optionLikeArguments[i].Attribute.Name} not given\");");
+                    executeBuilder.AppendLine($"throw new System.Exception(\"Option-like argument '{optionLikeArguments[i].Attribute.Name}' not given\");");
                     executeBuilder.EndBlock();
                 }
             }
@@ -313,13 +317,16 @@ namespace Kari.GeneratorCore
             {
                 executeBuilder.Append(".ToString()");
             }
-            executeBuilder.AppendLine(";");
+            executeBuilder.Append(";");
+            executeBuilder.AppendLine("");
 
             executeBuilder.EndBlock();
             
+            classBuilder.Indent();
             classBuilder.Append("public string HelpMessage => @\"");
             classBuilder.Append(helpMessageBuilder.ToString().Replace("\"", "\"\""));
-            classBuilder.AppendLine("\";");
+            classBuilder.Append("\";");
+            classBuilder.AppendLine("");
             classBuilder.Append(executeBuilder.ToString());
             classBuilder.AppendLine("");
             classBuilder.EndBlock();

@@ -301,7 +301,27 @@ namespace Kari.GeneratorCore.CodeAnalysis
 
             if (syntax.Default is null)
             {
-                return "default";
+                if (parameter.Type.SpecialType == SpecialType.None)
+                    return "default";
+
+                switch (parameter.Type.SpecialType)
+                {
+                    case SpecialType.System_Boolean:
+                        return "false";
+                    case SpecialType.System_Int16:
+                    case SpecialType.System_Int32:
+                    case SpecialType.System_Int64:
+                    case SpecialType.System_UInt16:
+                    case SpecialType.System_UInt32:
+                    case SpecialType.System_UInt64:
+                    case SpecialType.System_Byte:
+                    case SpecialType.System_SByte:
+                    case SpecialType.System_Single:
+                    case SpecialType.System_Double:
+                        return "0";
+                    case SpecialType.System_String:
+                        return "null";
+                }
             }
 
             return syntax.Default.Value.ToString();

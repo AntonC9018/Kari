@@ -36,7 +36,21 @@ namespace Kari.GeneratorCore.CodeAnalysis
             }
             foreach (var p in attributeData.NamedArguments)
             {
-                typeof(T).GetField(p.Key).SetValue(attribute, p.Value.Value);
+                var propertyInfo = typeof(T).GetProperty(p.Key);
+                if (propertyInfo != null)
+                {
+                    propertyInfo.SetValue(attribute, p.Value.Value);
+                    continue;
+                }
+
+                var fieldInfo = typeof(T).GetField(p.Key);
+                if (fieldInfo != null)
+                {
+                    fieldInfo.SetValue(attribute, p.Value.Value);
+                    continue;
+                }
+
+                throw new Exception($"No field or property {p}");
             }
             return attribute;
         }
