@@ -52,7 +52,7 @@ namespace Kari.GeneratorCore
         /// <summary>
         /// Appends the indentation, the text and a new line character to the output.
         /// </summary>
-        public void AppendLine(string text)
+        public void AppendLine(string text = "")
         {
             _stringBuilder.Append(_currentIndentation);
             _stringBuilder.AppendLine(text);

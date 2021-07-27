@@ -2,128 +2,71 @@ using System.Collections.Generic;
 using System.Text;
 using Kari.GeneratorCore.CodeAnalysis;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Kari.GeneratorCore
 {
     public partial class CommandsTemplate
     {
-        private List<CommandMethodInfo> _infos;
-        private RelevantSymbols _symbols;
-        private INamespaceSymbol _rootNamespace;
-        private Dictionary<ITypeSymbol, string> _builtinConverters;
-        private Dictionary<ITypeSymbol, ParserInfo> _customConverters;
+        private readonly List<CommandMethodInfo> _infos;
+        private readonly List<FrontCommandMethodInfo> _frontInfos;
+        private readonly ParsersTemplate _parsers;
 
-        public CommandsTemplate(Environment environment)
+        public CommandsTemplate(ParsersTemplate parsers)
         {
-            _rootNamespace = environment.RootNamespace;
-            _symbols = environment.Symbols;
-            _builtinConverters = new Dictionary<ITypeSymbol, string>
-            {
-                { _symbols.Bool, "bool.Parse" },
-                { _symbols.Int, "int.Parse" },
-                { _symbols.String, "" }
-            };
-            _customConverters = new Dictionary<ITypeSymbol, ParserInfo>();
             _infos = new List<CommandMethodInfo>();
+            _frontInfos = new List<FrontCommandMethodInfo>();
+            _parsers = parsers;
         }
 
-        public void Collect()
+        public void CollectInfo(Environment environment)
         {
-            foreach (var type in _rootNamespace.GetNotNestedTypes())
-            foreach (var method in type.GetMethods())
+            foreach (var method in environment.MethodsWithAttributes)
             {
                 if (!method.IsStatic) continue;
-
-                if (method.TryGetAttribute(_symbols.ParserAttribute, out var parserAttr))
+                
+                if (method.TryGetAttribute(environment.Symbols.CommandAttribute, out var commandAttribute))
                 {
-                    if (_customConverters.TryGetValue(method.ReturnType, out var converter))
-                    {
-                        while (converter.Next != null)
-                        {
-                            converter = converter.Next;
-                        }
-                        converter.Next = new ParserInfo(method, parserAttr);
-                    }
+                    var info = new CommandMethodInfo(method, commandAttribute);
+                    info.CollectInfo(environment);
+                    _infos.Add(info);
                 }
-
-                if (method.TryGetAttribute(_symbols.CommandAttribute, out var commandAttribute))
+                
+                if (method.TryGetAttribute(environment.Symbols.FrontCommandAttribute, out var frontCommandAttribute))
                 {
-                    _infos.Add(new CommandMethodInfo(method, commandAttribute));
+                    var info = new FrontCommandMethodInfo(method, frontCommandAttribute);
+                    _frontInfos.Add(info);
                 }
             }
         }
 
-        private string GetConverter(IArgumentInfo argument)
+        private string TransformFrontCommand(FrontCommandMethodInfo info,  string initialIndentation = "")
         {
-            var customParser = argument.GetAttribute().Parser;
+            var builder = new CodeBuilder(indentation: "    ", initialIndentation);
+            var className = $"{info.Name}Command";
+            builder.AppendLine($"public class {className} : CommandBase");
+            builder.StartBlock();
+            builder.AppendLine($"public override void Execute(CommandContext context) => {info.Symbol.GetFullyQualifiedName()}(context);");
+            builder.AppendLine($"public {className}() : base({info.Attribute.MinimumNumberOfArguments}, {info.Attribute.MaximumNumberOfArguments}, \"{info.Attribute.Help}\") {{}}");
+            builder.EndBlock();
 
-            if (!(customParser is null))
-            {
-                if (_customConverters.TryGetValue(argument.Symbol.Type, out var converter))
-                {
-                    while (converter.Attribute.Name != customParser)
-                    {
-                        if (converter.Next is null)
-                        {
-                            throw new System.Exception($"No such converter {converter.Attribute.Name} for type {argument.Symbol.Type}");
-                        }
-                        converter = converter.Next;
-                    }
-                    return converter.Symbol.GetFullyQualifiedName();
-                }
-            }
-            {
-                if (_builtinConverters.TryGetValue(argument.Symbol.Type, out var result))
-                {
-                    return result;
-                }
-
-                if (_customConverters.TryGetValue(argument.Symbol.Type, out var converter))
-                {
-                    return converter.Symbol.GetFullyQualifiedName();
-                }
-            }
-
-            throw new System.Exception($"Found no converters for type {argument.Symbol.Type}");
+            return builder.ToString();
         }
 
-        private string TransformSingle(CommandMethodInfo info, string initialIndentation = "")
+        private string TransformCommand(CommandMethodInfo info, string initialIndentation = "")
         {
             var classBuilder = new CodeBuilder(indentation: "    ", initialIndentation);
-            classBuilder.AppendLine($"public class {info.Name}Command : ICommand");
+            var className = $"{info.Name}Command";
+            classBuilder.AppendLine($"public class {className} : CommandBase");
             classBuilder.StartBlock();
 
             var executeBuilder = classBuilder.NewWithPreservedIndentation();
-            executeBuilder.AppendLine("public string Execute(CommandContext context)");
+            executeBuilder.AppendLine("public override void Execute(CommandContext context)");
             executeBuilder.StartBlock();
 
-            List<OptionInfo> options = new List<OptionInfo>();
-            List<ArgumentInfo> positionalArguments = new List<ArgumentInfo>();
-            List<ArgumentInfo> optionLikeArguments = new List<ArgumentInfo>();
-
-            for (int i = 0; i < info.Symbol.Parameters.Length; i++)
-            {
-                var parameter = info.Symbol.Parameters[i];
-                if (parameter.TryGetAttribute(_symbols.ArgumentAttribute, out var argumentAttribute))
-                {
-                    var argInfo = new ArgumentInfo(parameter, argumentAttribute);
-                    if (!argumentAttribute.IsOptionLike)
-                    {
-                        positionalArguments.Add(argInfo);
-                    }
-                    else
-                    {
-                        optionLikeArguments.Add(argInfo);
-                    }
-                    continue;
-                }
-                if (parameter.TryGetAttribute(_symbols.OptionAttribute, out var optionAttribute))
-                {
-                    options.Add(new OptionInfo(parameter, optionAttribute));
-                    continue;
-                }
-                positionalArguments.Add(new ArgumentInfo(parameter, new ArgumentAttribute("")));
-            }
+            List<OptionInfo> options = info.Options;
+            List<ArgumentInfo> positionalArguments = info.PositionalArguments;
+            List<ArgumentInfo> optionLikeArguments = info.OptionLikeArguments;
 
             var usageBuilder = new StringBuilder();
             var argsBuilder = new EvenTableBuilder("Argument/Option", "Type", "Description");
@@ -158,7 +101,7 @@ namespace Kari.GeneratorCore
                 argsBuilder.Append(column: 2, op.Attribute.Help);
                 argsBuilder.Append(column: 1, 
                     op.Attribute.IsFlag 
-                        ? $"Flag, ={op.Symbol.GetDefaultValueText()}"
+                        ? $"Flag, ={op.DefaultValueText}"
                         : $"{op.Symbol.Type.Name}");
             }
 
@@ -169,25 +112,12 @@ namespace Kari.GeneratorCore
             helpMessageBuilder.AppendLine();
             helpMessageBuilder.AppendLine(argsBuilder.ToString());
 
-            // If the function takes in any positional arguments, an empty input is considered help
-            if (positionalArguments.Count > 0)
-            {
-                executeBuilder.AppendLine("if (context.Parser.IsEmpty) return HelpMessage;");
-            }
-            // Check for the -help flag as the first flag
-            executeBuilder.AppendLine("if (ExecuteHelper.IsHelp(context.Parser)) return HelpMessage;");
-
             executeBuilder.AppendLine("// Take in all the positional arguments");
             for (int i = 0; i < positionalArguments.Count; i++)
             {
-                var converterText = GetConverter(positionalArguments[i]);
-                executeBuilder.AppendLine($"string __posInput{i} = context.Parser.GetString();");
-                executeBuilder.AppendLine($"if (__posInput{i} == null)");
-                executeBuilder.StartBlock();
-                executeBuilder.AppendLine($"throw new System.Exception(\"Expected a positional argument '{positionalArguments[i].Symbol.Name}'\");");
-                executeBuilder.EndBlock();
-                executeBuilder.AppendLine($"var __posArg{i} = {converterText}(__posInput{i});");
-                executeBuilder.AppendLine("context.Parser.SkipWhitespace();");
+                var parserText = _parsers.GetParserName(positionalArguments[i]);
+                var name = positionalArguments[i].Name;
+                executeBuilder.AppendLine($"var {name} = context.ParseArgument({i}, \"{name}\", Parsers.{parserText});");
             }
 
             if (optionLikeArguments.Count > 0)
@@ -196,91 +126,61 @@ namespace Kari.GeneratorCore
 
                 for (int i = 0; i < optionLikeArguments.Count; i++)
                 {
-                    executeBuilder.AppendLine($"bool __isPresentOptionLikeArg{i} = false;");
+                    var argumentIndex = positionalArguments.Count + i;
+                    var name = optionLikeArguments[i].Attribute.Name;
                     var typeText = optionLikeArguments[i].Symbol.Type.GetFullyQualifiedName();
-                    var defaultValueText = optionLikeArguments[i].Symbol.GetDefaultValueText();
-                    executeBuilder.AppendLine($"{typeText} __optionLikeArg{i} = {defaultValueText};");
-                }
+                    var parserText = _parsers.GetParserName(optionLikeArguments[i]);
 
-                executeBuilder.StartBlock();
-                executeBuilder.AppendLine("string __input;");
-                for (int i = 0; i < optionLikeArguments.Count; i++)
-                {
-                    var converterText = GetConverter(optionLikeArguments[i]);
-                    executeBuilder.AppendLine($"__input = context.Parser.GetString();");
-                    executeBuilder.AppendLine($"if (__input is null)");
+                    executeBuilder.AppendLine($"{typeText} {name};");
+                    // The argument is present as a positional argument
+                    executeBuilder.AppendLine($"if (context.Arguments.Count > {argumentIndex})");
                     executeBuilder.StartBlock();
-                    executeBuilder.AppendLine($"goto __afterOptionLike;");
+                    executeBuilder.AppendLine($"{name} = context.ParseArgument({argumentIndex}, \"{name}\", Parsers.{parserText});");
                     executeBuilder.EndBlock();
-                    executeBuilder.AppendLine("context.Parser.SkipWhitespace();");
-                    executeBuilder.AppendLine($"__isPresentOptionLikeArg{i} = true;");
-                    executeBuilder.AppendLine($"__optionLikeArg{i} = {converterText}(__input);");
+                    // The argument is present as an option
+                    executeBuilder.AppendLine("else");
+                    executeBuilder.StartBlock();
+
+                    // Parse with default value, no option does not error out
+                    if (optionLikeArguments[i].HasDefaultValue)
+                    {
+                        executeBuilder.AppendLine($"{name} = context.ParseOption({name}, {optionLikeArguments[i].DefaultValueText}, Parser.{parserText});");
+                    }
+                    // No option errors out
+                    else
+                    {
+                        executeBuilder.AppendLine($"{name} = context.ParseOption({name}, Parser.{parserText});");
+                    }
+
+                    executeBuilder.EndBlock();
                 }
-                executeBuilder.AppendLine("__afterOptionLike: ;");
-                executeBuilder.EndBlock();
             }
 
-            if (options.Count > 0 || optionLikeArguments.Count > 0)
+            if (options.Count > 0)
             {
                 for (int i = 0; i < options.Count; i++)
                 {
                     var typeText = options[i].Symbol.Type.GetFullyQualifiedName();
                     var defaultValueText = options[i].Symbol.GetDefaultValueText();
-                    executeBuilder.AppendLine($"{typeText} __option{i} = {defaultValueText};");
-                }
-
-                executeBuilder.AppendLine("while (context.Parser.TryGetOption(out Option __option))");
-                executeBuilder.StartBlock();
-                executeBuilder.AppendLine("context.Parser.SkipWhitespace();");
-                executeBuilder.AppendLine("switch (__option.Name)");
-                executeBuilder.StartBlock();
-
-                for (int i = 0; i < options.Count; i++)
-                {
-                    executeBuilder.AppendLine($"case \"{options[i].Name}\":");
-                    executeBuilder.StartBlock();
+                    var name = options[i].Name;
 
                     if (options[i].Attribute.IsFlag)
                     {
-                        executeBuilder.AppendLine($"__option{i} = __option.GetFlagValue();");
+                        executeBuilder.AppendLine($"{typeText} {name} = context.ParseFlag({name}, defaultValue: {defaultValueText});");
                     }
                     else
                     {
-                        var converterText = GetConverter(options[i]);
-                        executeBuilder.AppendLine($"__option{i} = {converterText}(__option.Value);");
+                        var parserText = _parsers.GetParserName(options[i]);
+                        executeBuilder.AppendLine($"{typeText} __option{i} = context.ParseOption({name}, defaultValue: {defaultValueText}, Parsers.{parserText});");
                     }
-                    executeBuilder.AppendLine("break;");
-                    executeBuilder.EndBlock();
                 }
-
-                for (int i = 0; i < optionLikeArguments.Count; i++)
-                {
-                    executeBuilder.AppendLine($"case \"{optionLikeArguments[i].Attribute.Name}\":");
-                    executeBuilder.StartBlock();
-
-                    var converterText = GetConverter(optionLikeArguments[i]);
-                    executeBuilder.AppendLine($"__optionLikeArg{i} = {converterText}(__option.Value);");
-                    executeBuilder.AppendLine($"__isPresentOptionLikeArg{i} = true;");
-                    executeBuilder.AppendLine("break;");
-                    executeBuilder.EndBlock();
-                }
-                executeBuilder.AppendLine("default: throw new System.Exception($\"Unknown option: '{__option.Name}'\");");
-                executeBuilder.EndBlock();
-                executeBuilder.EndBlock();
             }
+
+            executeBuilder.AppendLine("context.EndParsing();");
 
             // TODO: Add requirability to options
-            if (optionLikeArguments.Count > 0)
-            {
-                executeBuilder.AppendLine("// Make sure all required parameters have been given");
-                for (int i = 0; i < optionLikeArguments.Count; i++)
-                {
-                    executeBuilder.AppendLine($"if (!__isPresentOptionLikeArg{i})");
-                    executeBuilder.StartBlock();
-                    executeBuilder.AppendLine($"throw new System.Exception(\"Option-like argument '{optionLikeArguments[i].Attribute.Name}' not given\");");
-                    executeBuilder.EndBlock();
-                }
-            }
+            executeBuilder.AppendLine("// Make sure all required parameters have been given");
+            executeBuilder.AppendLine("if (context.HasErrors) return;");
 
             executeBuilder.AppendLine("// Call the function with correct arguments");
             executeBuilder.Indent();
@@ -290,24 +190,24 @@ namespace Kari.GeneratorCore
             }
             else
             {
-                executeBuilder.Append($"return {info.Symbol.GetFullyQualifiedName()}(");
+                executeBuilder.Append($"context.Log({info.Symbol.GetFullyQualifiedName()}(");
             }
 
             var parameters = new ListBuilder(", ");
 
             for (int i = 0; i < positionalArguments.Count; i++)
             {
-                parameters.Append($"{positionalArguments[i].Symbol.Name} : __posArg{i}");
+                parameters.Append($"{positionalArguments[i].Symbol.Name} : {positionalArguments[i].Name}");
             }
 
             for (int i = 0; i < optionLikeArguments.Count; i++)
             {
-                parameters.Append($"{optionLikeArguments[i].Symbol.Name} : __optionLikeArg{i}");
+                parameters.Append($"{optionLikeArguments[i].Symbol.Name} : {optionLikeArguments[i].Name}");
             }
 
             for (int i = 0; i < options.Count; i++)
             {
-                parameters.Append($"{options[i].Symbol.Name} : __option{i}");
+                parameters.Append($"{options[i].Symbol.Name} : {options[i].Name}");
             }
 
             executeBuilder.Append(parameters.ToString());
@@ -315,23 +215,141 @@ namespace Kari.GeneratorCore
 
             if (!info.Symbol.ReturnsVoid)
             {
-                executeBuilder.Append(".ToString()");
+                executeBuilder.Append(".ToString())");
             }
             executeBuilder.Append(";");
-            executeBuilder.AppendLine("");
+            executeBuilder.AppendLine();
 
             executeBuilder.EndBlock();
             
+            classBuilder.AppendLine($"public {className}() : base(_MinimumNumberOfArguments, _MaximumNumberOfArguments, \"{info.CommandAttribute.Help}\", _HelpMessage) {{}}");
             classBuilder.Indent();
-            classBuilder.Append("public string HelpMessage => @\"");
+            classBuilder.Append("public const string _HelpMessage = @\"");
             classBuilder.Append(helpMessageBuilder.ToString().Replace("\"", "\"\""));
             classBuilder.Append("\";");
-            classBuilder.AppendLine("");
+            classBuilder.AppendLine();
+            // TODO: Allow default values for arguments
+            classBuilder.AppendLine($"public const int _MinimumNumberOfArguments = {positionalArguments.Count};");
+            classBuilder.AppendLine($"public const int _MaximumNumberOfArguments = {positionalArguments.Count + optionLikeArguments.Count};");
+            classBuilder.AppendLine();
             classBuilder.Append(executeBuilder.ToString());
-            classBuilder.AppendLine("");
+            classBuilder.AppendLine();
             classBuilder.EndBlock();
 
             return classBuilder.ToString();
         }
+    }
+
+    public class FrontCommandMethodInfo
+    {
+        public readonly IMethodSymbol Symbol;
+        public readonly FrontCommandAttribute Attribute;
+
+        public FrontCommandMethodInfo(IMethodSymbol symbol, FrontCommandAttribute frontCommandAttribute)
+        {
+            Symbol = symbol;
+            Attribute = frontCommandAttribute;
+            frontCommandAttribute.Name ??= symbol.Name;
+        }
+
+        public string Name => Attribute.Name;
+    }
+
+    public class CommandMethodInfo
+    {
+        public readonly IMethodSymbol Symbol;
+        public readonly CommandAttribute CommandAttribute;
+        public readonly List<ArgumentInfo> PositionalArguments;
+        public readonly List<ArgumentInfo> OptionLikeArguments;
+        public readonly List<OptionInfo> Options;
+
+        public string Name => CommandAttribute.Name;
+
+        public CommandMethodInfo(IMethodSymbol symbol, CommandAttribute commandAttribute)
+        {
+            Symbol = symbol;
+            CommandAttribute = commandAttribute;
+            commandAttribute.Name ??= symbol.Name;
+            PositionalArguments = new List<ArgumentInfo>();
+            OptionLikeArguments = new List<ArgumentInfo>();
+            Options = new List<OptionInfo>();
+        }
+
+        public void CollectInfo(Environment environment)
+        {
+            for (int i = 0; i < Symbol.Parameters.Length; i++)
+            {
+                var parameter = Symbol.Parameters[i];
+                if (parameter.TryGetAttribute(environment.Symbols.ArgumentAttribute, out var argumentAttribute))
+                {
+                    var argInfo = new ArgumentInfo(parameter, argumentAttribute);
+                    if (!argumentAttribute.IsOptionLike)
+                    {
+                        PositionalArguments.Add(argInfo);
+                    }
+                    else
+                    {
+                        OptionLikeArguments.Add(argInfo);
+                    }
+                    continue;
+                }
+                if (parameter.TryGetAttribute(environment.Symbols.OptionAttribute, out var optionAttribute))
+                {
+                    Options.Add(new OptionInfo(parameter, optionAttribute));
+                    continue;
+                }
+                PositionalArguments.Add(new ArgumentInfo(parameter, new ArgumentAttribute("")));
+            }
+        }
+    }
+
+    public interface IArgumentInfo
+    {
+        IParameterSymbol Symbol { get; }
+        IArgument GetAttribute();
+    }
+
+    public abstract class ArgumentBase
+    {
+        protected ArgumentBase(IParameterSymbol symbol)
+        {
+            Symbol = symbol;
+            var syntax = (ParameterSyntax) symbol.DeclaringSyntaxReferences[0].GetSyntax();
+            _defaultValueText = syntax.Default?.Value.ToString();
+        }
+
+        private string _defaultValueText;
+        public string DefaultValueText => (_defaultValueText is null) ? "default" : _defaultValueText;
+        public bool HasDefaultValue => !(_defaultValueText is null);
+        public IParameterSymbol Symbol { get; }
+    }
+
+    public class ArgumentInfo : ArgumentBase, IArgumentInfo
+    {
+        public ArgumentInfo(IParameterSymbol symbol, ArgumentAttribute argumentAttribute)
+            : base(symbol)
+        {
+            Attribute = argumentAttribute;
+            Attribute.Name ??= symbol.Name;
+        }
+
+        public ArgumentAttribute Attribute { get; }
+        public string Name => Attribute.IsOptionLike ? Attribute.Name : Symbol.Name;
+
+        IArgument IArgumentInfo.GetAttribute() => Attribute;
+    }
+
+    public class OptionInfo : ArgumentBase, IArgumentInfo
+    {
+        public OptionInfo(IParameterSymbol symbol, OptionAttribute optionAttribute)
+            : base(symbol)
+        {
+            Attribute = optionAttribute;
+            Attribute.Name ??= symbol.Name;
+        }
+
+        public OptionAttribute Attribute { get; }
+        public string Name => Attribute.Name;
+        IArgument IArgumentInfo.GetAttribute() => Attribute;
     }
 }

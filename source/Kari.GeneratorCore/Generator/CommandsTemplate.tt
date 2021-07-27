@@ -6,22 +6,42 @@
 
 <#@ include file="Snippets/header.txt" #>
 
-namespace <#= Namespace #>
+namespace CommandTerminal.Generated
 {
 <#  foreach (var info in _infos) 
     { 
-        Write(TransformSingle(info, "    "));
+        Write(TransformCommand(info, "    "));
+        Write("\n");
+    } 
+    foreach (var info in _frontInfos)
+    {
+        Write(TransformFrontCommand(info, "    "));
         Write("\n");
     } #>
 
-    public static readonly class Commands
+    public readonly struct CommandInfo
     {
-        public static ICommand[] StaticCommands = new ICommand[]
+        public readonly string Name;
+        public readonly CommandBase Command;
+        public CommandInfo(string name, CommandBase command)
+        {
+            Name = name;
+            Command = command;
+        }
+    }
+
+    public static class Commands
+    {
+        public static readonly CommandInfo[] BuiltinCommands = new CommandInfo[]
         {
 <#  foreach (var info in _infos)
     { #>
-            new <#= info.Name #>Command(),
-<#  } #>            
+            new CommandInfo(name: "<#= info.Name #>", command: new <#= info.Name #>Command()),
+<#  } 
+    foreach (var info in _frontInfos)
+    { #>
+            new CommandInfo(name: "<#= info.Name #>", command: new <#= info.Name #>Command()),
+<#  } #>
         };
     }
 }

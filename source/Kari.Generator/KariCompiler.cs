@@ -48,9 +48,27 @@
             [Option("Set input namespace root name.")]
             string rootNamespace = "",
             [Option("Whether the attributes should be written to output. The attributes are never written if they already exist among the source files.")]
-            bool writeAttributes = true)
+            bool writeAttributes = true,
+            [Option("Delete all cs files in the output folder")]
+            bool clearOutputFolder = false)
         {
             output = Path.GetFullPath(output);
+
+            if (Directory.Exists(output))
+            {
+                if (clearOutputFolder)
+                {
+                    foreach (var file in Directory.EnumerateFiles(output, "*.cs"))
+                    {
+                        File.Delete(file);
+                    }
+                }
+            }
+            else
+            {
+                Directory.CreateDirectory(output);
+            }
+
             Workspace? workspace = null;
             try
             {

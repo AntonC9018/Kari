@@ -15,8 +15,8 @@ namespace Kari.GeneratorCore
     {
         private static readonly Encoding NoBomUtf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
-        private System.Action<string> logger;
-        private CancellationToken cancellationToken;
+        private readonly System.Action<string> logger;
+        private readonly CancellationToken cancellationToken;
 
         public CodeGenerator(System.Action<string> logger, CancellationToken cancellationToken)
         {
@@ -28,13 +28,13 @@ namespace Kari.GeneratorCore
         /// Generates the specialized resolver and formatters for the types that require serialization in a given compilation.
         /// </summary>
         /// <param name="compilation">The compilation to read types from as an input to code generation.</param>
-        /// <param name="output">The name of the generated source file.</param>
+        /// <param name="outputDirectoryOrFile">The name of the generated source file.</param>
         /// <param name="namespace">The namespace for the generated type to be created in. May be null.</param>
         /// <returns>A task that indicates when generation has completed.</returns>
         public async Task GenerateFileAsync(
            Compilation compilation,
            string rootNamespace,
-           string output,
+           string outputDirectoryOrFile,
            string outNamespace,
            bool writeAttributes)
         {
@@ -51,22 +51,27 @@ namespace Kari.GeneratorCore
             var sw = Stopwatch.StartNew(); logger("Project Compilation Start: " + compilation.AssemblyName);
 
             var environment = new Environment(compilation, rootNamespace, logger);
-            var commandsTemplate = new CommandsTemplate(environment);
+            var parsersTemplate     = new ParsersTemplate();
+            var commandsTemplate    = new CommandsTemplate(parsersTemplate);
             commandsTemplate.Namespace = outNamespace;
 
             logger("Project Compilation Complete:" + sw.Elapsed.ToString());
 
             // =======================================================================
             logger("Method Collect Start"); sw.Restart();
-            commandsTemplate.Collect();
+            environment.Collect();
+            parsersTemplate.CollectInfo(environment);
+            commandsTemplate.CollectInfo(environment);
             logger("Method Collect Complete:" + sw.Elapsed.ToString());
 
             // =======================================================================
             logger("Output Generation Start"); sw.Restart();
-            if (Path.GetExtension(output) == ".cs")
+            if (Path.GetExtension(outputDirectoryOrFile) == ".cs")
             {
                 var sb = new StringBuilder();
                 sb.AppendLine(commandsTemplate.TransformText());
+                sb.AppendLine();
+                sb.AppendLine(parsersTemplate.TransformText());
                 sb.AppendLine();
 
                 if (writeAttributes && !hadAnnotations)
@@ -74,16 +79,17 @@ namespace Kari.GeneratorCore
                     sb.AppendLine(DummyAttributes.Text);
                 }
 
-                await OutputAsync(output, sb.ToString(), cancellationToken);
+                await OutputAsync(outputDirectoryOrFile, sb.ToString(), cancellationToken);
             }
             else
             {
                 // Multiple-file output
-                await OutputToDirAsync(output, commandsTemplate.Namespace, "Commands.cs", commandsTemplate.TransformText(), cancellationToken);
+                await OutputToDirAsync(outputDirectoryOrFile, commandsTemplate.Namespace, "Commands", commandsTemplate.TransformText(), cancellationToken);
+                await OutputToDirAsync(outputDirectoryOrFile, "Kari.CommandTerminal", "Parsers", parsersTemplate.TransformText(), cancellationToken);
 
                 if (writeAttributes && !hadAnnotations)
                 {
-                    await OutputAsync(Path.Combine(output, "Annotations.cs"), DummyAttributes.Text, cancellationToken);
+                    await OutputAsync(Path.Combine(outputDirectoryOrFile, "Annotations.cs"), DummyAttributes.Text, cancellationToken);
                 }
             }
             logger("Output Generation Complete:" + sw.Elapsed.ToString());

@@ -1,1 +1,1 @@
-#pragma warning enable
+#pragma warning restore

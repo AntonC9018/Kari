@@ -5,11 +5,11 @@ namespace Kari.Test
 {
     public class MyConsole
     {
-        public Dictionary<string, ICommand> Commands { get; }
+        public Dictionary<string, CommandBase> Commands { get; }
 
         public MyConsole()
         {
-            Commands = new Dictionary<string, ICommand>();
+            Commands = new Dictionary<string, CommandBase>();
         }
 
         public static int GetIndexOfWhitespace(string str)

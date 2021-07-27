@@ -8,36 +8,38 @@ namespace Kari.GeneratorCore.CodeAnalysis
 
 	public class RelevantSymbols
 	{
-		public AttributeSymbolWrapper<KariTestAttribute> KariTestAttribute;
-		public AttributeSymbolWrapper<CommandAttribute> CommandAttribute;
-		public AttributeSymbolWrapper<OptionAttribute> OptionAttribute;
-		public AttributeSymbolWrapper<ArgumentAttribute> ArgumentAttribute;
-		public AttributeSymbolWrapper<ParserAttribute> ParserAttribute;
+		public readonly AttributeSymbolWrapper<KariTestAttribute> KariTestAttribute;
+		public readonly AttributeSymbolWrapper<CommandAttribute> CommandAttribute;
+		public readonly AttributeSymbolWrapper<FrontCommandAttribute> FrontCommandAttribute;
+		public readonly AttributeSymbolWrapper<OptionAttribute> OptionAttribute;
+		public readonly AttributeSymbolWrapper<ArgumentAttribute> ArgumentAttribute;
+		public readonly AttributeSymbolWrapper<ParserAttribute> ParserAttribute;
 
-		public ITypeSymbol Short;
-		public ITypeSymbol Int;
-		public ITypeSymbol Long;
-		public ITypeSymbol Ushort;
-		public ITypeSymbol Uint;
-		public ITypeSymbol Ulong;
-		public ITypeSymbol Float;
-		public ITypeSymbol Double;
-		public ITypeSymbol Bool;
-		public ITypeSymbol Byte;
-		public ITypeSymbol Sbyte;
-		public ITypeSymbol Decimal;
-		public ITypeSymbol Char;
-		public ITypeSymbol String;
-		public ITypeSymbol Object;
-		public ITypeSymbol Void;
+		public readonly ITypeSymbol Short;
+		public readonly ITypeSymbol Int;
+		public readonly ITypeSymbol Long;
+		public readonly ITypeSymbol Ushort;
+		public readonly ITypeSymbol Uint;
+		public readonly ITypeSymbol Ulong;
+		public readonly ITypeSymbol Float;
+		public readonly ITypeSymbol Double;
+		public readonly ITypeSymbol Bool;
+		public readonly ITypeSymbol Byte;
+		public readonly ITypeSymbol Sbyte;
+		public readonly ITypeSymbol Decimal;
+		public readonly ITypeSymbol Char;
+		public readonly ITypeSymbol String;
+		public readonly ITypeSymbol Object;
+		public readonly ITypeSymbol Void;
 		
 		public RelevantSymbols(Compilation compilation, Action<string> logger)
 		{
-			KariTestAttribute	.Init(compilation);
-			CommandAttribute	.Init(compilation);
-			OptionAttribute		.Init(compilation);
-			ArgumentAttribute	.Init(compilation);
-			ParserAttribute		.Init(compilation);
+			KariTestAttribute		= new AttributeSymbolWrapper<KariTestAttribute>			(compilation);
+			CommandAttribute		= new AttributeSymbolWrapper<CommandAttribute>			(compilation);
+			FrontCommandAttribute 	= new AttributeSymbolWrapper<FrontCommandAttribute>		(compilation);
+			OptionAttribute			= new AttributeSymbolWrapper<OptionAttribute>			(compilation);
+			ArgumentAttribute		= new AttributeSymbolWrapper<ArgumentAttribute>			(compilation);
+			ParserAttribute			= new AttributeSymbolWrapper<ParserAttribute>			(compilation);
 
 			Short 	= compilation.GetSpecialType(SpecialType.System_Int16);
 			Int 	= compilation.GetSpecialType(SpecialType.System_Int32);

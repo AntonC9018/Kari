@@ -5,16 +5,16 @@ using Microsoft.CodeAnalysis;
 
 namespace Kari.GeneratorCore.CodeAnalysis
 {
-    public struct AttributeSymbolWrapper<T>
+    public readonly struct AttributeSymbolWrapper<T>
     {
-        public INamedTypeSymbol symbol;
+        public readonly INamedTypeSymbol symbol;
 
         private static INamedTypeSymbol GetKnownSymbol(Compilation compilation, System.Type t)
         {
             return (INamedTypeSymbol) compilation.GetTypeByMetadataName(t.FullName);
         }
 
-        public void Init(Compilation compilation)
+        public AttributeSymbolWrapper(Compilation compilation)
         {
             symbol = GetKnownSymbol(compilation, typeof(T));
             if (symbol is null) throw new Exception($"{typeof(T)} not found in the compilation");
