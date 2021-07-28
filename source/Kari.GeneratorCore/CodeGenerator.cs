@@ -53,6 +53,9 @@ namespace Kari.GeneratorCore
             var environment = new Environment(compilation, rootNamespace, logger);
             var parsersTemplate     = new ParsersTemplate();
             var commandsTemplate    = new CommandsTemplate(parsersTemplate);
+            var flagsTemplate     = new FlagsTemplate();
+
+            flagsTemplate.Namespace = outNamespace;
             commandsTemplate.Namespace = outNamespace;
 
             logger("Project Compilation Complete:" + sw.Elapsed.ToString());
@@ -62,6 +65,7 @@ namespace Kari.GeneratorCore
             environment.Collect();
             parsersTemplate.CollectInfo(environment);
             commandsTemplate.CollectInfo(environment);
+            flagsTemplate.CollectInfo(environment);
             logger("Method Collect Complete:" + sw.Elapsed.ToString());
 
             // =======================================================================
@@ -72,6 +76,8 @@ namespace Kari.GeneratorCore
                 sb.AppendLine(commandsTemplate.TransformText());
                 sb.AppendLine();
                 sb.AppendLine(parsersTemplate.TransformText());
+                sb.AppendLine();
+                sb.AppendLine(flagsTemplate.TransformText());
                 sb.AppendLine();
 
                 if (writeAttributes && !hadAnnotations)
@@ -86,6 +92,7 @@ namespace Kari.GeneratorCore
                 // Multiple-file output
                 await OutputToDirAsync(outputDirectoryOrFile, commandsTemplate.Namespace, "Commands", commandsTemplate.TransformText(), cancellationToken);
                 await OutputToDirAsync(outputDirectoryOrFile, "Kari.CommandTerminal", "Parsers", parsersTemplate.TransformText(), cancellationToken);
+                await OutputToDirAsync(outputDirectoryOrFile, flagsTemplate.Namespace, "Flags", flagsTemplate.TransformText(), cancellationToken);
 
                 if (writeAttributes && !hadAnnotations)
                 {

@@ -242,16 +242,13 @@ namespace Kari.GeneratorCore.CodeAnalysis
             return System.String.Join(", ", things.Select(func));
         }
 
-        public static string AsKeyword(this RefKind kind)
+        public static string AsKeyword(this RefKind kind) => kind switch 
         {
-            switch (kind)
-            {
-                case RefKind.In:  return "in";
-                case RefKind.Out: return "out";
-                case RefKind.Ref: return "ref";
-                default: return "";
-            }
-        } 
+            RefKind.In  => "in",
+            RefKind.Out => "out",
+            RefKind.Ref => "ref",
+            _           => ""
+        };
 
         public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T> e) where T : class
         {

@@ -27,6 +27,7 @@ namespace Kari.GeneratorCore
                 
                 if (method.TryGetAttribute(environment.Symbols.CommandAttribute, out var commandAttribute))
                 {
+                    // TODO: check if the name is valid (it has not been submitted already)
                     var info = new CommandMethodInfo(method, commandAttribute);
                     info.CollectInfo(environment);
                     _infos.Add(info);
@@ -280,6 +281,7 @@ namespace Kari.GeneratorCore
             for (int i = 0; i < Symbol.Parameters.Length; i++)
             {
                 var parameter = Symbol.Parameters[i];
+                // TODO: check if the name is valid (unique among arguments)
                 if (parameter.TryGetAttribute(environment.Symbols.ArgumentAttribute, out var argumentAttribute))
                 {
                     var argInfo = new ArgumentInfo(parameter, argumentAttribute);
@@ -293,6 +295,7 @@ namespace Kari.GeneratorCore
                     }
                     continue;
                 }
+                // TODO: check if the name is valid (unique among options)
                 if (parameter.TryGetAttribute(environment.Symbols.OptionAttribute, out var optionAttribute))
                 {
                     Options.Add(new OptionInfo(parameter, optionAttribute));

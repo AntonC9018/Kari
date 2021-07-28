@@ -162,4 +162,10 @@
             Name = name;
         }
     }
+
+    [AttributeUsage(AttributeTargets.Enum)]
+    [Conditional("CodeGeneration")]
+    public class NiceFlagsAttribute : System.FlagsAttribute
+    {
+    }
 }

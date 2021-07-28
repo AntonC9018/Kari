@@ -4,4 +4,9 @@ namespace Kari.GeneratorCore
     {
         public string Namespace { get; set; }
     }
+
+    public partial class FlagsTemplate
+    {
+        public string Namespace { get; set; }
+    }
 }

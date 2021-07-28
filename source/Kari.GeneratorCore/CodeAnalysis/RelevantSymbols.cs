@@ -14,6 +14,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
 		public readonly AttributeSymbolWrapper<OptionAttribute> OptionAttribute;
 		public readonly AttributeSymbolWrapper<ArgumentAttribute> ArgumentAttribute;
 		public readonly AttributeSymbolWrapper<ParserAttribute> ParserAttribute;
+		public readonly AttributeSymbolWrapper<NiceFlagsAttribute> NiceFlagsAttribute;
 
 		public readonly ITypeSymbol Short;
 		public readonly ITypeSymbol Int;
@@ -40,6 +41,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
 			OptionAttribute			= new AttributeSymbolWrapper<OptionAttribute>			(compilation);
 			ArgumentAttribute		= new AttributeSymbolWrapper<ArgumentAttribute>			(compilation);
 			ParserAttribute			= new AttributeSymbolWrapper<ParserAttribute>			(compilation);
+			NiceFlagsAttribute		= new AttributeSymbolWrapper<NiceFlagsAttribute>		(compilation);
 
 			Short 	= compilation.GetSpecialType(SpecialType.System_Int16);
 			Int 	= compilation.GetSpecialType(SpecialType.System_Int32);

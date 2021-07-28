@@ -6,7 +6,7 @@
 
 <#@ include file="Snippets/header.txt" #>
 
-namespace CommandTerminal.Generated
+namespace SomeProject.CommandTerminal.Generated
 {
     public static partial class Parsers
     {
