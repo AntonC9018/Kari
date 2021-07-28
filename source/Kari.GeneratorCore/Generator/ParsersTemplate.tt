@@ -48,7 +48,7 @@ namespace CommandTerminal.Generated
     foreach (var func in _customParserFunctionInfos)
     { 
         string parserName = func.Name + "Parser"; #>
-        public class <#= parserName #> : IValueParser<<#= func.TypeName #>
+        public class <#= parserName #> : IValueParser<<#= func.TypeName #>>
         {
             public ParseSummary Parse(string input, out <#= func.TypeName #> value) => <#= func.FullyQualifiedName #>(input, out value);
         }

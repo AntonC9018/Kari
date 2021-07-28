@@ -7,7 +7,7 @@ namespace Kari.GeneratorCore
     public class CustomParserInfo
     {
         public readonly ParserAttribute Attribute;
-        public readonly INamedTypeSymbol Type;
+        public readonly ITypeSymbol Type;
         public readonly string TypeName;
         public readonly string FullyQualifiedName;
 
@@ -15,7 +15,8 @@ namespace Kari.GeneratorCore
         {
             Attribute = attribute;
             if (Attribute.Name == null) Attribute.Name = symbol.Name;
-            TypeName = symbol.Parameters[symbol.Parameters.Length - 1].Type.GetFullyQualifiedName();
+            Type = symbol.Parameters[symbol.Parameters.Length - 1].Type;
+            TypeName = Type.GetFullyQualifiedName();
             FullyQualifiedName = symbol.GetFullyQualifiedName();
             Next = null;
         }
@@ -24,7 +25,8 @@ namespace Kari.GeneratorCore
         {
             Attribute = attribute;
             if (Attribute.Name == null) Attribute.Name = symbol.Name;
-            TypeName = symbol.TypeArguments[symbol.TypeArguments.Length - 1].GetFullyQualifiedName();
+            Type = symbol.TypeArguments[symbol.TypeArguments.Length - 1];
+            TypeName = Type.GetFullyQualifiedName();
             FullyQualifiedName = symbol.GetFullyQualifiedName();
             Next = null;
         }
@@ -58,6 +60,10 @@ namespace Kari.GeneratorCore
                     parser = parser.Next;
                 }
                 parser.Next = info;
+            }
+            else
+            {
+                _customParsersTypeMap[info.Type] = info;
             }
         }
 
