@@ -10,16 +10,14 @@ namespace Kari.GeneratorCore
     {
         private readonly List<CommandMethodInfo> _infos;
         private readonly List<FrontCommandMethodInfo> _frontInfos;
-        private readonly ParsersTemplate _parsers;
 
-        public CommandsTemplate(ParsersTemplate parsers)
+        public CommandsTemplate()
         {
             _infos = new List<CommandMethodInfo>();
             _frontInfos = new List<FrontCommandMethodInfo>();
-            _parsers = parsers;
         }
 
-        public void CollectInfo(Environment environment)
+        public void CollectInfo(Environment environment, ParsersTemplate parsers)
         {
             foreach (var method in environment.MethodsWithAttributes)
             {
@@ -29,7 +27,7 @@ namespace Kari.GeneratorCore
                 {
                     // TODO: check if the name is valid (it has not been submitted already)
                     var info = new CommandMethodInfo(method, commandAttribute);
-                    info.CollectInfo(environment);
+                    info.CollectInfo(environment, parsers);
                     _infos.Add(info);
                 }
                 
@@ -79,7 +77,7 @@ namespace Kari.GeneratorCore
                 usageBuilder.Append($"{arg.Name} ");
                 
                 argsBuilder.Append(column: 0, arg.Symbol.Name);
-                argsBuilder.Append(column: 1, arg.Symbol.Type.Name);
+                argsBuilder.Append(column: 1, arg.Parser.Name);
                 argsBuilder.Append(column: 2, arg.Attribute.Help);
             }
 
@@ -89,21 +87,21 @@ namespace Kari.GeneratorCore
                 usageBuilder.Append($"{arg.Attribute.Name}|-{arg.Attribute.Name}=value ");
 
                 argsBuilder.Append(column: 0, $"{arg.Attribute.Name}|-{arg.Attribute.Name}");
-                argsBuilder.Append(column: 1, arg.Symbol.Type.Name);
+                argsBuilder.Append(column: 1, arg.Parser.Name);
                 argsBuilder.Append(column: 2, arg.Attribute.Help);
             }
             
             for (int i = 0; i < options.Count; i++)
             {
-                var op = options[i];
-                usageBuilder.Append($"[-{op.Name}=value] ");
+                var option = options[i];
+                usageBuilder.Append($"[-{option.Name}=value] ");
 
-                argsBuilder.Append(column: 0, "-" + op.Name);
-                argsBuilder.Append(column: 2, op.Attribute.Help);
+                argsBuilder.Append(column: 0, "-" + option.Name);
                 argsBuilder.Append(column: 1, 
-                    op.Attribute.IsFlag 
-                        ? $"Flag, ={op.DefaultValueText}"
-                        : $"{op.Symbol.Type.Name}");
+                    option.Attribute.IsFlag 
+                        ? $"Flag, ={option.DefaultValueText}"
+                        : $"{option.Parser.Name}");
+                argsBuilder.Append(column: 2, option.Attribute.Help);
             }
 
             var helpMessageBuilder = new StringBuilder();
@@ -117,7 +115,7 @@ namespace Kari.GeneratorCore
             for (int i = 0; i < positionalArguments.Count; i++)
             {
                 var name = positionalArguments[i].Name;
-                var parserText = _parsers.GetParserName(positionalArguments[i]);
+                var parserText = positionalArguments[i].Parser.Name;
                 executeBuilder.AppendLine($"var __{name} = context.ParseArgument({i}, \"{name}\", Parsers.{parserText});");
             }
 
@@ -130,7 +128,7 @@ namespace Kari.GeneratorCore
                     var argumentIndex = positionalArguments.Count + i;
                     var name = optionLikeArguments[i].Attribute.Name;
                     var typeText = optionLikeArguments[i].Symbol.Type.GetFullyQualifiedName();
-                    var parserText = _parsers.GetParserName(optionLikeArguments[i]);
+                    var parserText = optionLikeArguments[i].Parser.Name;
 
                     executeBuilder.AppendLine($"{typeText} __{name};");
                     // The argument is present as a positional argument
@@ -171,7 +169,7 @@ namespace Kari.GeneratorCore
                     }
                     else
                     {
-                        var parserText = _parsers.GetParserName(options[i]);
+                        var parserText = options[i].Parser.Name;
                         executeBuilder.AppendLine($"{typeText} __{name} = context.ParseOption(\"{name}\", defaultValue: {defaultValueText}, Parsers.{parserText});");
                     }
                 }
@@ -276,7 +274,7 @@ namespace Kari.GeneratorCore
             Options = new List<OptionInfo>();
         }
 
-        public void CollectInfo(Environment environment)
+        public void CollectInfo(Environment environment, ParsersTemplate parsers)
         {
             for (int i = 0; i < Symbol.Parameters.Length; i++)
             {
@@ -284,7 +282,7 @@ namespace Kari.GeneratorCore
                 // TODO: check if the name is valid (unique among arguments)
                 if (parameter.TryGetAttribute(environment.Symbols.ArgumentAttribute, out var argumentAttribute))
                 {
-                    var argInfo = new ArgumentInfo(parameter, argumentAttribute);
+                    var argInfo = new ArgumentInfo(parameter, argumentAttribute, parsers);
                     if (!argumentAttribute.IsOptionLike)
                     {
                         PositionalArguments.Add(argInfo);
@@ -298,10 +296,10 @@ namespace Kari.GeneratorCore
                 // TODO: check if the name is valid (unique among options)
                 if (parameter.TryGetAttribute(environment.Symbols.OptionAttribute, out var optionAttribute))
                 {
-                    Options.Add(new OptionInfo(parameter, optionAttribute));
+                    Options.Add(new OptionInfo(parameter, optionAttribute, parsers));
                     continue;
                 }
-                PositionalArguments.Add(new ArgumentInfo(parameter, new ArgumentAttribute("")));
+                PositionalArguments.Add(new ArgumentInfo(parameter, new ArgumentAttribute(""), parsers));
             }
         }
     }
@@ -309,34 +307,37 @@ namespace Kari.GeneratorCore
     public interface IArgumentInfo
     {
         IParameterSymbol Symbol { get; }
+        IParserInfo Parser { get; }
         IArgument GetAttribute();
     }
 
     public abstract class ArgumentBase
     {
+        public IParameterSymbol Symbol { get; }
+        private string _defaultValueText;
+        public string DefaultValueText => (_defaultValueText is null) ? "default" : _defaultValueText;
+        public bool HasDefaultValue => !(_defaultValueText is null);
+
         protected ArgumentBase(IParameterSymbol symbol)
         {
             Symbol = symbol;
             var syntax = (ParameterSyntax) symbol.DeclaringSyntaxReferences[0].GetSyntax();
             _defaultValueText = syntax.Default?.Value.ToString();
         }
-
-        private string _defaultValueText;
-        public string DefaultValueText => (_defaultValueText is null) ? "default" : _defaultValueText;
-        public bool HasDefaultValue => !(_defaultValueText is null);
-        public IParameterSymbol Symbol { get; }
     }
 
     public class ArgumentInfo : ArgumentBase, IArgumentInfo
     {
-        public ArgumentInfo(IParameterSymbol symbol, ArgumentAttribute argumentAttribute)
+        public ArgumentInfo(IParameterSymbol symbol, ArgumentAttribute argumentAttribute, ParsersTemplate parsers)
             : base(symbol)
         {
             Attribute = argumentAttribute;
             Attribute.Name ??= symbol.Name;
+            Parser = parsers.GetParser(this);
         }
 
         public ArgumentAttribute Attribute { get; }
+        public IParserInfo Parser { get; }
         public string Name => Attribute.IsOptionLike ? Attribute.Name : Symbol.Name;
 
         IArgument IArgumentInfo.GetAttribute() => Attribute;
@@ -344,15 +345,18 @@ namespace Kari.GeneratorCore
 
     public class OptionInfo : ArgumentBase, IArgumentInfo
     {
-        public OptionInfo(IParameterSymbol symbol, OptionAttribute optionAttribute)
+        public OptionInfo(IParameterSymbol symbol, OptionAttribute optionAttribute, ParsersTemplate parsers)
             : base(symbol)
         {
             Attribute = optionAttribute;
             Attribute.Name ??= symbol.Name;
+            Parser = parsers.GetParser(this);
         }
 
+        public IParserInfo Parser { get; }
         public OptionAttribute Attribute { get; }
         public string Name => Attribute.Name;
+
         IArgument IArgumentInfo.GetAttribute() => Attribute;
     }
 }

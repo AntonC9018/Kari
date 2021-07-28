@@ -4,7 +4,18 @@ using Microsoft.CodeAnalysis;
 
 namespace Kari.GeneratorCore
 {
-    public class CustomParserInfo
+    public interface IParserInfo
+    {
+        string Name { get; }
+    }
+
+    public class BuiltinParser : IParserInfo
+    {
+        public string Name { get; }
+        public BuiltinParser(string name) => Name = name;
+    }
+
+    public class CustomParserInfo : IParserInfo
     {
         public readonly ParserAttribute Attribute;
         public readonly ITypeSymbol Type;
@@ -38,14 +49,14 @@ namespace Kari.GeneratorCore
 
     public partial class ParsersTemplate
     {
-        private readonly Dictionary<ITypeSymbol, string> _builtinParsers;
+        private readonly Dictionary<ITypeSymbol, BuiltinParser> _builtinParsers;
         private readonly Dictionary<ITypeSymbol, CustomParserInfo> _customParsersTypeMap;
         private readonly List<CustomParserInfo> _customParserInfos;
         private readonly List<CustomParserInfo> _customParserFunctionInfos;
 
         public ParsersTemplate()
         {
-            _builtinParsers            = new Dictionary<ITypeSymbol, string>();
+            _builtinParsers            = new Dictionary<ITypeSymbol, BuiltinParser>();
             _customParsersTypeMap      = new Dictionary<ITypeSymbol, CustomParserInfo>();
             _customParserInfos         = new List<CustomParserInfo>();
             _customParserFunctionInfos = new List<CustomParserInfo>();
@@ -71,20 +82,20 @@ namespace Kari.GeneratorCore
         {
             var symbols = environment.Symbols;
 
-            _builtinParsers.Add(symbols.Int,     "Int"      );
-            _builtinParsers.Add(symbols.Short,   "Short"    );
-            _builtinParsers.Add(symbols.Long,    "Long"     );
-            _builtinParsers.Add(symbols.Sbyte,   "Sbyte"    );
-            _builtinParsers.Add(symbols.Ushort,  "Ushort"   );
-            _builtinParsers.Add(symbols.Uint,    "Uint"     );
-            _builtinParsers.Add(symbols.Ulong,   "Ulong"    );
-            _builtinParsers.Add(symbols.Byte,    "Byte"     );
-            _builtinParsers.Add(symbols.Float,   "Float"    );
-            _builtinParsers.Add(symbols.Double,  "Double"   );
-            _builtinParsers.Add(symbols.Decimal, "Decimal"  );
-            _builtinParsers.Add(symbols.Char,    "Char"     );
-            _builtinParsers.Add(symbols.Bool,    "Bool"     );
-            _builtinParsers.Add(symbols.String,  "String"   );
+            _builtinParsers.Add(symbols.Int,     new BuiltinParser("Int")      );
+            _builtinParsers.Add(symbols.Short,   new BuiltinParser("Short")    );
+            _builtinParsers.Add(symbols.Long,    new BuiltinParser("Long")     );
+            _builtinParsers.Add(symbols.Sbyte,   new BuiltinParser("Sbyte")    );
+            _builtinParsers.Add(symbols.Ushort,  new BuiltinParser("Ushort")   );
+            _builtinParsers.Add(symbols.Uint,    new BuiltinParser("Uint")     );
+            _builtinParsers.Add(symbols.Ulong,   new BuiltinParser("Ulong")    );
+            _builtinParsers.Add(symbols.Byte,    new BuiltinParser("Byte")     );
+            _builtinParsers.Add(symbols.Float,   new BuiltinParser("Float")    );
+            _builtinParsers.Add(symbols.Double,  new BuiltinParser("Double")   );
+            _builtinParsers.Add(symbols.Decimal, new BuiltinParser("Decimal")  );
+            _builtinParsers.Add(symbols.Char,    new BuiltinParser("Char")     );
+            _builtinParsers.Add(symbols.Bool,    new BuiltinParser("Bool")     );
+            _builtinParsers.Add(symbols.String,  new BuiltinParser("String")   );
 
             foreach (var type in environment.TypesWithAttributes)
             {
@@ -109,7 +120,7 @@ namespace Kari.GeneratorCore
             }
         }
 
-        public string GetParserName(IArgumentInfo argument)
+        public IParserInfo GetParser(IArgumentInfo argument)
         {
             var customParser = argument.GetAttribute().Parser;
 
@@ -125,7 +136,7 @@ namespace Kari.GeneratorCore
                         }
                         parser = parser.Next;
                     }
-                    return parser.Name;
+                    return parser;
                 }
             }
             else 
@@ -137,7 +148,7 @@ namespace Kari.GeneratorCore
 
                 if (_customParsersTypeMap.TryGetValue(argument.Symbol.Type, out var parser))
                 {
-                    return parser.Name;
+                    return parser;
                 }
             }
 

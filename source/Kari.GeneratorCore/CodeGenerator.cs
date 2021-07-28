@@ -52,7 +52,7 @@ namespace Kari.GeneratorCore
 
             var environment = new Environment(compilation, rootNamespace, logger);
             var parsersTemplate     = new ParsersTemplate();
-            var commandsTemplate    = new CommandsTemplate(parsersTemplate);
+            var commandsTemplate    = new CommandsTemplate();
             var flagsTemplate     = new FlagsTemplate();
 
             flagsTemplate.Namespace = outNamespace;
@@ -64,7 +64,7 @@ namespace Kari.GeneratorCore
             logger("Method Collect Start"); sw.Restart();
             environment.Collect();
             parsersTemplate.CollectInfo(environment);
-            commandsTemplate.CollectInfo(environment);
+            commandsTemplate.CollectInfo(environment, parsersTemplate);
             flagsTemplate.CollectInfo(environment);
             logger("Method Collect Complete:" + sw.Elapsed.ToString());
 
