@@ -115,9 +115,9 @@ namespace Kari.GeneratorCore
             executeBuilder.AppendLine("// Take in all the positional arguments");
             for (int i = 0; i < positionalArguments.Count; i++)
             {
-                var parserText = _parsers.GetParserName(positionalArguments[i]);
                 var name = positionalArguments[i].Name;
-                executeBuilder.AppendLine($"var {name} = context.ParseArgument({i}, \"{name}\", Parsers.{parserText});");
+                var parserText = _parsers.GetParserName(positionalArguments[i]);
+                executeBuilder.AppendLine($"var __{name} = context.ParseArgument({i}, \"{name}\", Parsers.{parserText});");
             }
 
             if (optionLikeArguments.Count > 0)
@@ -131,11 +131,11 @@ namespace Kari.GeneratorCore
                     var typeText = optionLikeArguments[i].Symbol.Type.GetFullyQualifiedName();
                     var parserText = _parsers.GetParserName(optionLikeArguments[i]);
 
-                    executeBuilder.AppendLine($"{typeText} {name};");
+                    executeBuilder.AppendLine($"{typeText} __{name};");
                     // The argument is present as a positional argument
                     executeBuilder.AppendLine($"if (context.Arguments.Count > {argumentIndex})");
                     executeBuilder.StartBlock();
-                    executeBuilder.AppendLine($"{name} = context.ParseArgument({argumentIndex}, \"{name}\", Parsers.{parserText});");
+                    executeBuilder.AppendLine($"__{name} = context.ParseArgument({argumentIndex}, \"{name}\", Parsers.{parserText});");
                     executeBuilder.EndBlock();
                     // The argument is present as an option
                     executeBuilder.AppendLine("else");
@@ -144,12 +144,12 @@ namespace Kari.GeneratorCore
                     // Parse with default value, no option does not error out
                     if (optionLikeArguments[i].HasDefaultValue)
                     {
-                        executeBuilder.AppendLine($"{name} = context.ParseOption({name}, {optionLikeArguments[i].DefaultValueText}, Parser.{parserText});");
+                        executeBuilder.AppendLine($"__{name} = context.ParseOption(\"{name}\", {optionLikeArguments[i].DefaultValueText}, Parsers.{parserText});");
                     }
                     // No option errors out
                     else
                     {
-                        executeBuilder.AppendLine($"{name} = context.ParseOption({name}, Parser.{parserText});");
+                        executeBuilder.AppendLine($"__{name} = context.ParseOption(\"{name}\", Parsers.{parserText});");
                     }
 
                     executeBuilder.EndBlock();
@@ -166,12 +166,12 @@ namespace Kari.GeneratorCore
 
                     if (options[i].Attribute.IsFlag)
                     {
-                        executeBuilder.AppendLine($"{typeText} {name} = context.ParseFlag({name}, defaultValue: {defaultValueText});");
+                        executeBuilder.AppendLine($"{typeText} __{name} = context.ParseFlag(\"{name}\", defaultValue: {defaultValueText});");
                     }
                     else
                     {
                         var parserText = _parsers.GetParserName(options[i]);
-                        executeBuilder.AppendLine($"{typeText} __option{i} = context.ParseOption({name}, defaultValue: {defaultValueText}, Parsers.{parserText});");
+                        executeBuilder.AppendLine($"{typeText} __{name} = context.ParseOption(\"{name}\", defaultValue: {defaultValueText}, Parsers.{parserText});");
                     }
                 }
             }
@@ -197,17 +197,17 @@ namespace Kari.GeneratorCore
 
             for (int i = 0; i < positionalArguments.Count; i++)
             {
-                parameters.Append($"{positionalArguments[i].Symbol.Name} : {positionalArguments[i].Name}");
+                parameters.Append($"{positionalArguments[i].Symbol.Name} : __{positionalArguments[i].Name}");
             }
 
             for (int i = 0; i < optionLikeArguments.Count; i++)
             {
-                parameters.Append($"{optionLikeArguments[i].Symbol.Name} : {optionLikeArguments[i].Name}");
+                parameters.Append($"{optionLikeArguments[i].Symbol.Name} : __{optionLikeArguments[i].Name}");
             }
 
             for (int i = 0; i < options.Count; i++)
             {
-                parameters.Append($"{options[i].Symbol.Name} : {options[i].Name}");
+                parameters.Append($"{options[i].Symbol.Name} : __{options[i].Name}");
             }
 
             executeBuilder.Append(parameters.ToString());

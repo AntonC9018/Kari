@@ -78,6 +78,7 @@ namespace Kari.GeneratorCore
             _builtinParsers.Add(symbols.Decimal, "Decimal"  );
             _builtinParsers.Add(symbols.Char,    "Char"     );
             _builtinParsers.Add(symbols.Bool,    "Bool"     );
+            _builtinParsers.Add(symbols.String,  "String"   );
 
             foreach (var type in environment.TypesWithAttributes)
             {

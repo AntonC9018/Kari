@@ -130,7 +130,7 @@
             get => _name; 
             set => _name = Validators.OptionName(value);
         }
-        public bool IsOptionLike => _name != null;
+        public bool IsOptionLike { get; set; }
         public string Help { get; set; }
         public string Parser { get; set; }
 
@@ -141,6 +141,7 @@
         
         public ArgumentAttribute(string name, string help)
         {
+            IsOptionLike = true;
             Name = name;
             Help = help;
         }
