@@ -111,7 +111,7 @@ namespace Kari.GeneratorCore
             helpMessageBuilder.AppendLine();
             helpMessageBuilder.AppendLine(argsBuilder.ToString());
 
-            executeBuilder.AppendLine("// Take in all the positional arguments");
+            executeBuilder.AppendLine("// Take in all the positional arguments.");
             for (int i = 0; i < positionalArguments.Count; i++)
             {
                 var name = positionalArguments[i].Name;
@@ -121,7 +121,7 @@ namespace Kari.GeneratorCore
 
             if (optionLikeArguments.Count > 0)
             {
-                executeBuilder.AppendLine("// Take in all the option-like positional arguments");
+                executeBuilder.AppendLine("// Take in all the option-like positional arguments.");
 
                 for (int i = 0; i < optionLikeArguments.Count; i++)
                 {
@@ -159,18 +159,28 @@ namespace Kari.GeneratorCore
             {
                 for (int i = 0; i < options.Count; i++)
                 {
-                    var typeText = options[i].Symbol.Type.GetFullyQualifiedName();
-                    var defaultValueText = options[i].Symbol.GetDefaultValueText();
-                    var name = options[i].Name;
+                    var option = options[i];
+                    var typeText = option.Symbol.Type.GetFullyQualifiedName();
+                    var defaultValueText = option.DefaultValueText;
+                    var name = option.Name;
 
-                    if (options[i].Attribute.IsFlag)
+                    if (option.Attribute.IsFlag)
                     {
-                        executeBuilder.AppendLine($"{typeText} __{name} = context.ParseFlag(\"{name}\", defaultValue: {defaultValueText});");
+                        // We know flag types are bool
+                        // If a custom parser is used, we must pass it to the function
+                        if (option.Parser is CustomParserInfo customParser)
+                        {
+                            executeBuilder.AppendLine($"{typeText} __{name} = context.ParseFlag(\"{name}\", defaultValue: {defaultValueText}, parser: Parsers.{customParser.Name});");
+                        }
+                        // A default parser bool is used
+                        else
+                        {
+                            executeBuilder.AppendLine($"{typeText} __{name} = context.ParseFlag(\"{name}\", defaultValue: {defaultValueText});");
+                        }
                     }
                     else
                     {
-                        var parserText = options[i].Parser.Name;
-                        executeBuilder.AppendLine($"{typeText} __{name} = context.ParseOption(\"{name}\", defaultValue: {defaultValueText}, Parsers.{parserText});");
+                        executeBuilder.AppendLine($"{typeText} __{name} = context.ParseOption(\"{name}\", defaultValue: {defaultValueText}, Parsers.{option.Parser.Name});");
                     }
                 }
             }
@@ -178,10 +188,10 @@ namespace Kari.GeneratorCore
             executeBuilder.AppendLine("context.EndParsing();");
 
             // TODO: Add requirability to options
-            executeBuilder.AppendLine("// Make sure all required parameters have been given");
+            executeBuilder.AppendLine("// Make sure all required parameters have been given.");
             executeBuilder.AppendLine("if (context.HasErrors) return;");
 
-            executeBuilder.AppendLine("// Call the function with correct arguments");
+            executeBuilder.AppendLine("// Call the function with correct arguments.");
             executeBuilder.Indent();
             if (info.Symbol.ReturnsVoid)
             {
@@ -296,7 +306,15 @@ namespace Kari.GeneratorCore
                 // TODO: check if the name is valid (unique among options)
                 if (parameter.TryGetAttribute(environment.Symbols.OptionAttribute, out var optionAttribute))
                 {
-                    Options.Add(new OptionInfo(parameter, optionAttribute, parsers));
+                    var option = new OptionInfo(parameter, optionAttribute, parsers);
+                    
+                    // For now, just throw. Later, add proper error handling.
+                    if (option.Attribute.IsFlag && option.Symbol.Type != environment.Symbols.Bool)
+                    {
+                        throw new System.Exception($"Flag option {option.Name} in {Name} command must be a boolean.");
+                    }
+
+                    Options.Add(option);
                     continue;
                 }
                 PositionalArguments.Add(new ArgumentInfo(parameter, new ArgumentAttribute(""), parsers));
