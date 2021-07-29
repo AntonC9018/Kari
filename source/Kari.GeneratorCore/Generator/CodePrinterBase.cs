@@ -129,7 +129,7 @@ namespace Kari.GeneratorCore
             return string.Empty;
         }
 
-        // TODO: do stream writes
+        // TODO: do stream writes?
         public void WriteToFile(string fileName)
         {
             File.WriteAllText(fileName, TransformText(), Encoding.UTF8);

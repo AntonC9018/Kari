@@ -1,7 +1,4 @@
-﻿// Copyright (c) All contributors. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
-
-using System;
+﻿
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -9,8 +6,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Kari.GeneratorCore.CodeAnalysis;
-using Kari.Generator;
-using Kari.GeneratorCore.Generator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -20,10 +15,10 @@ namespace Kari.GeneratorCore
     {
         private static readonly Encoding NoBomUtf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
-        private Action<string> logger;
-        private CancellationToken cancellationToken;
+        private readonly System.Action<string> logger;
+        private readonly CancellationToken cancellationToken;
 
-        public CodeGenerator(Action<string> logger, CancellationToken cancellationToken)
+        public CodeGenerator(System.Action<string> logger, CancellationToken cancellationToken)
         {
             this.logger = logger;
             this.cancellationToken = cancellationToken;
@@ -33,17 +28,18 @@ namespace Kari.GeneratorCore
         /// Generates the specialized resolver and formatters for the types that require serialization in a given compilation.
         /// </summary>
         /// <param name="compilation">The compilation to read types from as an input to code generation.</param>
-        /// <param name="output">The name of the generated source file.</param>
+        /// <param name="outputDirectoryOrFile">The name of the generated source file.</param>
         /// <param name="namespace">The namespace for the generated type to be created in. May be null.</param>
         /// <returns>A task that indicates when generation has completed.</returns>
         public async Task GenerateFileAsync(
            Compilation compilation,
-           string output,
-           string @namespace,
+           string rootNamespace,
+           string outputDirectoryOrFile,
+           string outNamespace,
            bool writeAttributes)
         {
-            var namespaceDot = string.IsNullOrWhiteSpace(@namespace) ? string.Empty : @namespace + ".";
-            bool hadAnnotations = compilation.ContainsSymbolsWithName(nameof(Kari.Shared.KariWeirdDetectionAttribute));
+            var namespaceDot = string.IsNullOrWhiteSpace(outNamespace) ? string.Empty : outNamespace + ".";
+            bool hadAnnotations = compilation.ContainsSymbolsWithName(nameof(Kari.KariWeirdDetectionAttribute));
 
             // Perhaps not the most ideal check, but I'm sure it will work out.
             if (!hadAnnotations)
@@ -51,25 +47,37 @@ namespace Kari.GeneratorCore
                 compilation = compilation.AddSyntaxTrees(CSharpSyntaxTree.ParseText(DummyAttributes.Text));
             }
             
-            var sw = Stopwatch.StartNew();
-            logger("Project Compilation Start:" + compilation.AssemblyName);
-            // var collector = new TypeCollector(compilation, true, useMapMode, externalIgnoreTypeNames, x => Console.WriteLine(x));
+            // =======================================================================
+            var sw = Stopwatch.StartNew(); logger("Project Compilation Start: " + compilation.AssemblyName);
+
+            var environment = new Environment(compilation, rootNamespace, logger);
+            var parsersTemplate     = new ParsersTemplate();
+            var commandsTemplate    = new CommandsTemplate();
+            var flagsTemplate     = new FlagsTemplate();
+
+            flagsTemplate.Namespace = outNamespace;
+            commandsTemplate.Namespace = outNamespace;
+
             logger("Project Compilation Complete:" + sw.Elapsed.ToString());
 
-            logger("Method Collect Start");
-            sw.Restart();
-            // var (objectInfo, enumInfo, genericInfo, unionInfo) = collector.Collect();
+            // =======================================================================
+            logger("Method Collect Start"); sw.Restart();
+            environment.Collect();
+            parsersTemplate.CollectInfo(environment);
+            commandsTemplate.CollectInfo(environment, parsersTemplate);
+            flagsTemplate.CollectInfo(environment);
             logger("Method Collect Complete:" + sw.Elapsed.ToString());
 
-            logger("Output Generation Start");
-            sw.Restart();
-            if (Path.GetExtension(output) == ".cs")
+            // =======================================================================
+            logger("Output Generation Start"); sw.Restart();
+            if (Path.GetExtension(outputDirectoryOrFile) == ".cs")
             {
-                // Single-file output
-                var t = new TestTemplate { Namespace = @namespace + "Generated" };
-
                 var sb = new StringBuilder();
-                sb.AppendLine(t.TransformText());
+                sb.AppendLine(commandsTemplate.TransformText());
+                sb.AppendLine();
+                sb.AppendLine(parsersTemplate.TransformText());
+                sb.AppendLine();
+                sb.AppendLine(flagsTemplate.TransformText());
                 sb.AppendLine();
 
                 if (writeAttributes && !hadAnnotations)
@@ -77,17 +85,18 @@ namespace Kari.GeneratorCore
                     sb.AppendLine(DummyAttributes.Text);
                 }
 
-                await OutputAsync(output, sb.ToString(), cancellationToken);
+                await OutputAsync(outputDirectoryOrFile, sb.ToString(), cancellationToken);
             }
             else
             {
                 // Multiple-file output
-                var t = new TestTemplate { Namespace = @namespace + "Generated" };
-                await OutputToDirAsync(output, t.Namespace, "TestName.cs", t.TransformText(), cancellationToken);
+                await OutputToDirAsync(outputDirectoryOrFile, commandsTemplate.Namespace, "Commands", commandsTemplate.TransformText(), cancellationToken);
+                await OutputToDirAsync(outputDirectoryOrFile, "Kari.CommandTerminal", "Parsers", parsersTemplate.TransformText(), cancellationToken);
+                await OutputToDirAsync(outputDirectoryOrFile, flagsTemplate.Namespace, "Flags", flagsTemplate.TransformText(), cancellationToken);
 
                 if (writeAttributes && !hadAnnotations)
                 {
-                    await OutputAsync(Path.Combine(output, "Annotations.cs"), DummyAttributes.Text, cancellationToken);
+                    await OutputAsync(Path.Combine(outputDirectoryOrFile, "Annotations.cs"), DummyAttributes.Text, cancellationToken);
                 }
             }
             logger("Output Generation Complete:" + sw.Elapsed.ToString());
@@ -119,7 +128,7 @@ namespace Kari.GeneratorCore
         {
             // The T4 generated code may be text with mixed line ending types. (CR + CRLF)
             // We need to normalize the line ending type in each Operating Systems. (e.g. Windows=CRLF, Linux/macOS=LF)
-            return content.Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
+            return content.Replace("\r\n", "\n").Replace("\n", System.Environment.NewLine);
         }
     }
 }

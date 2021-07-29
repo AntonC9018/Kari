@@ -1,8 +1,11 @@
-// Put the data and helper functions to be used in templates in this file.
-
-namespace Kari.GeneratorCore.Generator
+namespace Kari.GeneratorCore
 {
-    partial class TestTemplate 
+    public partial class CommandsTemplate
+    {
+        public string Namespace { get; set; }
+    }
+
+    public partial class FlagsTemplate
     {
         public string Namespace { get; set; }
     }

@@ -12,7 +12,7 @@
 	var attributesTextEscaped = attributesText.Replace("\"", "\"\""); 
 	
 #>
-namespace Kari.GeneratorCore.CodeAnalysis
+namespace Kari.GeneratorCore
 {
 	public static class DummyAttributes
 	{

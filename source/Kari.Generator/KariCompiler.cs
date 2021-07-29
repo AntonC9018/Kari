@@ -1,22 +1,19 @@
-﻿// Copyright (c) All contributors. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
-
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Runtime.Loader;
-using System.Threading;
-using System.Threading.Tasks;
-using ConsoleAppFramework;
-using Microsoft.Build.Locator;
-using Microsoft.Build.Logging;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.MSBuild;
-using Microsoft.Extensions.Hosting;
-
-namespace Kari.Generator
+﻿namespace Kari.Generator
 {
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Runtime.Loader;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using ConsoleAppFramework;
+    using Microsoft.Build.Locator;
+    using Microsoft.Build.Logging;
+    using Microsoft.CodeAnalysis;
+    using Microsoft.CodeAnalysis.CSharp;
+    using Microsoft.CodeAnalysis.MSBuild;
+    using Microsoft.Extensions.Hosting;
+
     public class KariCompiler : ConsoleAppBase
     {
         private static async Task Main(string[] args)
@@ -25,6 +22,7 @@ namespace Kari.Generator
             AssemblyLoadContext.Default.Resolving += (assemblyLoadContext, assemblyName) =>
             {
                 var path = Path.Combine(instance.MSBuildPath, assemblyName.Name + ".dll");
+                Console.WriteLine(path);
                 if (File.Exists(path))
                 {
                     return assemblyLoadContext.LoadFromAssemblyPath(path);
@@ -45,12 +43,32 @@ namespace Kari.Generator
             string output,
             [Option("Conditional compiler symbols, split with ','. Ignored if a project file is specified for input.")] 
             string? conditionalSymbol = null,
-            [Option("Set namespace root name.")] 
-            string @namespace = "Kari",
-            [Option("Whether the attrbiutes should be written to output. The attrbiutes are never written if they already exist among the source files.")]
-            bool writeAttributes = true)
+            [Option("Set output namespace root name.")] 
+            string outputNamespace = "Kari",
+            [Option("Set input namespace root name.")]
+            string rootNamespace = "",
+            [Option("Whether the attributes should be written to output. The attributes are never written if they already exist among the source files.")]
+            bool writeAttributes = true,
+            [Option("Delete all cs files in the output folder")]
+            bool clearOutputFolder = false)
         {
             output = Path.GetFullPath(output);
+
+            if (Directory.Exists(output))
+            {
+                if (clearOutputFolder)
+                {
+                    foreach (var file in Directory.EnumerateFiles(output, "*.cs"))
+                    {
+                        File.Delete(file);
+                    }
+                }
+            }
+            else
+            {
+                Directory.CreateDirectory(output);
+            }
+
             Workspace? workspace = null;
             try
             {
@@ -63,13 +81,19 @@ namespace Kari.Generator
                 else
                 {
                     (workspace, compilation) = await this.OpenMSBuildProjectAsync(input, this.Context.CancellationToken);
+
+                    if (rootNamespace == "" && compilation.AssemblyName != null)
+                    {
+                        rootNamespace = compilation.AssemblyName;
+                    }
                 }
 
                 await new Kari.GeneratorCore.CodeGenerator(x => Console.WriteLine(x), this.Context.CancellationToken)
                     .GenerateFileAsync(
                         compilation,
+                        rootNamespace,
                         output,
-                        @namespace,
+                        outputNamespace,
                         writeAttributes).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
@@ -88,7 +112,7 @@ namespace Kari.Generator
             return path.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
         }
 
-        private async Task<(Workspace Workspace, Compilation Compilation)> OpenMSBuildProjectAsync(string projectPath, CancellationToken cancellationToken)
+        private async Task<(Workspace, Compilation)> OpenMSBuildProjectAsync(string projectPath, CancellationToken cancellationToken)
         {
             var workspace = MSBuildWorkspace.Create();
             try

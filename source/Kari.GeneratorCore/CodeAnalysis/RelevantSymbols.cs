@@ -4,15 +4,61 @@ namespace Kari.GeneratorCore.CodeAnalysis
 {
 	using System;
 	using Microsoft.CodeAnalysis;
-	using Kari.Shared;
+	using Kari;
 
-	public partial class RelevantSymbols
+	public class RelevantSymbols
 	{
-		public AttributeSymbolWrapper<KariTestAttribute> KariTestAttributeWrapper;
+		public readonly AttributeSymbolWrapper<KariTestAttribute> KariTestAttribute;
+		public readonly AttributeSymbolWrapper<CommandAttribute> CommandAttribute;
+		public readonly AttributeSymbolWrapper<FrontCommandAttribute> FrontCommandAttribute;
+		public readonly AttributeSymbolWrapper<OptionAttribute> OptionAttribute;
+		public readonly AttributeSymbolWrapper<ArgumentAttribute> ArgumentAttribute;
+		public readonly AttributeSymbolWrapper<ParserAttribute> ParserAttribute;
+		public readonly AttributeSymbolWrapper<NiceFlagsAttribute> NiceFlagsAttribute;
+
+		public readonly ITypeSymbol Short;
+		public readonly ITypeSymbol Int;
+		public readonly ITypeSymbol Long;
+		public readonly ITypeSymbol Ushort;
+		public readonly ITypeSymbol Uint;
+		public readonly ITypeSymbol Ulong;
+		public readonly ITypeSymbol Float;
+		public readonly ITypeSymbol Double;
+		public readonly ITypeSymbol Bool;
+		public readonly ITypeSymbol Byte;
+		public readonly ITypeSymbol Sbyte;
+		public readonly ITypeSymbol Decimal;
+		public readonly ITypeSymbol Char;
+		public readonly ITypeSymbol String;
+		public readonly ITypeSymbol Object;
+		public readonly ITypeSymbol Void;
 		
-		public void Init(Compilation compilation, Action<string> logger)
+		public RelevantSymbols(Compilation compilation, Action<string> logger)
 		{
-			KariTestAttributeWrapper.Init(compilation);
+			KariTestAttribute		= new AttributeSymbolWrapper<KariTestAttribute>			(compilation);
+			CommandAttribute		= new AttributeSymbolWrapper<CommandAttribute>			(compilation);
+			FrontCommandAttribute 	= new AttributeSymbolWrapper<FrontCommandAttribute>		(compilation);
+			OptionAttribute			= new AttributeSymbolWrapper<OptionAttribute>			(compilation);
+			ArgumentAttribute		= new AttributeSymbolWrapper<ArgumentAttribute>			(compilation);
+			ParserAttribute			= new AttributeSymbolWrapper<ParserAttribute>			(compilation);
+			NiceFlagsAttribute		= new AttributeSymbolWrapper<NiceFlagsAttribute>		(compilation);
+
+			Short 	= compilation.GetSpecialType(SpecialType.System_Int16);
+			Int 	= compilation.GetSpecialType(SpecialType.System_Int32);
+			Long 	= compilation.GetSpecialType(SpecialType.System_Int64);
+			Ushort 	= compilation.GetSpecialType(SpecialType.System_UInt16);
+			Uint 	= compilation.GetSpecialType(SpecialType.System_UInt32);
+			Ulong 	= compilation.GetSpecialType(SpecialType.System_UInt64);
+			Float 	= compilation.GetSpecialType(SpecialType.System_Single);
+			Double	= compilation.GetSpecialType(SpecialType.System_Double);
+			Bool 	= compilation.GetSpecialType(SpecialType.System_Boolean);
+			Byte	= compilation.GetSpecialType(SpecialType.System_Byte);
+			Sbyte 	= compilation.GetSpecialType(SpecialType.System_SByte);
+			Decimal = compilation.GetSpecialType(SpecialType.System_Decimal);
+			Char 	= compilation.GetSpecialType(SpecialType.System_Char);
+			String 	= compilation.GetSpecialType(SpecialType.System_String);
+			Object 	= compilation.GetSpecialType(SpecialType.System_Object);
+			Void 	= compilation.GetSpecialType(SpecialType.System_Void);
 		}
 	}
 }

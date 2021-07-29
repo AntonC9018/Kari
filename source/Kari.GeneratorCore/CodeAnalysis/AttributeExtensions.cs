@@ -5,18 +5,19 @@ using Microsoft.CodeAnalysis;
 
 namespace Kari.GeneratorCore.CodeAnalysis
 {
-    public struct AttributeSymbolWrapper<T>
+    public readonly struct AttributeSymbolWrapper<T>
     {
-        public INamedTypeSymbol symbol;
+        public readonly INamedTypeSymbol symbol;
 
         private static INamedTypeSymbol GetKnownSymbol(Compilation compilation, System.Type t)
         {
             return (INamedTypeSymbol) compilation.GetTypeByMetadataName(t.FullName);
         }
 
-        public void Init(Compilation compilation)
+        public AttributeSymbolWrapper(Compilation compilation)
         {
             symbol = GetKnownSymbol(compilation, typeof(T));
+            if (symbol is null) throw new Exception($"{typeof(T)} not found in the compilation");
         }
     }
     
@@ -35,7 +36,21 @@ namespace Kari.GeneratorCore.CodeAnalysis
             }
             foreach (var p in attributeData.NamedArguments)
             {
-                typeof(T).GetField(p.Key).SetValue(attribute, p.Value.Value);
+                var propertyInfo = typeof(T).GetProperty(p.Key);
+                if (propertyInfo != null)
+                {
+                    propertyInfo.SetValue(attribute, p.Value.Value);
+                    continue;
+                }
+
+                var fieldInfo = typeof(T).GetField(p.Key);
+                if (fieldInfo != null)
+                {
+                    fieldInfo.SetValue(attribute, p.Value.Value);
+                    continue;
+                }
+
+                throw new Exception($"No field or property {p}");
             }
             return attribute;
         }
@@ -59,11 +74,12 @@ namespace Kari.GeneratorCore.CodeAnalysis
         }
         public static bool TryGetAttributeData(this ISymbol symbol, ISymbol attributeType, out AttributeData attributeData)
         {
-            foreach (var a in symbol.GetAttributes())
+            var attrs = symbol.GetAttributes();
+            for (int i = 0; i < attrs.Length; i++)
             {
-                if (SymbolEqualityComparer.Default.Equals(a.AttributeClass, attributeType))
+                if (SymbolEqualityComparer.Default.Equals(attrs[i].AttributeClass, attributeType))
                 {
-                    attributeData = a;
+                    attributeData = attrs[i];
                     return true;
                 }
             }
