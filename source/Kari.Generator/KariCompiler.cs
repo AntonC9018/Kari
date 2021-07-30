@@ -54,21 +54,6 @@
         {
             output = Path.GetFullPath(output);
 
-            if (Directory.Exists(output))
-            {
-                if (clearOutputFolder)
-                {
-                    foreach (var file in Directory.EnumerateFiles(output, "*.cs"))
-                    {
-                        File.Delete(file);
-                    }
-                }
-            }
-            else
-            {
-                Directory.CreateDirectory(output);
-            }
-
             Workspace? workspace = null;
             try
             {
@@ -94,7 +79,8 @@
                         rootNamespace,
                         output,
                         outputNamespace,
-                        writeAttributes).ConfigureAwait(false);
+                        writeAttributes,
+                        clearOutputFolder).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

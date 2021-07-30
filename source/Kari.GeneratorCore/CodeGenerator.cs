@@ -36,7 +36,8 @@ namespace Kari.GeneratorCore
            string rootNamespace,
            string outputDirectoryOrFile,
            string outNamespace,
-           bool writeAttributes)
+           bool writeAttributes,
+           bool clearOutputDirectory)
         {
             var namespaceDot = string.IsNullOrWhiteSpace(outNamespace) ? string.Empty : outNamespace + ".";
             bool hadAnnotations = compilation.ContainsSymbolsWithName(nameof(Kari.KariWeirdDetectionAttribute));
@@ -89,6 +90,22 @@ namespace Kari.GeneratorCore
             }
             else
             {
+                var outputDirectory = outputDirectoryOrFile;
+                if (Directory.Exists(outputDirectory))
+                {
+                    if (clearOutputDirectory)
+                    {
+                        foreach (var file in Directory.EnumerateFiles(outputDirectory, "*.cs"))
+                        {
+                            File.Delete(file);
+                        }
+                    }
+                }
+                else
+                {
+                    Directory.CreateDirectory(outputDirectory);
+                }
+                
                 // Multiple-file output
                 await OutputToDirAsync(outputDirectoryOrFile, commandsTemplate.Namespace, "Commands", commandsTemplate.TransformText(), cancellationToken);
                 await OutputToDirAsync(outputDirectoryOrFile, "Kari.CommandTerminal", "Parsers", parsersTemplate.TransformText(), cancellationToken);
