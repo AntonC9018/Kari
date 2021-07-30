@@ -15,6 +15,7 @@ namespace Kari.GeneratorCore
         public override void Initialize()
         {
             AddResourceToAllProjects<ParsersTemplate>();
+            _masterEnvironment.LoadResource(TerminalData.Creator);
             
             var symbols = _masterEnvironment.Symbols;
             _builtinParsers.Add(symbols.Int,     new BuiltinParser("Int")      );
@@ -97,7 +98,20 @@ namespace Kari.GeneratorCore
 
         public override Task Generate()
         {
-            throw new System.NotImplementedException();
+            var collectiveTask = WriteFilesTask<ParsersTemplate>("Parsers.cs");
+            var ownTask = Task.Run(() => {
+                var terminal = _masterEnvironment.Resources.Get<TerminalData>();
+
+                if (terminal.TerminalProject is null)
+                {
+                    // Just write in the root
+                    WriteOwnFile("ParserBasics.cs", "???");
+                    return;
+                }
+
+                terminal.TerminalProject.WriteLocalFile("ParserBasics.cs", "???");
+            });
+            return Task.WhenAll(collectiveTask, ownTask);
         }
 
         public override IEnumerable<CallbackInfo> GetCallbacks()

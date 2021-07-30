@@ -136,6 +136,14 @@ namespace Kari.GeneratorCore.CodeAnalysis
             }
         }
 
+        public void LoadResource<TResource>(System.Func<MasterEnvironment, TResource> Creator)
+        {
+            if (!Resources.Contains<TResource>())
+            {
+                Resources.Add(Creator(this));
+            }
+        }
+
         public void InitializeAdministrators()
         {
             foreach (var admin in Administrators.Items)
@@ -147,7 +155,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
         public Task Collect()
         {
             var cachingTasks = Projects.Select(project => project.Collect());
-            var managerTasks = Administrators.Items.Select(manager => manager.Collect());
+            var managerTasks = Administrators.Items.Select(admin => admin.Collect());
             return Task.Factory.ContinueWhenAll(
                 cachingTasks.ToArray(), (_) => Task.WhenAll(managerTasks), CancellationToken);
         }
@@ -155,8 +163,8 @@ namespace Kari.GeneratorCore.CodeAnalysis
         public void RunCallbacks()
         {
             var infos = new List<CallbackInfo>(); 
-            foreach (var manager in Administrators.Items)
-            foreach (var callback in manager.GetCallbacks())
+            foreach (var admin in Administrators.Items)
+            foreach (var callback in admin.GetCallbacks())
             {
                 infos.Add(callback);
             }
@@ -171,7 +179,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
 
         public Task GenerateCode()
         {
-            var managerTasks = Administrators.Items.Select(manager => manager.Generate());
+            var managerTasks = Administrators.Items.Select(admin => admin.Generate());
             return Task.WhenAll(managerTasks);
         }
     }
@@ -190,19 +198,49 @@ namespace Kari.GeneratorCore.CodeAnalysis
 
     public abstract class AdministratorBase
     {
-        protected MasterEnvironment _masterEnvironment;
+        /// <summary>
+        /// This member was made public to simplify writing extension methods.
+        /// </summary>
+        public MasterEnvironment _masterEnvironment;
 
+        /// <summary>
+        /// Method called by MasterEnvironment when it initializes the administrators.
+        /// </summary>
         public void Initialize(MasterEnvironment masterEnvironment)
         {
             _masterEnvironment = masterEnvironment;
             Initialize();
         }
+
+        /// <summary>
+        /// Method called after a reference to MasterEnvironment has been set.
+        /// The MasterEnvironment already contains the projects at this point.
+        /// </summary>
         public virtual void Initialize() {}
+
+        /// <summary>
+        /// The method called asynchronously by the MasterEnvironment to initiate the symbol collection process.
+        /// You must initiate the symbol collecting processes of the resources you control.
+        /// </summary>
         public abstract Task Collect();
-        public abstract Task Generate();
+
+        /// <summary>
+        /// The method through which the MasterEnvironment figures out the dependencies between the different
+        /// resources and administrators. This function must return the callbacks with the associated
+        /// priority numbers. The lower the priority, the sooner the callback will execute.
+        /// By knowing what priority number a different Administrator will use, you can run your handler
+        /// right before or right after theirs, by setting the priority of your handler to a lower or to 
+        /// a higher value respectively.
+        /// </summary>
         public abstract IEnumerable<CallbackInfo> GetCallbacks();
 
-        protected void AddResourceToAllProjects<TResource>() where TResource : new()
+        /// <summary>
+        /// The method called asynchronously by the MasterEnvironment to initiate the code generation process.
+        /// </summary>
+        public abstract Task Generate();
+
+
+        public void AddResourceToAllProjects<TResource>() where TResource : new()
         {
             foreach (var project in _masterEnvironment.Projects)
             {
@@ -210,7 +248,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
             }
         }
 
-        protected IEnumerable<TResource> GetResourceFromAllProjects<TResource>()
+        public IEnumerable<TResource> GetResourceFromAllProjects<TResource>()
         {
             foreach (var project in _masterEnvironment.Projects)
             {
@@ -218,15 +256,15 @@ namespace Kari.GeneratorCore.CodeAnalysis
             }
         }
 
-        protected Task WhenAllResources<T>(System.Func<ProjectEnvironment, T, Task> mapper)
+        public Task WhenAllResources<TResource>(System.Func<ProjectEnvironment, TResource, Task> mapper)
         {
             var tasks = _masterEnvironment.Projects.Select(
-                project => mapper(project, project.Resources.Get<T>()));
+                project => mapper(project, project.Resources.Get<TResource>()));
 
             return Task.WhenAll(tasks);
         }
 
-        protected Task WhenAllResources<TResource>(System.Action<ProjectEnvironment, TResource> action)
+        public Task WhenAllResources<TResource>(System.Action<ProjectEnvironment, TResource> action)
         {
             return Task.Run(() => {
                 foreach (var project in _masterEnvironment.Projects)
@@ -236,7 +274,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
             });
         }
 
-        protected void WriteToFileForProject(ProjectEnvironment project, string fileName, CodePrinterBase printer)
+        public void WriteToFileForProject(ProjectEnvironment project, string fileName, ITemplate printer)
         {
             if (printer.ShouldWrite())
             {
@@ -244,7 +282,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
             }
         } 
 
-        protected Task WriteFilesTask<TCodePrinter>(string fileName) where TCodePrinter : CodePrinterBase 
+        public Task WriteFilesTask<TCodePrinter>(string fileName) where TCodePrinter : ITemplate 
         {
             return Task.Run(() =>
             {
@@ -259,13 +297,13 @@ namespace Kari.GeneratorCore.CodeAnalysis
             });
         }
 
-        protected void WriteOwnFile(string fileName, string text)
+        public void WriteOwnFile(string fileName, string text)
         {
             var outputPath = Path.Combine(_masterEnvironment.ProjectRootDirectory, _masterEnvironment.GeneratedDirectorySuffix, fileName);
             File.WriteAllText(outputPath, text);
         }
 
-        protected Task WriteOwnFileTask(string fileName, string text) 
+        public Task WriteOwnFileTask(string fileName, string text) 
         {
             return Task.Run(() => WriteOwnFile(fileName, text));
         }

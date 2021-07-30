@@ -8,7 +8,13 @@ using System.Text;
 
 namespace Kari.GeneratorCore 
 {
-    public abstract class CodePrinterBase 
+    public interface ITemplate
+    {
+        bool ShouldWrite();
+        string TransformText();
+    }
+
+    public abstract class CodePrinterBase : ITemplate
     {
         private StringBuilder builder = new StringBuilder();
         private Dictionary<string, object> session = new Dictionary<string, object>();

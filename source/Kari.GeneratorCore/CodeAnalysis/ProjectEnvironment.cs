@@ -32,6 +32,9 @@ namespace Kari.GeneratorCore.CodeAnalysis
             RootDirectory = rootDirectory;
         }
 
+        /// <summary>
+        /// Asynchronously collects and caches relevant symbols.
+        /// </summary>
         public Task Collect()
         {
             return Task.Run(() => {
@@ -51,6 +54,10 @@ namespace Kari.GeneratorCore.CodeAnalysis
             });
         }
 
+        /// <summary>
+        /// Writes the text to a file with the given file name, 
+        /// placed in the directory of this project, with the current /Generated suffix appended to it.
+        /// </summary>
         public void WriteLocalFile(string fileName, string text)
         {
             var outputPath = Path.Combine(RootDirectory, Master.GeneratedDirectorySuffix, fileName);

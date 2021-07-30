@@ -9,12 +9,14 @@ namespace Kari.GeneratorCore
     {
         public readonly ProjectEnvironment TerminalProject;
 
-        public TerminalData(MasterEnvironment master)
+        private TerminalData(MasterEnvironment master)
         {
             // For now, let's just say we output to the project with "Terminal" in its name
             TerminalProject = master.Projects.Find(
                 project => project.RootNamespace.Name.Contains("Terminal"));
         }
+
+        public static TerminalData Creator(MasterEnvironment environment) => new TerminalData(environment);
     }
 
     /// Generates project-wide code for the essential commands
@@ -29,7 +31,7 @@ namespace Kari.GeneratorCore
             // Cache references to other components
             _parsers = _masterEnvironment.Administrators.Get<ParsersAdministrator>();
             AddResourceToAllProjects<CommandsTemplate>();
-            _masterEnvironment.Resources.Load(() => new TerminalData(_masterEnvironment));
+            _masterEnvironment.LoadResource(TerminalData.Creator);
         }
 
         public override Task Collect()
@@ -42,16 +44,16 @@ namespace Kari.GeneratorCore
             return Task.WhenAll(
                 WriteFilesTask<CommandsTemplate>("Commands.cs"),
                 Task.Run(() => {
-                    var terminalProject = _masterEnvironment.Resources.Get<TerminalData>();
+                    var terminal = _masterEnvironment.Resources.Get<TerminalData>();
 
-                    if (terminalProject.TerminalProject is null)
+                    if (terminal.TerminalProject is null)
                     {
                         // Just write in the root
                         WriteOwnFile("CommandBasics.cs", "???");
                         return;
                     }
 
-                    terminalProject.TerminalProject.WriteLocalFile("CommandBasics.cs", "???");
+                    terminal.TerminalProject.WriteLocalFile("CommandBasics.cs", "???");
                 })
             );
         }

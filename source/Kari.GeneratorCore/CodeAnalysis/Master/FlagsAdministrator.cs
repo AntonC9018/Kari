@@ -15,9 +15,7 @@ namespace Kari.GeneratorCore
         }
         public override Task Collect()
         {
-            var tasks = _masterEnvironment.Projects.Select(
-                project => project.Resources.Get<FlagsTemplate>().CollectInfo(project));
-            return Task.WhenAll(tasks);
+            return WhenAllResources<FlagsTemplate>((project, flags) => flags.CollectInfo(project));
         }
 
         public override Task Generate()
