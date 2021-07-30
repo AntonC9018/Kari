@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -112,7 +113,9 @@ namespace Kari.GeneratorCore.CodeAnalysis
                 string namespaceName;
                 if (asmdefJson.TryGetValue("name", out JToken nameToken))
                 {
-                    namespaceName = ((string) nameToken);
+                    namespaceName = nameToken.Value<string>();
+                    // TODO: Report bettter
+                    Debug.Assert(!(namespaceName is null));
                 }
                 else
                 {
@@ -123,6 +126,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
                 INamespaceSymbol projectNamespace;
                 try
                 {
+                    // Even the editor project will have this namespace, because of the convention.
                     projectNamespace = Compilation.GetNamespace(namespaceName);
                 }
                 catch
@@ -132,10 +136,41 @@ namespace Kari.GeneratorCore.CodeAnalysis
                     continue;
                 }
 
-                var environment = new ProjectEnvironment(this, projectNamespace, projectDirectory);
+                // Check if any script files exist in the root
+                if (Directory.EnumerateFiles(projectDirectory, "*.cs", SearchOption.TopDirectoryOnly).Any()
+                    // Check if any folders exist besided Editor folder
+                    || Directory.EnumerateDirectories(projectDirectory).Any(path => !path.EndsWith("Editor")))
+                {
+                    var environment = new ProjectEnvironment(this, projectNamespace, projectDirectory);
+                    // TODO: Assume no duplicates for now, but this will have to be error-checked.
+                    Projects.Add(environment);
+                }
 
-                // TODO: Assume no duplicates for now, but this will have to be error-checked.
-                Projects.Add(environment);
+                // Check if "Editor" is in the array of included platforms.
+                // TODO: I'm not sure if not-editor-only projects need this string here.
+                if (!asmdefJson.TryGetValue("includePlatforms", out JToken platformsToken)
+                    || !platformsToken.Children().Any(token => token.Value<string>() == "Editor"))
+                {
+                    continue;
+                }
+
+                // Also, add the editor project as a separate project.
+                // We take the convention that the namespace would be the same as that of asmdef, but with and appended .Editor.
+                // So any namespace within project A, like A.B, would have a corresponding editor namespace of A.Editor.B
+                // rather than A.B.Editor. 
+
+                var editorProjectNamespace = projectNamespace.GetNamespaceMembers().FirstOrDefault(n => n.Name == "Editor");
+                if (editorProjectNamespace is null)
+                    continue;
+                var editorDirectory = Path.Combine(projectDirectory, "Editor");
+                if (!Directory.Exists(editorDirectory))
+                {
+                    // TODO: better error handling
+                    System.Console.WriteLine($"Found an editor project {namespaceName}, but no `Editor` folder.");
+                    continue;
+                }
+                var editorEnvironment = new ProjectEnvironment(this, editorProjectNamespace, editorDirectory);
+                Projects.Add(editorEnvironment);
             }
         }
 

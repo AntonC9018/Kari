@@ -15,18 +15,14 @@ namespace Kari.Generator
 {
     internal static class PseudoCompilation
     {
-        internal static async Task<CSharpCompilation> CreateFromDirectoryAsync(string directoryRoot, string outputFile, IEnumerable<string>? preprocessorSymbols, CancellationToken cancellationToken)
+        internal static async Task<CSharpCompilation> CreateFromDirectoryAsync(string directoryRoot, string outputFolder, IEnumerable<string>? preprocessorSymbols, CancellationToken cancellationToken)
         {
             var parseOption = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None, SourceCodeKind.Regular, CleanPreprocessorSymbols(preprocessorSymbols));
 
             var syntaxTrees = new List<SyntaxTree>();
-            foreach (var file in IterateCsFileWithoutBinObj(directoryRoot, outputFile))
+            foreach (var file in IterateCsFileWithoutBinObj(directoryRoot, outputFolder))
             {
-                var normalizedFile = Path.GetFullPath(file);
-                if (outputFile == normalizedFile)
-                    continue;
-
-                var text = File.ReadAllText(normalizedFile, Encoding.UTF8);
+                var text = File.ReadAllText(file, Encoding.UTF8);
                 var syntax = CSharpSyntaxTree.ParseText(text, parseOption);
                 syntaxTrees.Add(syntax);
             }
@@ -104,7 +100,7 @@ namespace Kari.Generator
             return preprocessorSymbols?.Where(x => !string.IsNullOrWhiteSpace(x));
         }
 
-        private static IEnumerable<string> IterateCsFileWithoutBinObj(string root, string ingoredFolder)
+        private static IEnumerable<string> IterateCsFileWithoutBinObj(string root, string ingoredFolderName)
         {
             foreach (var item in Directory.EnumerateFiles(root, "*.cs", SearchOption.TopDirectoryOnly))
             {
@@ -118,9 +114,9 @@ namespace Kari.Generator
                 {
                     continue;
                 }
-                if (dir != ingoredFolder)
+                if (dirName != ingoredFolderName)
                 {
-                    foreach (var item in IterateCsFileWithoutBinObj(dir, ingoredFolder))
+                    foreach (var item in IterateCsFileWithoutBinObj(dir, ingoredFolderName))
                     {
                         yield return item;
                     }

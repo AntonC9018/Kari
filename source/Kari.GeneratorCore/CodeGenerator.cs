@@ -35,7 +35,6 @@ namespace Kari.GeneratorCore
            Compilation compilation,
            string rootNamespace,
            string outputDirectoryOrFile,
-           string outNamespace,
            bool writeAttributes,
            bool clearOutputDirectory)
         {
@@ -74,24 +73,7 @@ namespace Kari.GeneratorCore
 
             // =======================================================================
             logger("Output Generation Start"); sw.Restart();
-            if (Path.GetExtension(outputDirectoryOrFile) == ".cs")
-            {
-                var sb = new StringBuilder();
-                sb.AppendLine(commandsTemplate.TransformText());
-                sb.AppendLine();
-                sb.AppendLine(parsersTemplate.TransformText());
-                sb.AppendLine();
-                sb.AppendLine(flagsTemplate.TransformText());
-                sb.AppendLine();
-
-                if (writeAttributes && !hadAnnotations)
-                {
-                    sb.AppendLine(DummyAttributes.Text);
-                }
-
-                await OutputAsync(outputDirectoryOrFile, sb.ToString(), cancellationToken);
-            }
-            else
+            if (Path.GetExtension(outputDirectoryOrFile) != ".cs")
             {
                 var outputDirectory = outputDirectoryOrFile;
                 if (Directory.Exists(outputDirectory))

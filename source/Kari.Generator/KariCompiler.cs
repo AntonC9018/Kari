@@ -39,12 +39,10 @@
         public async Task RunAsync(
             [Option("Input path to MSBuild project file or to the directory containing source files.")] 
             string input,
-            [Option("Output file path(.cs) or directory (multiple-file output).")] 
+            [Option("Output folder path, appended to project paths to produce the output folder.")] 
             string output,
             [Option("Conditional compiler symbols, split with ','. Ignored if a project file is specified for input.")] 
             string? conditionalSymbol = null,
-            [Option("Set output namespace root name.")] 
-            string outputNamespace = "Kari",
             [Option("Set input namespace root name.")]
             string rootNamespace = "",
             [Option("Whether the attributes should be written to output. The attributes are never written if they already exist among the source files.")]
@@ -78,7 +76,6 @@
                         compilation,
                         rootNamespace,
                         output,
-                        outputNamespace,
                         writeAttributes,
                         clearOutputFolder).ConfigureAwait(false);
             }
