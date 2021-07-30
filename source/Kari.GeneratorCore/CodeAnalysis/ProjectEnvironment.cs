@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
@@ -48,6 +49,12 @@ namespace Kari.GeneratorCore.CodeAnalysis
                     }
                 }
             });
+        }
+
+        public void WriteLocalFile(string fileName, string text)
+        {
+            var outputPath = Path.Combine(RootDirectory, Master.GeneratedDirectorySuffix, fileName);
+            File.WriteAllText(outputPath, text);
         }
     }
 }

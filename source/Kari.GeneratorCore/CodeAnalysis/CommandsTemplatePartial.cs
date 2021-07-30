@@ -40,7 +40,7 @@ namespace Kari.GeneratorCore
             }
         }
 
-        public void InitializeParsers(ParsersMaster parsers)
+        public void InitializeParsers(ParsersAdministrator parsers)
         {
             for (int i = 0; i < _infos.Count; i++)
             {
@@ -330,7 +330,7 @@ namespace Kari.GeneratorCore
             }
         }
 
-        public void InitializeParsers(ParsersMaster parsers)
+        public void InitializeParsers(ParsersAdministrator parsers)
         {
             for (int i = 0; i < PositionalArguments.Count; i++)
             {
@@ -383,7 +383,7 @@ namespace Kari.GeneratorCore
             Attribute.Name ??= symbol.Name;
         }
 
-        public void InitializeParser(ParsersMaster parsers)
+        public void InitializeParser(ParsersAdministrator parsers)
         {
             Parser = parsers.GetParser(this);
         }
@@ -403,7 +403,7 @@ namespace Kari.GeneratorCore
             Attribute.Name ??= symbol.Name;
         }
 
-        public void InitializeParser(ParsersMaster parsers)
+        public void InitializeParser(ParsersAdministrator parsers)
         {
             Parser = parsers.GetParser(this);
         }

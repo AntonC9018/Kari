@@ -283,6 +283,21 @@ namespace Kari.GeneratorCore.CodeAnalysis
             return result;
         }
 
+        public static INamespaceSymbol TryGetNamespace(this Compilation compilation, string nspace)
+        {
+            var paths = nspace.Split('.');
+
+            INamespaceSymbol result = compilation.GlobalNamespace;
+
+            for (int i = 0; i < paths.Length; i++)
+            {
+                result = result.GetNamespaceMembers().Where(ns => ns.Name == paths[i]).FirstOrDefault();
+                if (result is null) return null;
+            }
+
+            return result;
+        }
+
         /// <summary>
         /// Get all top-level type symbols of the given namespace and all namespaces within it.
         /// </summary>

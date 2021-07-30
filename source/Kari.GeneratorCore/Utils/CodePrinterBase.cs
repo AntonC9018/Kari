@@ -136,6 +136,11 @@ namespace Kari.GeneratorCore
         }
 
         public virtual void Initialize(){}
+
+        public virtual bool ShouldWrite() 
+        {
+            return true;
+        }
         
         public class ToStringInstanceHelper 
         {

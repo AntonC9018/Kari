@@ -6,49 +6,7 @@ using Microsoft.CodeAnalysis;
 
 namespace Kari.GeneratorCore
 {
-    /// Generates project-wide code for the essential commands
-    /// Manages individual per-project CommandsTemplates
-    public partial class CommandsMaster : MasterManagerBase
-    {
-        private ParsersMaster _parsers;
-        public const int InitializeParsersPriority = ParsersMaster.CheckPriority + 1;
-
-        public override void Initialize()
-        {
-            // Cache references to other components
-            _parsers = _masterEnvironment.Managers.Get<ParsersMaster>();
-            AddResourceToAllProjects<CommandsTemplate>();
-        }
-
-        public override Task Collect()
-        { 
-            var tasks = _masterEnvironment.Projects.Select(
-                project => Task.Run(() => project.Resources.Get<CommandsTemplate>().Collect(project)));
-
-            return Task.WhenAll(tasks);
-        }
-
-        public override Task Generate()
-        {
-            throw new System.NotImplementedException();
-        }
-
-        public override IEnumerable<CallbackInfo> GetCallbacks()
-        {
-            yield return new CallbackInfo(InitializeParsersPriority, InitializeParsersCallback);
-        }
-
-        private void InitializeParsersCallback()
-        {
-            foreach (var commands in GetResourceFromAllProjects<CommandsTemplate>())
-            {
-                commands.InitializeParsers(_parsers); // callback functions
-            }
-        }
-    }
-
-
-    public class ParsersMaster : MasterManagerBase
+    public class ParsersAdministrator : AdministratorBase
     {
         public const int CheckPriority = 1;
         private readonly Dictionary<ITypeSymbol, BuiltinParser> _builtinParsers = new Dictionary<ITypeSymbol, BuiltinParser>();
@@ -77,7 +35,7 @@ namespace Kari.GeneratorCore
 
         public void AddParser(CustomParserInfo info)
         {
-            // Kinda meh, since it sort of kills the parallelism
+            // Kinda meh, since it sort of kills the parallelism.
             // But it's fine, since we still have to iterate through all the types with attributes
             // and the custom parsers are relatively sparse anyway.
             lock (_customParsersTypeMap)
@@ -134,10 +92,7 @@ namespace Kari.GeneratorCore
 
         public override Task Collect()
         {
-            var tasks = _masterEnvironment.Projects.Select(
-                project => Task.Run(() => project.Resources.Get<ParsersTemplate>().CollectInfo(project, this)));
-
-            return Task.WhenAll(tasks);
+            return WhenAllResources<ParsersTemplate>((project, parsers) => parsers.CollectInfo(project, this));
         }
 
         public override Task Generate()

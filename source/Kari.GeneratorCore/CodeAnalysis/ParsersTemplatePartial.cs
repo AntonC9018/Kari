@@ -58,7 +58,7 @@ namespace Kari.GeneratorCore
             _customParserFunctionInfos = new List<CustomParserInfo>();
         }
 
-        public void CollectInfo(ProjectEnvironment environment, ParsersMaster master)
+        public void CollectInfo(ProjectEnvironment environment, ParsersAdministrator master)
         {
             var symbols = environment.Symbols;
 
