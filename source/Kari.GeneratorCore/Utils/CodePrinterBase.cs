@@ -12,10 +12,12 @@ namespace Kari.GeneratorCore
     {
         bool ShouldWrite();
         string TransformText();
+        public string Namespace { get; set; }
     }
 
     public abstract class CodePrinterBase : ITemplate
     {
+        public string Namespace { get; set; }
         private StringBuilder builder = new StringBuilder();
         private Dictionary<string, object> session = new Dictionary<string, object>();
         private CompilerErrorCollection errors = new CompilerErrorCollection();

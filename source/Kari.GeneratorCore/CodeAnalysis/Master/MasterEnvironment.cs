@@ -44,12 +44,15 @@ namespace Kari.GeneratorCore.CodeAnalysis
     public class MasterEnvironment
     {
         public string GeneratedDirectorySuffix { get; set; } = "Generated";
+        public string GeneratedNamespaceSuffix => GeneratedDirectorySuffix;
+        public string GeneratedRootNamespaceName => RootNamespaceName.Combine(GeneratedNamespaceSuffix);
         public readonly string ProjectRootDirectory;
         public readonly CancellationToken CancellationToken;
         public readonly Compilation Compilation;
         public readonly RelevantSymbols Symbols;
         /// The very root namespace of the project.
         public readonly INamespaceSymbol RootNamespace;
+        public readonly string RootNamespaceName;
         public readonly List<ProjectEnvironment> Projects = new List<ProjectEnvironment>();
         public readonly Resources<AdministratorBase> Administrators = new Resources<AdministratorBase>(5);
         public readonly Resources<object> Resources = new Resources<object>(5);
@@ -60,6 +63,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
             CancellationToken = cancellationToken;
             Compilation = compilation;
             Symbols = new RelevantSymbols(compilation);
+            RootNamespaceName = rootNamespace;
             RootNamespace = Compilation.GetNamespace(rootNamespace);
             ProjectRootDirectory = rootDirectory;
         }
@@ -103,7 +107,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
                     // Check if any folders exist besided Editor folder
                     || Directory.EnumerateDirectories(projectDirectory).Any(path => !path.EndsWith("Editor")))
                 {
-                    var environment = new ProjectEnvironment(this, projectNamespace, projectDirectory);
+                    var environment = new ProjectEnvironment(this, projectNamespace, namespaceName, projectDirectory);
                     // TODO: Assume no duplicates for now, but this will have to be error-checked.
                     Projects.Add(environment);
                 }
@@ -131,17 +135,20 @@ namespace Kari.GeneratorCore.CodeAnalysis
                     System.Console.WriteLine($"Found an editor project {namespaceName}, but no `Editor` folder.");
                     continue;
                 }
-                var editorEnvironment = new ProjectEnvironment(this, editorProjectNamespace, editorDirectory);
+                var editorEnvironment = new ProjectEnvironment(this, editorProjectNamespace, namespaceName + ".Editor", editorDirectory);
                 Projects.Add(editorEnvironment);
             }
         }
 
-        public void LoadResource<TResource>(System.Func<MasterEnvironment, TResource> Creator)
+        public TResource LoadResource<TResource>(System.Func<MasterEnvironment, TResource> Creator)
         {
             if (!Resources.Contains<TResource>())
             {
-                Resources.Add(Creator(this));
+                var t = Creator(this);
+                Resources.Add(t);
+                return t;
             }
+            return Resources.Get<TResource>();
         }
 
         public void InitializeAdministrators()
@@ -274,25 +281,13 @@ namespace Kari.GeneratorCore.CodeAnalysis
             });
         }
 
-        public void WriteToFileForProject(ProjectEnvironment project, string fileName, ITemplate printer)
-        {
-            if (printer.ShouldWrite())
-            {
-                project.WriteLocalFile(fileName, printer.TransformText());
-            }
-        } 
-
-        public Task WriteFilesTask<TCodePrinter>(string fileName) where TCodePrinter : ITemplate 
+        public Task WriteFilesTask<TemplateT>(string fileName) where TemplateT : ITemplate 
         {
             return Task.Run(() =>
             {
                 foreach (var project in _masterEnvironment.Projects)
                 {
-                    var printer = project.Resources.Get<TCodePrinter>();
-                    if (printer.ShouldWrite())
-                    {
-                        project.WriteLocalFile(fileName, printer.TransformText());
-                    }
+                    project.WriteLocalWithTemplateResource<TemplateT>(fileName);
                 }
             });
         }

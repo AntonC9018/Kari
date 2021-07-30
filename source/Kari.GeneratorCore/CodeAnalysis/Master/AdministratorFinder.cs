@@ -8,9 +8,14 @@ namespace Kari.GeneratorCore.CodeAnalysis
         public static IEnumerable<System.Type> GetAdministratorTypes()
         {
             return typeof(AdministratorFinder).Assembly.GetTypes()
-                .Where(type => typeof(AdministratorBase).IsAssignableFrom(type));
+                .Where(type => typeof(AdministratorBase).IsAssignableFrom(type) && !type.IsAbstract);
         }
 
+    
+        /// <summary>
+        /// Adds the administrators specified by name in `namesToAdd`, removing these names from there.
+        /// The names must be in the correct case (exactly match the class names).
+        /// </summary>
         public static bool AddAdministrators(this MasterEnvironment environment, HashSet<string> namesToAdd)
         {
             foreach (var adminType in GetAdministratorTypes())

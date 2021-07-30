@@ -8,54 +8,10 @@
 
 namespace <#= Namespace #>
 {
-<# /* 
-    This is a bit more tricky than commands. 
-    Thing is, we will need another way of referencing the parsers defined in other assemblies.
-    We obviously cannot stick them into the default assembly, because it may never be referenced by submodules.
-    So, we cannot have a static class with all of the parsers. We will have to reference parsers by their fully qualified names.
-    Maybe generate a parsers static class in every assembly (for convenience) 
-    but still reference everything by fully qualifying the names. 
-    
-    The default parsers will have to be generated in a separate submodule, I guess it could be coupled with the terminal.
-    Since any parser would have to reference it to at least get the IValueParser interface definition.
-*/
-#>
+    using <#= DefinitionsNamespace #>;
+
     public static partial class Parsers
     {
-<#  var numberTypes = new string[] 
-    { 
-        "int", "long", "short", "sbyte",
-        "uint", "ulong", "ushort", "byte",
-        "double", "float", "decimal"
-    };
-    var numberTypesPascal = new string[]
-    {
-        "Int", "Long", "Short", "SByte",
-        "UInt", "ULong", "UShort", "Byte",
-        "Double", "Float", "Decimal"
-    };
-    
-    for (int i = 0; i < numberTypes.Length; i++)
-    {
-        string type = numberTypes[i];
-        string typePascal = numberTypesPascal[i];
-        string parserName = $"{typePascal}Parser"; #>
-        public class <#= parserName #> : IValueParser<<#= type #>>
-        {
-            public ParseSummary Parse(string input, out <#= type #> value) => Parsers.Parse(input, out value);
-        }
-        public static readonly <#= parserName #> <#= typePascal #> = new <#= parserName #> ();
-
-        public static ParseSummary Parse(this string input, out <#= type #> result)
-        {
-            if (<#= type #>.TryParse(input, out result)) 
-            {
-                return ParseSummary.Success;
-            }
-
-            return ParseSummary.TypeMismatch("<#= type #>", input);
-        }
-        
 <#  } 
     foreach (var func in _customParserFunctionInfos)
     { 

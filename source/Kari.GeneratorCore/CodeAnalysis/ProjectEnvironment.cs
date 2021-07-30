@@ -9,7 +9,8 @@ namespace Kari.GeneratorCore.CodeAnalysis
 {
     public class ProjectEnvironment
     {
-        public readonly string RootDirectory;
+        public readonly string Directory;
+        public readonly string NamespaceName;
         
         // Backreference to master
         public readonly MasterEnvironment Master;
@@ -25,11 +26,12 @@ namespace Kari.GeneratorCore.CodeAnalysis
         public readonly List<INamedTypeSymbol> TypesWithAttributes = new List<INamedTypeSymbol>();
         public readonly List<IMethodSymbol> MethodsWithAttributes = new List<IMethodSymbol>(); 
         
-        public ProjectEnvironment(MasterEnvironment master, INamespaceSymbol rootNamespace, string rootDirectory)
+        public ProjectEnvironment(MasterEnvironment master, INamespaceSymbol rootNamespace, string namespaceName, string rootDirectory)
         {
             Master = master;
             RootNamespace = rootNamespace;
-            RootDirectory = rootDirectory;
+            NamespaceName = namespaceName;
+            Directory = rootDirectory;
         }
 
         /// <summary>
@@ -60,8 +62,27 @@ namespace Kari.GeneratorCore.CodeAnalysis
         /// </summary>
         public void WriteLocalFile(string fileName, string text)
         {
-            var outputPath = Path.Combine(RootDirectory, Master.GeneratedDirectorySuffix, fileName);
+            var outputPath = Path.Combine(Directory, Master.GeneratedDirectorySuffix, fileName);
             File.WriteAllText(outputPath, text);
+        }
+
+        public string GetGeneratedNamespace()
+        {
+            return NamespaceName.Combine(Master.GeneratedNamespaceSuffix);
+        }
+
+        public void WriteLocalWithTemplate(string fileName, ITemplate template)
+        {
+            if (template.ShouldWrite())
+            {
+                template.Namespace = GetGeneratedNamespace();
+                WriteLocalFile(fileName, template.TransformText());
+            }
+        }
+
+        public void WriteLocalWithTemplateResource<TemplateT>(string fileName) where TemplateT : ITemplate
+        {
+            WriteLocalWithTemplate(fileName, Resources.Get<TemplateT>());
         }
     }
 }

@@ -347,5 +347,11 @@ namespace Kari.GeneratorCore.CodeAnalysis
 
             return syntax.Default.Value.ToString();
         }
+
+        public static string Combine(this string mainPart, string part, string separator = ".")
+        {
+            if (mainPart == "") return part;
+            return mainPart + separator + part;
+        }
     }
 }

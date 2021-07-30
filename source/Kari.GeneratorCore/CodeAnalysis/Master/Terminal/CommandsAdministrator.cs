@@ -5,19 +5,6 @@ using Kari.GeneratorCore.CodeAnalysis;
 
 namespace Kari.GeneratorCore
 {
-    public class TerminalData
-    {
-        public readonly ProjectEnvironment TerminalProject;
-
-        private TerminalData(MasterEnvironment master)
-        {
-            // For now, let's just say we output to the project with "Terminal" in its name
-            TerminalProject = master.Projects.Find(
-                project => project.RootNamespace.Name.Contains("Terminal"));
-        }
-
-        public static TerminalData Creator(MasterEnvironment environment) => new TerminalData(environment);
-    }
 
     /// Generates project-wide code for the essential commands
     /// Manages individual per-project CommandsTemplates
@@ -43,19 +30,7 @@ namespace Kari.GeneratorCore
         {
             return Task.WhenAll(
                 WriteFilesTask<CommandsTemplate>("Commands.cs"),
-                Task.Run(() => {
-                    var terminal = _masterEnvironment.Resources.Get<TerminalData>();
-
-                    if (terminal.TerminalProject is null)
-                    {
-                        // Just write in the root
-                        WriteOwnFile("CommandBasics.cs", "???");
-                        return;
-                    }
-
-                    terminal.TerminalProject.WriteLocalFile("CommandBasics.cs", "???");
-                })
-            );
+                TerminalData.WriteLocalToProjectElseToRootHelper<CommandsMasterTemplate>(this, "CommandBasics.cs"));
         }
 
         public override IEnumerable<CallbackInfo> GetCallbacks()

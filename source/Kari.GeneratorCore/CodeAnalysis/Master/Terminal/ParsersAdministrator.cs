@@ -12,26 +12,34 @@ namespace Kari.GeneratorCore
         private readonly Dictionary<ITypeSymbol, BuiltinParser> _builtinParsers = new Dictionary<ITypeSymbol, BuiltinParser>();
         private readonly Dictionary<ITypeSymbol, CustomParserInfo> _customParsersTypeMap = new Dictionary<ITypeSymbol, CustomParserInfo>();
 
+        public string GetFullyQualifiedBuiltinGeneratedNamespace()
+        {
+            var project = _masterEnvironment.Resources.Get<TerminalData>().TerminalProject;
+            var parsersFullyQualifiedClassName = project.GetGeneratedNamespace().Combine("Parsers");
+            return parsersFullyQualifiedClassName;
+        }
+
         public override void Initialize()
         {
             AddResourceToAllProjects<ParsersTemplate>();
-            _masterEnvironment.LoadResource(TerminalData.Creator);
-            
+            var project = _masterEnvironment.LoadResource(TerminalData.Creator).TerminalProject;
+            var parsersFullyQualifiedClassName = project.GetGeneratedNamespace().Combine("Parsers");
             var symbols = _masterEnvironment.Symbols;
-            _builtinParsers.Add(symbols.Int,     new BuiltinParser("Int")      );
-            _builtinParsers.Add(symbols.Short,   new BuiltinParser("Short")    );
-            _builtinParsers.Add(symbols.Long,    new BuiltinParser("Long")     );
-            _builtinParsers.Add(symbols.Sbyte,   new BuiltinParser("Sbyte")    );
-            _builtinParsers.Add(symbols.Ushort,  new BuiltinParser("Ushort")   );
-            _builtinParsers.Add(symbols.Uint,    new BuiltinParser("Uint")     );
-            _builtinParsers.Add(symbols.Ulong,   new BuiltinParser("Ulong")    );
-            _builtinParsers.Add(symbols.Byte,    new BuiltinParser("Byte")     );
-            _builtinParsers.Add(symbols.Float,   new BuiltinParser("Float")    );
-            _builtinParsers.Add(symbols.Double,  new BuiltinParser("Double")   );
-            _builtinParsers.Add(symbols.Decimal, new BuiltinParser("Decimal")  );
-            _builtinParsers.Add(symbols.Char,    new BuiltinParser("Char")     );
-            _builtinParsers.Add(symbols.Bool,    new BuiltinParser("Bool")     );
-            _builtinParsers.Add(symbols.String,  new BuiltinParser("String")   );
+
+            _builtinParsers.Add(symbols.Int,     new BuiltinParser(parsersFullyQualifiedClassName, "Int")      );
+            _builtinParsers.Add(symbols.Short,   new BuiltinParser(parsersFullyQualifiedClassName, "Short")    );
+            _builtinParsers.Add(symbols.Long,    new BuiltinParser(parsersFullyQualifiedClassName, "Long")     );
+            _builtinParsers.Add(symbols.Sbyte,   new BuiltinParser(parsersFullyQualifiedClassName, "Sbyte")    );
+            _builtinParsers.Add(symbols.Ushort,  new BuiltinParser(parsersFullyQualifiedClassName, "Ushort")   );
+            _builtinParsers.Add(symbols.Uint,    new BuiltinParser(parsersFullyQualifiedClassName, "Uint")     );
+            _builtinParsers.Add(symbols.Ulong,   new BuiltinParser(parsersFullyQualifiedClassName, "Ulong")    );
+            _builtinParsers.Add(symbols.Byte,    new BuiltinParser(parsersFullyQualifiedClassName, "Byte")     );
+            _builtinParsers.Add(symbols.Float,   new BuiltinParser(parsersFullyQualifiedClassName, "Float")    );
+            _builtinParsers.Add(symbols.Double,  new BuiltinParser(parsersFullyQualifiedClassName, "Double")   );
+            _builtinParsers.Add(symbols.Decimal, new BuiltinParser(parsersFullyQualifiedClassName, "Decimal")  );
+            _builtinParsers.Add(symbols.Char,    new BuiltinParser(parsersFullyQualifiedClassName, "Char")     );
+            _builtinParsers.Add(symbols.Bool,    new BuiltinParser(parsersFullyQualifiedClassName, "Bool")     );
+            _builtinParsers.Add(symbols.String,  new BuiltinParser(parsersFullyQualifiedClassName, "String")   );
         }
 
         public void AddParser(CustomParserInfo info)
@@ -98,20 +106,9 @@ namespace Kari.GeneratorCore
 
         public override Task Generate()
         {
-            var collectiveTask = WriteFilesTask<ParsersTemplate>("Parsers.cs");
-            var ownTask = Task.Run(() => {
-                var terminal = _masterEnvironment.Resources.Get<TerminalData>();
-
-                if (terminal.TerminalProject is null)
-                {
-                    // Just write in the root
-                    WriteOwnFile("ParserBasics.cs", "???");
-                    return;
-                }
-
-                terminal.TerminalProject.WriteLocalFile("ParserBasics.cs", "???");
-            });
-            return Task.WhenAll(collectiveTask, ownTask);
+            return Task.WhenAll( 
+                WriteFilesTask<ParsersTemplate>("Parsers.cs"), 
+                TerminalData.WriteLocalToProjectElseToRootHelper<ParsersMasterTemplate>(this, "ParserBasics.cs"));
         }
 
         public override IEnumerable<CallbackInfo> GetCallbacks()

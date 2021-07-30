@@ -7,12 +7,18 @@ namespace Kari.GeneratorCore
     public interface IParserInfo
     {
         string Name { get; }
+        string FullName { get; }
     }
 
     public class BuiltinParser : IParserInfo
     {
         public string Name { get; }
-        public BuiltinParser(string name) => Name = name;
+        public string FullName { get; }
+        public BuiltinParser(string parsersFullyQualifiedClassName, string name)
+        {
+            Name = name;
+            FullName = parsersFullyQualifiedClassName.Combine(name);
+        }
     }
 
     public class CustomParserInfo : IParserInfo
@@ -22,33 +28,38 @@ namespace Kari.GeneratorCore
         public readonly string TypeName;
         public readonly string FullyQualifiedName;
 
-        public CustomParserInfo(IMethodSymbol symbol, ParserAttribute attribute)
+        private CustomParserInfo(ISymbol symbol, string parsersFullyQualifiedClassName, ParserAttribute attribute)
         {
             Attribute = attribute;
-            if (Attribute.Name == null) Attribute.Name = symbol.Name;
-            Type = symbol.Parameters[symbol.Parameters.Length - 1].Type;
-            TypeName = Type.GetFullyQualifiedName();
+            Attribute.Name ??= symbol.Name;
+            FullName = parsersFullyQualifiedClassName.Combine(Attribute.Name);
             FullyQualifiedName = symbol.GetFullyQualifiedName();
             Next = null;
         }
 
-        public CustomParserInfo(INamedTypeSymbol symbol, ParserAttribute attribute)
+        public CustomParserInfo(IMethodSymbol symbol, ParserAttribute attribute, string namespaceName) 
+            : this((ISymbol) symbol, namespaceName, attribute)
         {
-            Attribute = attribute;
-            if (Attribute.Name == null) Attribute.Name = symbol.Name;
+            Type = symbol.Parameters[symbol.Parameters.Length - 1].Type;
+            TypeName = Type.GetFullyQualifiedName();
+        }
+
+        public CustomParserInfo(INamedTypeSymbol symbol, ParserAttribute attribute, string namespaceName)
+            : this((ISymbol) symbol, namespaceName, attribute)
+        {
             Type = symbol.TypeArguments[symbol.TypeArguments.Length - 1];
             TypeName = Type.GetFullyQualifiedName();
-            FullyQualifiedName = symbol.GetFullyQualifiedName();
-            Next = null;
         }
 
         public string Name => Attribute.Name;
+        public string FullName { get; }
         public CustomParserInfo Next { get; set; }
     }
     
 
     public partial class ParsersTemplate
     {
+        private string DefinitionsNamespace;
         private readonly List<CustomParserInfo> _customParserInfos;
         private readonly List<CustomParserInfo> _customParserFunctionInfos;
 
@@ -60,13 +71,16 @@ namespace Kari.GeneratorCore
 
         public void CollectInfo(ProjectEnvironment environment, ParsersAdministrator master)
         {
+            Namespace = environment.GetGeneratedNamespace();
+            var parsersFullyQualifiedClassName = Namespace.Combine("Parsers");
+
             var symbols = environment.Symbols;
 
             foreach (var type in environment.TypesWithAttributes)
             {
                 if (type.TryGetAttribute(symbols.ParserAttribute, out var parserAttribute))
                 {
-                    var info = new CustomParserInfo(type, parserAttribute);
+                    var info = new CustomParserInfo(type, parserAttribute, parsersFullyQualifiedClassName);
                     _customParserInfos.Add(info);
                     master.AddParser(info);
                 }
@@ -78,7 +92,7 @@ namespace Kari.GeneratorCore
 
                 if (method.TryGetAttribute(symbols.ParserAttribute, out var parserAttribute))
                 {
-                    var info = new CustomParserInfo(method, parserAttribute);
+                    var info = new CustomParserInfo(method, parserAttribute, parsersFullyQualifiedClassName);
                     _customParserFunctionInfos.Add(info);
                     master.AddParser(info);
                 }
