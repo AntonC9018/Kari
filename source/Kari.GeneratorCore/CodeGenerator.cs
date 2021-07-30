@@ -52,12 +52,15 @@ namespace Kari.GeneratorCore
             var sw = Stopwatch.StartNew(); logger("Project Compilation Start: " + compilation.AssemblyName);
 
             var environment = new Environment(compilation, rootNamespace, logger);
-            var parsersTemplate     = new ParsersTemplate();
-            var commandsTemplate    = new CommandsTemplate();
+            var parsersTemplate   = new ParsersTemplate();
+            var commandsTemplate  = new CommandsTemplate();
             var flagsTemplate     = new FlagsTemplate();
 
             flagsTemplate.Namespace = outNamespace;
-            commandsTemplate.Namespace = outNamespace;
+
+            // TODO: Both the output folder and the namespace should be configurable per project (e.g. asmdef)
+            commandsTemplate.Namespace = rootNamespace + ".CommandTerminal.Generated";
+            parsersTemplate.Namespace = rootNamespace + ".CommandTerminal.Generated";
 
             logger("Project Compilation Complete:" + sw.Elapsed.ToString());
 
@@ -105,7 +108,7 @@ namespace Kari.GeneratorCore
                 {
                     Directory.CreateDirectory(outputDirectory);
                 }
-                
+
                 // Multiple-file output
                 await OutputToDirAsync(outputDirectoryOrFile, commandsTemplate.Namespace, "Commands", commandsTemplate.TransformText(), cancellationToken);
                 await OutputToDirAsync(outputDirectoryOrFile, "Kari.CommandTerminal", "Parsers", parsersTemplate.TransformText(), cancellationToken);

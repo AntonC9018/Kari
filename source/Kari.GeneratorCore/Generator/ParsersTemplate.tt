@@ -6,8 +6,20 @@
 
 <#@ include file="Snippets/header.txt" #>
 
-namespace SomeProject.CommandTerminal.Generated
+namespace <#= Namespace #>
 {
+<# /* 
+    This is a bit more tricky than commands. 
+    Thing is, we will need another way of referencing the parsers defined in other assemblies.
+    We obviously cannot stick them into the default assembly, because it may never be referenced by submodules.
+    So, we cannot have a static class with all of the parsers. We will have to reference parsers by their fully qualified names.
+    Maybe generate a parsers static class in every assembly (for convenience) 
+    but still reference everything by fully qualifying the names. 
+    
+    The default parsers will have to be generated in a separate submodule, I guess it could be coupled with the terminal.
+    Since any parser would have to reference it to at least get the IValueParser interface definition.
+*/
+#>
     public static partial class Parsers
     {
 <#  var numberTypes = new string[] 

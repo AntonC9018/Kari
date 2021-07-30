@@ -9,4 +9,9 @@ namespace Kari.GeneratorCore
     {
         public string Namespace { get; set; }
     }
+
+    public partial class ParsersTemplate
+    {
+        public string Namespace { get; set; }
+    }
 }

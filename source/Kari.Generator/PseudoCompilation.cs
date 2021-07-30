@@ -20,7 +20,7 @@ namespace Kari.Generator
             var parseOption = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None, SourceCodeKind.Regular, CleanPreprocessorSymbols(preprocessorSymbols));
 
             var syntaxTrees = new List<SyntaxTree>();
-            foreach (var file in IterateCsFileWithoutBinObj(directoryRoot))
+            foreach (var file in IterateCsFileWithoutBinObj(directoryRoot, outputFile))
             {
                 var normalizedFile = Path.GetFullPath(file);
                 if (outputFile == normalizedFile)
@@ -104,7 +104,7 @@ namespace Kari.Generator
             return preprocessorSymbols?.Where(x => !string.IsNullOrWhiteSpace(x));
         }
 
-        private static IEnumerable<string> IterateCsFileWithoutBinObj(string root)
+        private static IEnumerable<string> IterateCsFileWithoutBinObj(string root, string ingoredFolder)
         {
             foreach (var item in Directory.EnumerateFiles(root, "*.cs", SearchOption.TopDirectoryOnly))
             {
@@ -118,10 +118,12 @@ namespace Kari.Generator
                 {
                     continue;
                 }
-
-                foreach (var item in IterateCsFileWithoutBinObj(dir))
+                if (dir != ingoredFolder)
                 {
-                    yield return item;
+                    foreach (var item in IterateCsFileWithoutBinObj(dir, ingoredFolder))
+                    {
+                        yield return item;
+                    }
                 }
             }
         }

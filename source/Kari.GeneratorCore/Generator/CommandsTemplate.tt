@@ -6,9 +6,43 @@
 
 <#@ include file="Snippets/header.txt" #>
 
-<# /* TODO: Maybe do SomeProject.Generated.CommandTerminal instead? */ #>
-namespace SomeProject.CommandTerminal.Generated
+namespace <#= Namespace #>
 {
+<# /* 
+    This works, assuming we do not want to reference these commands in the exporting module
+    which we may want to de, very likely. So this should be split into an aggregate info list
+    as well as separate ones for the different modules 
+
+    Say we would have a map Dictionary (moduleName -> List of infos)
+    Then in collect infos we would iterate over all module namespace roots, which must correspond to 
+    the asmdef roots. We may as well get this information from the asmdef files, which are just json files
+    and they have the property name we need, which matches the namespace of the thing.
+
+    So in summary:
+        
+        // !encapsulated in Environment, which provides data per namespace
+        // OR 
+        // Make a new environment per project and so change none of the code but then
+        // some new managers must also be created to take care of the module stuff, integrating the pieces.
+
+        // Also, the e.g. command name collisions will have to be given some more though, since the names would be
+        // split among the different per-module templates, which will have to be checked I guess after all types
+        // have been analyzed? this would be the simplest solution.
+        // So, they may be parallelized, the collection process over the different root namespaces, and then we would do
+        // error checking synchronously over all the collected infos. 
+        // Like stick the names into a hashmap and detect name collisions.
+
+        1. Module name = root namespace name
+        2. Get the root namespace symbol
+
+
+        3. Do the info collecting on every module's root namespace (in parallel).
+        4. Check the integrity (e.g. name collisions).
+        5. Generate the code separately for each of the submodules.
+        6. Generate the master code, staying in the root and referencing anything it wants to (like Assembly-CSharp.dll).
+
+
+*/ #>
 <#  foreach (var info in _infos) 
     { 
         Write(TransformCommand(info, "    "));
