@@ -20,7 +20,7 @@ namespace Kari.GeneratorCore
     {
         public readonly List<FlagsInfo> _infos = new List<FlagsInfo>();
 
-        public void CollectInfo(Environment environment)
+        public void CollectInfo(ProjectEnvironment environment)
         {
             foreach (var t in environment.TypesWithAttributes)
             {

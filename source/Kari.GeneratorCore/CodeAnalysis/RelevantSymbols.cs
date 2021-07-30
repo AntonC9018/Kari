@@ -33,7 +33,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
 		public readonly ITypeSymbol Object;
 		public readonly ITypeSymbol Void;
 		
-		public RelevantSymbols(Compilation compilation, Action<string> logger)
+		public RelevantSymbols(Compilation compilation)
 		{
 			KariTestAttribute		= new AttributeSymbolWrapper<KariTestAttribute>			(compilation);
 			CommandAttribute		= new AttributeSymbolWrapper<CommandAttribute>			(compilation);

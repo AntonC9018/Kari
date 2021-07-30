@@ -67,6 +67,8 @@ namespace <#= Namespace #>
 
     public static class Commands
     {
+        // This will have to be !set! by the code generated here, so that the terminal could reference it,
+        // without referencing the different dll's
         public static readonly CommandInfo[] BuiltinCommands = new CommandInfo[]
         {
 <#  foreach (var info in _infos)

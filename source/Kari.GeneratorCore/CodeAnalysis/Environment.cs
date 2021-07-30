@@ -1,44 +1,53 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 
 namespace Kari.GeneratorCore.CodeAnalysis
 {
-    public class Environment
+    public class ProjectEnvironment
     {
-        public readonly Compilation Compilation;
-        public readonly RelevantSymbols Symbols;
-        public readonly INamespaceSymbol RootNamespace;
-        public readonly List<INamedTypeSymbol> Types;
-        public readonly List<INamedTypeSymbol> TypesWithAttributes;
-        public readonly List<IMethodSymbol> MethodsWithAttributes; 
+        public readonly string RootDirectory;
         
-        public Environment(Compilation compilation, string rootNamespace, Action<string> logger)
-        {
-            Compilation = compilation;
-            Symbols = new RelevantSymbols(compilation, logger);
-            RootNamespace = compilation.GetNamespace(rootNamespace);
+        // Backreference to master
+        public readonly MasterEnvironment Master;
+        public Compilation Compilation => Master.Compilation;
+        public RelevantSymbols Symbols => Master.Symbols;
 
-            Types                   = new List<INamedTypeSymbol>();
-            TypesWithAttributes     = new List<INamedTypeSymbol>();
-            MethodsWithAttributes   = new List<IMethodSymbol>();
+        // Any registered resources, e.g. Collectors/Templates.
+        public readonly Resources<object> Resources = new Resources<object>(5);
+
+        // Cached symbols
+        public readonly INamespaceSymbol RootNamespace;
+        public readonly List<INamedTypeSymbol> Types = new List<INamedTypeSymbol>();
+        public readonly List<INamedTypeSymbol> TypesWithAttributes = new List<INamedTypeSymbol>();
+        public readonly List<IMethodSymbol> MethodsWithAttributes = new List<IMethodSymbol>(); 
+        
+        public ProjectEnvironment(MasterEnvironment master, INamespaceSymbol rootNamespace, string rootDirectory)
+        {
+            Master = master;
+            RootNamespace = rootNamespace;
+            RootDirectory = rootDirectory;
         }
 
-        public void Collect()
+        public Task Collect()
         {
-            foreach (var type in RootNamespace.GetNotNestedTypes())
-            {
-                Types.Add(type);
-                
-                if (type.GetAttributes().Length > 0)
-                    TypesWithAttributes.Add(type);
-                
-                foreach (var method in type.GetMethods())
+            return Task.Run(() => {
+                foreach (var type in RootNamespace.GetNotNestedTypes())
                 {
-                    if (method.GetAttributes().Length > 0)
-                        MethodsWithAttributes.Add(method);
+                    Types.Add(type);
+                    
+                    if (type.GetAttributes().Length > 0)
+                        TypesWithAttributes.Add(type);
+                    
+                    foreach (var method in type.GetMethods())
+                    {
+                        if (method.GetAttributes().Length > 0)
+                            MethodsWithAttributes.Add(method);
+                    }
                 }
-            }
+            });
         }
     }
 }

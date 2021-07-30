@@ -21,6 +21,7 @@
     <!-- Roslyn references. -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.10.0" />
     <PackageReference Include="Microsoft.Build" Version="16.5.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="System.CodeDom" Version="4.7.0" />
   </ItemGroup>
 
@@ -54,8 +55,7 @@
     <Delete Files="@(Generated)" />
   </Target>
 
-  <Target Name="WorkaroundAppConfigPathTooLong"
-    BeforeTargets="GenerateBindingRedirects">
+  <Target Name="WorkaroundAppConfigPathTooLong" BeforeTargets="GenerateBindingRedirects">
     <PropertyGroup>
       <_GenerateBindingRedirectsIntermediateAppConfig>$(IntermediateOutputPath)$(TargetFileName).config</_GenerateBindingRedirectsIntermediateAppConfig>
     </PropertyGroup>
