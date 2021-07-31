@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Kari.Test
@@ -7,7 +8,7 @@ namespace Kari.Test
     {
         public static async Task Stuff()
         {
-            await Task.Delay(1000);
+            Thread.Sleep(1000);
             Console.WriteLine("Delay");
         }
 

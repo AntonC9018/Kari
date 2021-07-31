@@ -8,14 +8,6 @@ namespace Kari.GeneratorCore.CodeAnalysis
 
 	public class RelevantSymbols
 	{
-		public readonly AttributeSymbolWrapper<KariTestAttribute> KariTestAttribute;
-		public readonly AttributeSymbolWrapper<CommandAttribute> CommandAttribute;
-		public readonly AttributeSymbolWrapper<FrontCommandAttribute> FrontCommandAttribute;
-		public readonly AttributeSymbolWrapper<OptionAttribute> OptionAttribute;
-		public readonly AttributeSymbolWrapper<ArgumentAttribute> ArgumentAttribute;
-		public readonly AttributeSymbolWrapper<ParserAttribute> ParserAttribute;
-		public readonly AttributeSymbolWrapper<NiceFlagsAttribute> NiceFlagsAttribute;
-
 		public readonly ITypeSymbol Short;
 		public readonly ITypeSymbol Int;
 		public readonly ITypeSymbol Long;
@@ -35,14 +27,6 @@ namespace Kari.GeneratorCore.CodeAnalysis
 		
 		public RelevantSymbols(Compilation compilation)
 		{
-			KariTestAttribute		= new AttributeSymbolWrapper<KariTestAttribute>			(compilation);
-			CommandAttribute		= new AttributeSymbolWrapper<CommandAttribute>			(compilation);
-			FrontCommandAttribute 	= new AttributeSymbolWrapper<FrontCommandAttribute>		(compilation);
-			OptionAttribute			= new AttributeSymbolWrapper<OptionAttribute>			(compilation);
-			ArgumentAttribute		= new AttributeSymbolWrapper<ArgumentAttribute>			(compilation);
-			ParserAttribute			= new AttributeSymbolWrapper<ParserAttribute>			(compilation);
-			NiceFlagsAttribute		= new AttributeSymbolWrapper<NiceFlagsAttribute>		(compilation);
-
 			Short 	= compilation.GetSpecialType(SpecialType.System_Int16);
 			Int 	= compilation.GetSpecialType(SpecialType.System_Int32);
 			Long 	= compilation.GetSpecialType(SpecialType.System_Int64);

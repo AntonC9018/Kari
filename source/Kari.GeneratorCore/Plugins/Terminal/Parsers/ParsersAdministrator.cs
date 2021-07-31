@@ -1,30 +1,31 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Kari.GeneratorCore;
 using Kari.GeneratorCore.CodeAnalysis;
+using Kari.Plugins.Terminal;
 using Microsoft.CodeAnalysis;
 
-namespace Kari.GeneratorCore
+namespace Kari.Plugins.Terminal
 {
-    public class ParsersAdministrator : AdministratorBase
+    public class ParsersAdministrator : IAdministrator, IAnalyzerMaster<ParsersAnalyzer>
     {
+        public static ParsersAdministrator Instance { get; private set; }
+        public ParsersAnalyzer[] Slaves { get; set; }
+        public IGenerator<ParsersAnalyzer> CreateGenerator() => new ParsersTemplate();
+
         public const int CheckPriority = 1;
         private readonly Dictionary<ITypeSymbol, BuiltinParser> _builtinParsers = new Dictionary<ITypeSymbol, BuiltinParser>();
         private readonly Dictionary<ITypeSymbol, CustomParserInfo> _customParsersTypeMap = new Dictionary<ITypeSymbol, CustomParserInfo>();
 
-        public string GetFullyQualifiedBuiltinGeneratedNamespace()
+        public void Initialize()
         {
-            var project = _masterEnvironment.Resources.Get<TerminalData>().TerminalProject;
-            var parsersFullyQualifiedClassName = project.GetGeneratedNamespace().Combine("Parsers");
-            return parsersFullyQualifiedClassName;
-        }
-
-        public override void Initialize()
-        {
-            AddResourceToAllProjects<ParsersTemplate>();
-            var project = _masterEnvironment.LoadResource(TerminalData.Creator).TerminalProject;
-            var parsersFullyQualifiedClassName = project.GetGeneratedNamespace().Combine("Parsers");
-            var symbols = _masterEnvironment.Symbols;
+            Instance = this;
+            TerminalData.Load();
+            ParserSymbols.Initialize();
+            this.Slaves_Initialize();
+            var parsersFullyQualifiedClassName = TerminalData.GetFullyQualifiedParsersClassNameForDefaultProject();
+            var symbols = MasterEnvironment.SingletonInstance.Symbols;
 
             _builtinParsers.Add(symbols.Int,     new BuiltinParser(parsersFullyQualifiedClassName, "Int")      );
             _builtinParsers.Add(symbols.Short,   new BuiltinParser(parsersFullyQualifiedClassName, "Short")    );
@@ -44,9 +45,6 @@ namespace Kari.GeneratorCore
 
         public void AddParser(CustomParserInfo info)
         {
-            // Kinda meh, since it sort of kills the parallelism.
-            // But it's fine, since we still have to iterate through all the types with attributes
-            // and the custom parsers are relatively sparse anyway.
             lock (_customParsersTypeMap)
             {
                 if (_customParsersTypeMap.TryGetValue(info.Type, out var parser))
@@ -99,19 +97,25 @@ namespace Kari.GeneratorCore
             throw new System.Exception($"Found no parsers for type {argument.Symbol.Type}");
         }  
 
-        public override Task Collect()
+        public Task Collect()
         {
-            return WhenAllResources<ParsersTemplate>((project, parsers) => parsers.CollectInfo(project, this));
+            return this.Slaves_CollectTask();
         }
 
-        public override Task Generate()
+        public Task Generate()
         {
-            return Task.WhenAll( 
-                WriteFilesTask<ParsersTemplate>("Parsers.cs"), 
-                TerminalData.WriteLocalToProjectElseToRootHelper<ParsersMasterTemplate>(this, "ParserBasics.cs"));
+            var slavesTask = this.Slaves_GenerateTask("Parsers.cs");
+            var ownTask = Task.Run(() => {
+                var project = TerminalData.TerminalProject;
+                var template = new ParsersMasterTemplate();
+                template.Project = project;
+                project.WriteLocalFile("ParsersBasics.cs", template.TransformText());
+            });
+
+            return Task.WhenAll(slavesTask, ownTask);
         }
 
-        public override IEnumerable<CallbackInfo> GetCallbacks()
+        public IEnumerable<CallbackInfo> GetCallbacks()
         {
             // TODO: Add the check callback
             yield break;

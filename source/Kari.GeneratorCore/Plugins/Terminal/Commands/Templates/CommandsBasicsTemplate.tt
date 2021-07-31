@@ -1,0 +1,44 @@
+<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeTemplateBase" #>
+<#@ assembly name="System.Core" #>
+
+
+namespace <#= TerminalData.TerminalProject.GeneratedNamespace #>
+{
+    /// <summary>
+    /// The CommandContext class must implement the following duck interface.
+    /// The generated commands will reference the actual CommandContext class instead, 
+    /// so the interface must only be used for reference.
+    /// </summary>
+    public interface IDuckCommandContext
+    {
+        bool HasErrors { get; }
+        T ParseArgument<T>(int argumentIndex, string argumentName, IValueParser<T> parser);
+        bool ParseFlag(string optionName, bool defaultValue = false, bool flagValue = true);
+        T ParseOption<T>(string optionName, IValueParser<T> parser);
+        T ParseOption<T>(string optionName, T defaultValue, IValueParser<T> parser);
+    }
+
+    /// <summary>
+    /// This struct is used in a sort of main function to set the builtin commands below.
+    /// </summary>
+    public readonly struct CommandInfo
+    {
+        public readonly string Name;
+        public readonly CommandBase Command;
+        public CommandInfo(string name, CommandBase command)
+        {
+            Name = name;
+            Command = command;
+        }
+    }
+
+    /// <summary>
+    /// Contains the default commands.
+    /// Warning! This data must be set by an outside script prior to being used.
+    /// You must manually set this array to the correct value.
+    /// </summary>
+    public static class Commands
+    {
+        public static CommandInfo[] BuiltinCommands;
+    }
+}

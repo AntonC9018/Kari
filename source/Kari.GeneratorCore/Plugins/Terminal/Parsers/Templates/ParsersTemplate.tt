@@ -1,19 +1,14 @@
-﻿<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodePrinterBase" #>
+﻿<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeGenerator<ParsersAnalyzer>" #>
 <#@ assembly name="System.Core" #>
-<#@ import namespace="System.Linq" #>
-<#@ import namespace="System.Text" #>
-<#@ import namespace="System.Collections.Generic" #>
 
-<#@ include file="Snippets/header.txt" #>
-
-namespace <#= Namespace #>
+namespace <#= Project.GeneratedNamespace #>
 {
-    using <#= DefinitionsNamespace #>;
+    using <#= m.DefinitionsNamespace #>;
 
     public static partial class Parsers
     {
 <#  } 
-    foreach (var func in _customParserFunctionInfos)
+    foreach (var func in m._customParserFunctionInfos)
     { 
         string parserName = func.Name + "Parser"; #>
         public class <#= parserName #> : IValueParser<<#= func.TypeName #>>
@@ -22,11 +17,9 @@ namespace <#= Namespace #>
         }
         public static readonly <#= parserName #> <#= func.Name #> = new <#= parserName #>();
 <#  } 
-    foreach (var parser in _customParserInfos)
+    foreach (var parser in m._customParserInfos)
     { #>
         public static readonly <#= parser.FullyQualifiedName #> <#= parser.Name #> = new <#= parser.FullyQualifiedName #>();
 <#  } #>
     }
 }
-
-<#@ include file="Snippets/footer.txt" #>

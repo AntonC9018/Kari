@@ -1,0 +1,27 @@
+<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeGenerator<CommandsAdministrator>" #>
+<#@ assembly name="System.Core" #>
+
+namespace <#= /* Here, the namespace is the Runner Project namespace (normally the root) */ Namespace #>
+{
+    public static class CommandsInitialization
+    {
+        public static void InitializeBuiltinCommands()
+        {
+            <# var ns = TerminalData.TerminalProject.GeneratedNamespace; #>
+            <#= ns #>.Commands.BuiltinCommands = new <#= ns #>.CommandInfo[]
+            {
+<#  foreach (var slave in m.Slaves)
+    {
+        foreach (var info in slave._infos)
+        { #>
+                new CommandInfo(name: "<#= info.Name #>", command: new <#= info.Name #>Command()),
+<#      } 
+        foreach (var info in slave._frontInfos)
+        { #>
+                new CommandInfo(name: "<#= info.Name #>", command: new <#= info.Name #>Command()),
+<#      }
+    } #>
+            };
+        };
+    }
+}

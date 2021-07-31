@@ -7,31 +7,50 @@ using Microsoft.CodeAnalysis;
 
 namespace Kari.GeneratorCore.CodeAnalysis
 {
-    public class ProjectEnvironment
+    public class ProjectEnvironmentData
     {
         public readonly string Directory;
         public readonly string NamespaceName;
+        public readonly string GeneratedNamespace;
+        public readonly INamespaceSymbol RootNamespace;
         
-        // Backreference to master
-        public readonly MasterEnvironment Master;
+        public MasterEnvironment Master => MasterEnvironment.SingletonInstance;
         public Compilation Compilation => Master.Compilation;
         public RelevantSymbols Symbols => Master.Symbols;
 
-        // Any registered resources, e.g. Collectors/Templates.
+        public ProjectEnvironmentData(string directory, string namespaceName, INamespaceSymbol rootNamespace)
+        {
+            Directory = directory;
+            NamespaceName = namespaceName;
+            RootNamespace = rootNamespace;
+            GeneratedNamespace = NamespaceName.Combine(Master.GeneratedNamespaceSuffix);
+        }
+
+        /// <summary>
+        /// Writes the text to a file with the given file name, 
+        /// placed in the directory of this project, with the current /Generated suffix appended to it.
+        /// </summary>
+        public void WriteLocalFile(string fileName, string text)
+        {
+            var outputPath = Path.Combine(Directory, Master.GeneratedDirectorySuffix, fileName);
+            File.WriteAllText(outputPath, text);
+        }
+    }
+
+
+    public class ProjectEnvironment : ProjectEnvironmentData
+    {
+        // Any registered resources, like small pieces of data common to the project
         public readonly Resources<object> Resources = new Resources<object>(5);
 
         // Cached symbols
-        public readonly INamespaceSymbol RootNamespace;
         public readonly List<INamedTypeSymbol> Types = new List<INamedTypeSymbol>();
         public readonly List<INamedTypeSymbol> TypesWithAttributes = new List<INamedTypeSymbol>();
-        public readonly List<IMethodSymbol> MethodsWithAttributes = new List<IMethodSymbol>(); 
-        
-        public ProjectEnvironment(MasterEnvironment master, INamespaceSymbol rootNamespace, string namespaceName, string rootDirectory)
+        public readonly List<IMethodSymbol> MethodsWithAttributes = new List<IMethodSymbol>();
+
+        public ProjectEnvironment(string directory, string namespaceName, INamespaceSymbol rootNamespace) 
+            : base(directory, namespaceName, rootNamespace)
         {
-            Master = master;
-            RootNamespace = rootNamespace;
-            NamespaceName = namespaceName;
-            Directory = rootDirectory;
         }
 
         /// <summary>
@@ -54,35 +73,6 @@ namespace Kari.GeneratorCore.CodeAnalysis
                     }
                 }
             });
-        }
-
-        /// <summary>
-        /// Writes the text to a file with the given file name, 
-        /// placed in the directory of this project, with the current /Generated suffix appended to it.
-        /// </summary>
-        public void WriteLocalFile(string fileName, string text)
-        {
-            var outputPath = Path.Combine(Directory, Master.GeneratedDirectorySuffix, fileName);
-            File.WriteAllText(outputPath, text);
-        }
-
-        public string GetGeneratedNamespace()
-        {
-            return NamespaceName.Combine(Master.GeneratedNamespaceSuffix);
-        }
-
-        public void WriteLocalWithTemplate(string fileName, ITemplate template)
-        {
-            if (template.ShouldWrite())
-            {
-                template.Namespace = GetGeneratedNamespace();
-                WriteLocalFile(fileName, template.TransformText());
-            }
-        }
-
-        public void WriteLocalWithTemplateResource<TemplateT>(string fileName) where TemplateT : ITemplate
-        {
-            WriteLocalWithTemplate(fileName, Resources.Get<TemplateT>());
         }
     }
 }

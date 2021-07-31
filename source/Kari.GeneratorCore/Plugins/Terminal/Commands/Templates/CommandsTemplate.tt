@@ -1,0 +1,17 @@
+﻿<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeGenerator<CommandsAnalyzer>" #>
+<#@ assembly name="System.Core" #>
+
+
+namespace <#= Namespace #>
+{
+<#  foreach (var info in m._infos) 
+    { 
+        Write(m.TransformCommand(info, "    "));
+        Write("\n");
+    } 
+    foreach (var info in m._frontInfos)
+    {
+        Write(m.TransformFrontCommand(info, "    "));
+        Write("\n");
+    } #>
+}

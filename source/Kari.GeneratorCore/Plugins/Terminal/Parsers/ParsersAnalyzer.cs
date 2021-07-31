@@ -2,8 +2,50 @@ using System.Collections.Generic;
 using Kari.GeneratorCore.CodeAnalysis;
 using Microsoft.CodeAnalysis;
 
-namespace Kari.GeneratorCore
+namespace Kari.Plugins.Terminal
 {
+    public partial class ParsersAnalyzer : IAnalyzer
+    {
+        public string DefinitionsNamespace => TerminalData.TerminalProject.GeneratedNamespace;
+        public readonly List<CustomParserInfo> _customParserInfos;
+        public readonly List<CustomParserInfo> _customParserFunctionInfos;
+
+        public ParsersAnalyzer()
+        {
+            _customParserInfos         = new List<CustomParserInfo>();
+            _customParserFunctionInfos = new List<CustomParserInfo>();
+        }
+
+        public void Collect(ProjectEnvironment environment)
+        {
+            string parsersFullyQualifiedClassName = TerminalData.GetFullyQualifiedParsersClassNameForProject(environment);
+
+            var symbols = environment.Symbols;
+
+            foreach (var type in environment.TypesWithAttributes)
+            {
+                if (type.TryGetAttribute(ParserSymbols.ParserAttribute, out var parserAttribute))
+                {
+                    var info = new CustomParserInfo(type, parserAttribute, parsersFullyQualifiedClassName);
+                    _customParserInfos.Add(info);
+                    ParsersAdministrator.Instance.AddParser(info);
+                }
+            }
+
+            foreach (var method in environment.MethodsWithAttributes)
+            {
+                if (!method.IsStatic) continue;
+
+                if (method.TryGetAttribute(ParserSymbols.ParserAttribute, out var parserAttribute))
+                {
+                    var info = new CustomParserInfo(method, parserAttribute, parsersFullyQualifiedClassName);
+                    _customParserFunctionInfos.Add(info);
+                    ParsersAdministrator.Instance.AddParser(info);
+                }
+            }
+        }     
+    }
+    
     public interface IParserInfo
     {
         string Name { get; }
@@ -54,49 +96,5 @@ namespace Kari.GeneratorCore
         public string Name => Attribute.Name;
         public string FullName { get; }
         public CustomParserInfo Next { get; set; }
-    }
-    
-
-    public partial class ParsersTemplate
-    {
-        private string DefinitionsNamespace;
-        private readonly List<CustomParserInfo> _customParserInfos;
-        private readonly List<CustomParserInfo> _customParserFunctionInfos;
-
-        public ParsersTemplate()
-        {
-            _customParserInfos         = new List<CustomParserInfo>();
-            _customParserFunctionInfos = new List<CustomParserInfo>();
-        }
-
-        public void CollectInfo(ProjectEnvironment environment, ParsersAdministrator master)
-        {
-            Namespace = environment.GetGeneratedNamespace();
-            var parsersFullyQualifiedClassName = Namespace.Combine("Parsers");
-
-            var symbols = environment.Symbols;
-
-            foreach (var type in environment.TypesWithAttributes)
-            {
-                if (type.TryGetAttribute(symbols.ParserAttribute, out var parserAttribute))
-                {
-                    var info = new CustomParserInfo(type, parserAttribute, parsersFullyQualifiedClassName);
-                    _customParserInfos.Add(info);
-                    master.AddParser(info);
-                }
-            }
-
-            foreach (var method in environment.MethodsWithAttributes)
-            {
-                if (!method.IsStatic) continue;
-
-                if (method.TryGetAttribute(symbols.ParserAttribute, out var parserAttribute))
-                {
-                    var info = new CustomParserInfo(method, parserAttribute, parsersFullyQualifiedClassName);
-                    _customParserFunctionInfos.Add(info);
-                    master.AddParser(info);
-                }
-            }
-        }     
     }
 }

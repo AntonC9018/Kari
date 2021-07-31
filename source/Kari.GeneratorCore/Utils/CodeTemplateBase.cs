@@ -6,18 +6,24 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace Kari.GeneratorCore 
+namespace Kari.GeneratorCore
 {
-    public interface ITemplate
+    public interface ICodeTemplate
     {
+        /// <summary>
+        /// Returns true if anything valuable will be generated once TransformText() is run.
+        /// For example, if the model contains no data, this would return true, since the generated
+        /// code will just include the namespace declaration and potentially the usings.
+        /// </summary>
         bool ShouldWrite();
+        /// <summary>
+        /// Generates code as a string.
+        /// </summary>
         string TransformText();
-        public string Namespace { get; set; }
     }
 
-    public abstract class CodePrinterBase : ITemplate
+    public abstract class CodeTemplateBase : ICodeTemplate
     {
-        public string Namespace { get; set; }
         private StringBuilder builder = new StringBuilder();
         private Dictionary<string, object> session = new Dictionary<string, object>();
         private CompilerErrorCollection errors = new CompilerErrorCollection();
@@ -37,7 +43,7 @@ namespace Kari.GeneratorCore
         public string CurrentIndent => currentIndent;
         private int Indent => indent;
         public ToStringInstanceHelper ToStringHelper => this._toStringHelper;
-        
+
         public void Error(string message) 
         {
             Errors.Add(new CompilerError(null, -1, -1, null, message));
@@ -145,11 +151,8 @@ namespace Kari.GeneratorCore
 
         public virtual void Initialize(){}
 
-        public virtual bool ShouldWrite() 
-        {
-            return true;
-        }
-        
+        public virtual bool ShouldWrite() => true;
+
         public class ToStringInstanceHelper 
         {
             private IFormatProvider formatProvider = System.Globalization.CultureInfo.InvariantCulture;

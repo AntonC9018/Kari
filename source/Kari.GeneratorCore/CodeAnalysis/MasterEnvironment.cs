@@ -43,29 +43,34 @@ namespace Kari.GeneratorCore.CodeAnalysis
 
     public class MasterEnvironment
     {
+        public static MasterEnvironment SingletonInstance { get; private set; }
         public string GeneratedDirectorySuffix { get; set; } = "Generated";
         public string GeneratedNamespaceSuffix => GeneratedDirectorySuffix;
-        public string GeneratedRootNamespaceName => RootNamespaceName.Combine(GeneratedNamespaceSuffix);
-        public readonly string ProjectRootDirectory;
+
+        public readonly ProjectEnvironmentData RootPseudoProject;
+        public INamespaceSymbol RootNamespace => RootPseudoProject.RootNamespace;
+        public string ProjectRootDirectory => RootPseudoProject.Directory;
+
         public readonly CancellationToken CancellationToken;
         public readonly Compilation Compilation;
         public readonly RelevantSymbols Symbols;
         /// The very root namespace of the project.
-        public readonly INamespaceSymbol RootNamespace;
         public readonly string RootNamespaceName;
         public readonly List<ProjectEnvironment> Projects = new List<ProjectEnvironment>();
-        public readonly Resources<AdministratorBase> Administrators = new Resources<AdministratorBase>(5);
-        public readonly Resources<object> Resources = new Resources<object>(5);
+        public readonly List<IAdministrator> Administrators = new List<IAdministrator>(5);
 
-
+        /// <summary>
+        /// Initializes the MasterEnvironment and replaces the global singleton instance.
+        /// </summary>
         public MasterEnvironment(Compilation compilation, string rootNamespace, string rootDirectory, CancellationToken cancellationToken)
         {
             CancellationToken = cancellationToken;
             Compilation = compilation;
             Symbols = new RelevantSymbols(compilation);
             RootNamespaceName = rootNamespace;
-            RootNamespace = Compilation.GetNamespace(rootNamespace);
-            ProjectRootDirectory = rootDirectory;
+            RootPseudoProject = new ProjectEnvironmentData(
+                rootDirectory, rootNamespace, Compilation.GetNamespace(rootNamespace));
+            SingletonInstance = this;
         }
 
         public void FindProjects()
@@ -107,7 +112,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
                     // Check if any folders exist besided Editor folder
                     || Directory.EnumerateDirectories(projectDirectory).Any(path => !path.EndsWith("Editor")))
                 {
-                    var environment = new ProjectEnvironment(this, projectNamespace, namespaceName, projectDirectory);
+                    var environment = new ProjectEnvironment(projectDirectory, namespaceName, projectNamespace);
                     // TODO: Assume no duplicates for now, but this will have to be error-checked.
                     Projects.Add(environment);
                 }
@@ -135,34 +140,23 @@ namespace Kari.GeneratorCore.CodeAnalysis
                     System.Console.WriteLine($"Found an editor project {namespaceName}, but no `Editor` folder.");
                     continue;
                 }
-                var editorEnvironment = new ProjectEnvironment(this, editorProjectNamespace, namespaceName + ".Editor", editorDirectory);
+                var editorEnvironment = new ProjectEnvironment(editorDirectory, namespaceName + ".Editor", editorProjectNamespace);
                 Projects.Add(editorEnvironment);
             }
         }
 
-        public TResource LoadResource<TResource>(System.Func<MasterEnvironment, TResource> Creator)
-        {
-            if (!Resources.Contains<TResource>())
-            {
-                var t = Creator(this);
-                Resources.Add(t);
-                return t;
-            }
-            return Resources.Get<TResource>();
-        }
-
         public void InitializeAdministrators()
         {
-            foreach (var admin in Administrators.Items)
+            foreach (var admin in Administrators)
             {
-                admin.Initialize(this);
+                admin.Initialize();
             }
         }
 
         public Task Collect()
         {
             var cachingTasks = Projects.Select(project => project.Collect());
-            var managerTasks = Administrators.Items.Select(admin => admin.Collect());
+            var managerTasks = Administrators.Select(admin => admin.Collect());
             return Task.Factory.ContinueWhenAll(
                 cachingTasks.ToArray(), (_) => Task.WhenAll(managerTasks), CancellationToken);
         }
@@ -170,7 +164,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
         public void RunCallbacks()
         {
             var infos = new List<CallbackInfo>(); 
-            foreach (var admin in Administrators.Items)
+            foreach (var admin in Administrators)
             foreach (var callback in admin.GetCallbacks())
             {
                 infos.Add(callback);
@@ -186,7 +180,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
 
         public Task GenerateCode()
         {
-            var managerTasks = Administrators.Items.Select(admin => admin.Generate());
+            var managerTasks = Administrators.Select(admin => admin.Generate());
             return Task.WhenAll(managerTasks);
         }
     }
@@ -203,33 +197,19 @@ namespace Kari.GeneratorCore.CodeAnalysis
         }
     }
 
-    public abstract class AdministratorBase
+    public interface IAdministrator
     {
-        /// <summary>
-        /// This member was made public to simplify writing extension methods.
-        /// </summary>
-        public MasterEnvironment _masterEnvironment;
-
-        /// <summary>
-        /// Method called by MasterEnvironment when it initializes the administrators.
-        /// </summary>
-        public void Initialize(MasterEnvironment masterEnvironment)
-        {
-            _masterEnvironment = masterEnvironment;
-            Initialize();
-        }
-
         /// <summary>
         /// Method called after a reference to MasterEnvironment has been set.
         /// The MasterEnvironment already contains the projects at this point.
         /// </summary>
-        public virtual void Initialize() {}
+        void Initialize();
 
         /// <summary>
         /// The method called asynchronously by the MasterEnvironment to initiate the symbol collection process.
         /// You must initiate the symbol collecting processes of the resources you control.
         /// </summary>
-        public abstract Task Collect();
+        Task Collect();
 
         /// <summary>
         /// The method through which the MasterEnvironment figures out the dependencies between the different
@@ -239,68 +219,90 @@ namespace Kari.GeneratorCore.CodeAnalysis
         /// right before or right after theirs, by setting the priority of your handler to a lower or to 
         /// a higher value respectively.
         /// </summary>
-        public abstract IEnumerable<CallbackInfo> GetCallbacks();
+        IEnumerable<CallbackInfo> GetCallbacks();
 
         /// <summary>
         /// The method called asynchronously by the MasterEnvironment to initiate the code generation process.
         /// </summary>
-        public abstract Task Generate();
+        Task Generate();
+    }
+    
+    public interface IAnalyzer
+    {
+        void Collect(ProjectEnvironment project);
+    }
 
+    public interface IAnalyzerMaster<T> : IAdministrator where T : IAnalyzer
+    {
+        T[] Slaves { get; set; }
+        IGenerator<T> CreateGenerator();
+        
+    }
 
-        public void AddResourceToAllProjects<TResource>() where TResource : new()
+    public static class AnalyzerMasterHelpers
+    {
+        public static void Slaves_Initialize<T>(this IAnalyzerMaster<T> master) 
+            where T : IAnalyzer, new()
         {
-            foreach (var project in _masterEnvironment.Projects)
+            var projects = MasterEnvironment.SingletonInstance.Projects;
+            var slaves = new T[projects.Count]; 
+            master.Slaves = slaves;
+            for (int i = 0; i < projects.Count; i++)
             {
-                project.Resources.Add<TResource>(new TResource());
+                slaves[i] = new T();
             }
         }
 
-        public IEnumerable<TResource> GetResourceFromAllProjects<TResource>()
+        public static void Slaves_Collect<T>(this IAnalyzerMaster<T> master) 
+            where T : IAnalyzer
         {
-            foreach (var project in _masterEnvironment.Projects)
+            var projects = MasterEnvironment.SingletonInstance.Projects;
+            var slaves = master.Slaves;
+            for (int i = 0; i < slaves.Length; i++)
             {
-                yield return project.Resources.Get<TResource>();
+                slaves[i].Collect(projects[i]);
             }
         }
 
-        public Task WhenAllResources<TResource>(System.Func<ProjectEnvironment, TResource, Task> mapper)
+        public static Task Slaves_CollectTask<T>(this IAnalyzerMaster<T> master) 
+            where T : IAnalyzer
         {
-            var tasks = _masterEnvironment.Projects.Select(
-                project => mapper(project, project.Resources.Get<TResource>()));
-
-            return Task.WhenAll(tasks);
+            return Task.Run(() => Slaves_Collect(master));
         }
 
-        public Task WhenAllResources<TResource>(System.Action<ProjectEnvironment, TResource> action)
+        public static void Slaves_Generate<T>(this IAnalyzerMaster<T> master, string fileName)
+            where T : IAnalyzer
         {
-            return Task.Run(() => {
-                foreach (var project in _masterEnvironment.Projects)
-                {
-                    action(project, project.Resources.Get<TResource>());
-                }
-            });
-        }
-
-        public Task WriteFilesTask<TemplateT>(string fileName) where TemplateT : ITemplate 
-        {
-            return Task.Run(() =>
+            var projects = MasterEnvironment.SingletonInstance.Projects;
+            var slaves = master.Slaves;
+            var generator = master.CreateGenerator();
+            for (int i = 0; i < slaves.Length; i++)
             {
-                foreach (var project in _masterEnvironment.Projects)
+                generator.m = slaves[i];
+                generator.Project = projects[i];
+
+                if (generator.ShouldWrite())
                 {
-                    project.WriteLocalWithTemplateResource<TemplateT>(fileName);
+                    projects[i].WriteLocalFile(fileName, generator.TransformText());
                 }
-            });
+            }
+        } 
+
+        public static Task Slaves_GenerateTask<T>(this IAnalyzerMaster<T> master, string fileName) 
+            where T : IAnalyzer
+        {
+            return Task.Run(() => Slaves_Generate(master, fileName));
         }
 
-        public void WriteOwnFile(string fileName, string text)
+        public static IEnumerable<(ProjectEnvironment, T)> ProjectSlave_Enumerate<T>(this IAnalyzerMaster<T> master) 
+            where T : IAnalyzer
         {
-            var outputPath = Path.Combine(_masterEnvironment.ProjectRootDirectory, _masterEnvironment.GeneratedDirectorySuffix, fileName);
-            File.WriteAllText(outputPath, text);
-        }
-
-        public Task WriteOwnFileTask(string fileName, string text) 
-        {
-            return Task.Run(() => WriteOwnFile(fileName, text));
+            var projects = MasterEnvironment.SingletonInstance.Projects;
+            var slaves = master.Slaves;
+            for (int i = 0; i < slaves.Length; i++)
+            {
+                yield return (projects[i], slaves[i]);
+            }
         }
     }
 }

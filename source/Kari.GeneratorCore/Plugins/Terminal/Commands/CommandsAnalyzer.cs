@@ -1,18 +1,19 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using Kari.GeneratorCore;
 using Kari.GeneratorCore.CodeAnalysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace Kari.GeneratorCore
+namespace Kari.Plugins.Terminal
 {
-    public partial class CommandsTemplate
+    public partial class CommandsAnalyzer : IAnalyzer
     {
-        private readonly List<CommandMethodInfo> _infos;
-        private readonly List<FrontCommandMethodInfo> _frontInfos;
+        public readonly List<CommandMethodInfo> _infos;
+        public readonly List<FrontCommandMethodInfo> _frontInfos;
 
-        public CommandsTemplate()
+        public CommandsAnalyzer()
         {
             _infos = new List<CommandMethodInfo>();
             _frontInfos = new List<FrontCommandMethodInfo>();
@@ -24,15 +25,15 @@ namespace Kari.GeneratorCore
             {
                 if (!method.IsStatic) continue;
                 
-                if (method.TryGetAttribute(environment.Symbols.CommandAttribute, out var commandAttribute))
+                if (method.TryGetAttribute(CommandSymbols.CommandAttribute, out var commandAttribute))
                 {
                     // TODO: check if the name is valid (it has not been submitted already)
                     var info = new CommandMethodInfo(method, commandAttribute);
-                    info.CollectInfo(environment);
+                    info.Collect(environment);
                     _infos.Add(info);
                 }
                 
-                if (method.TryGetAttribute(environment.Symbols.FrontCommandAttribute, out var frontCommandAttribute))
+                if (method.TryGetAttribute(CommandSymbols.FrontCommandAttribute, out var frontCommandAttribute))
                 {
                     var info = new FrontCommandMethodInfo(method, frontCommandAttribute);
                     _frontInfos.Add(info);
@@ -40,15 +41,15 @@ namespace Kari.GeneratorCore
             }
         }
 
-        public void InitializeParsers(ParsersAdministrator parsers)
+        public void InitializeParsers()
         {
             for (int i = 0; i < _infos.Count; i++)
             {
-                _infos[i].InitializeParsers(parsers);
+                _infos[i].InitializeParsers();
             }
         }
 
-        private string TransformFrontCommand(FrontCommandMethodInfo info,  string initialIndentation = "")
+        public string TransformFrontCommand(FrontCommandMethodInfo info,  string initialIndentation = "")
         {
             var builder = new CodeBuilder(indentation: "    ", initialIndentation);
             var className = $"{info.Name}Command";
@@ -61,7 +62,7 @@ namespace Kari.GeneratorCore
             return builder.ToString();
         }
 
-        private string TransformCommand(CommandMethodInfo info, string initialIndentation = "")
+        public string TransformCommand(CommandMethodInfo info, string initialIndentation = "")
         {
             var classBuilder = new CodeBuilder(indentation: "    ", initialIndentation);
             var className = $"{info.Name}Command";
@@ -293,13 +294,13 @@ namespace Kari.GeneratorCore
             Options = new List<OptionInfo>();
         }
 
-        public void CollectInfo(ProjectEnvironment environment)
+        public void Collect(ProjectEnvironment environment)
         {
             for (int i = 0; i < Symbol.Parameters.Length; i++)
             {
                 var parameter = Symbol.Parameters[i];
                 // TODO: check if the name is valid (unique among arguments)
-                if (parameter.TryGetAttribute(environment.Symbols.ArgumentAttribute, out var argumentAttribute))
+                if (parameter.TryGetAttribute(CommandSymbols.ArgumentAttribute, out var argumentAttribute))
                 {
                     var argInfo = new ArgumentInfo(parameter, argumentAttribute);
                     if (!argumentAttribute.IsOptionLike)
@@ -313,7 +314,7 @@ namespace Kari.GeneratorCore
                     continue;
                 }
                 // TODO: check if the name is valid (unique among options)
-                if (parameter.TryGetAttribute(environment.Symbols.OptionAttribute, out var optionAttribute))
+                if (parameter.TryGetAttribute(CommandSymbols.OptionAttribute, out var optionAttribute))
                 {
                     var option = new OptionInfo(parameter, optionAttribute);
                     
@@ -330,19 +331,19 @@ namespace Kari.GeneratorCore
             }
         }
 
-        public void InitializeParsers(ParsersAdministrator parsers)
+        public void InitializeParsers()
         {
             for (int i = 0; i < PositionalArguments.Count; i++)
             {
-                PositionalArguments[i].InitializeParser(parsers);
+                PositionalArguments[i].InitializeParser();
             }
             for (int i = 0; i < OptionLikeArguments.Count; i++)
             {
-                OptionLikeArguments[i].InitializeParser(parsers);
+                OptionLikeArguments[i].InitializeParser();
             }
             for (int i = 0; i < Options.Count; i++)
             {
-                Options[i].InitializeParser(parsers);
+                Options[i].InitializeParser();
             }
         }
     }
@@ -354,12 +355,16 @@ namespace Kari.GeneratorCore
         IArgument GetAttribute();
     }
 
-    public abstract class ArgumentBase
+    public abstract class ArgumentBase : IArgumentInfo
     {
         public IParameterSymbol Symbol { get; }
+        public IParserInfo Parser { get; protected set; }
         private string _defaultValueText;
         public string DefaultValueText => (_defaultValueText is null) ? "default" : _defaultValueText;
         public bool HasDefaultValue => !(_defaultValueText is null);
+        public string Name => GetAttribute().Name;
+        public abstract IArgument GetAttribute();
+
 
         protected ArgumentBase(IParameterSymbol symbol)
         {
@@ -367,14 +372,17 @@ namespace Kari.GeneratorCore
             var syntax = (ParameterSyntax) symbol.DeclaringSyntaxReferences[0].GetSyntax();
             _defaultValueText = syntax.Default?.Value.ToString();
         }
+
+        public void InitializeParser()
+        {
+            Parser = ParsersAdministrator.Instance.GetParser(this);
+        }
     }
 
     public class ArgumentInfo : ArgumentBase, IArgumentInfo
     {
         public ArgumentAttribute Attribute { get; }
-        public IParserInfo Parser { get; private set; }
-        public string Name => Attribute.IsOptionLike ? Attribute.Name : Symbol.Name;
-        IArgument IArgumentInfo.GetAttribute() => Attribute;
+        public override IArgument GetAttribute() => Attribute;
 
         public ArgumentInfo(IParameterSymbol symbol, ArgumentAttribute argumentAttribute)
             : base(symbol)
@@ -382,30 +390,18 @@ namespace Kari.GeneratorCore
             Attribute = argumentAttribute;
             Attribute.Name ??= symbol.Name;
         }
-
-        public void InitializeParser(ParsersAdministrator parsers)
-        {
-            Parser = parsers.GetParser(this);
-        }
     }
 
     public class OptionInfo : ArgumentBase, IArgumentInfo
     {
-        public IParserInfo Parser { get; private set; }
         public OptionAttribute Attribute { get; }
-        public string Name => Attribute.Name;
-        IArgument IArgumentInfo.GetAttribute() => Attribute;
+        public override IArgument GetAttribute() => Attribute;
 
         public OptionInfo(IParameterSymbol symbol, OptionAttribute optionAttribute)
             : base(symbol)
         {
             Attribute = optionAttribute;
             Attribute.Name ??= symbol.Name;
-        }
-
-        public void InitializeParser(ParsersAdministrator parsers)
-        {
-            Parser = parsers.GetParser(this);
         }
     }
 }
