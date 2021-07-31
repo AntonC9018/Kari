@@ -5,8 +5,6 @@ VisualStudioVersion = 15.0.26124.0
 MinimumVisualStudioVersion = 15.0.26124.0
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Test", "Kari.Test\Kari.Test.csproj", "{9057EB86-59DD-43AA-9137-4D272A27BA52}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Shared", "Kari.Shared\Kari.Shared.csproj", "{9518FA33-4726-403D-B9ED-10AAE265AB8B}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Generator", "Kari.Generator\Kari.Generator.csproj", "{1248AE24-87D8-43CB-9A24-AF0FDADFF999}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.GeneratorCore", "Kari.GeneratorCore\Kari.GeneratorCore.csproj", "{9FD2251F-CCD8-4127-BAD1-A31ED38AD253}"
@@ -36,18 +34,6 @@ Global
 		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Release|x64.Build.0 = Release|Any CPU
 		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Release|x86.ActiveCfg = Release|Any CPU
 		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Release|x86.Build.0 = Release|Any CPU
-		{9518FA33-4726-403D-B9ED-10AAE265AB8B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9518FA33-4726-403D-B9ED-10AAE265AB8B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9518FA33-4726-403D-B9ED-10AAE265AB8B}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{9518FA33-4726-403D-B9ED-10AAE265AB8B}.Debug|x64.Build.0 = Debug|Any CPU
-		{9518FA33-4726-403D-B9ED-10AAE265AB8B}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{9518FA33-4726-403D-B9ED-10AAE265AB8B}.Debug|x86.Build.0 = Debug|Any CPU
-		{9518FA33-4726-403D-B9ED-10AAE265AB8B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9518FA33-4726-403D-B9ED-10AAE265AB8B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9518FA33-4726-403D-B9ED-10AAE265AB8B}.Release|x64.ActiveCfg = Release|Any CPU
-		{9518FA33-4726-403D-B9ED-10AAE265AB8B}.Release|x64.Build.0 = Release|Any CPU
-		{9518FA33-4726-403D-B9ED-10AAE265AB8B}.Release|x86.ActiveCfg = Release|Any CPU
-		{9518FA33-4726-403D-B9ED-10AAE265AB8B}.Release|x86.Build.0 = Release|Any CPU
 		{1248AE24-87D8-43CB-9A24-AF0FDADFF999}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1248AE24-87D8-43CB-9A24-AF0FDADFF999}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1248AE24-87D8-43CB-9A24-AF0FDADFF999}.Debug|x64.ActiveCfg = Debug|Any CPU

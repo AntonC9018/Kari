@@ -4,9 +4,5 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
-  
-  <ItemGroup>
-    <ProjectReference Include="../Kari.Shared/Kari.Shared.csproj"/>
-  </ItemGroup>
 
 </Project>

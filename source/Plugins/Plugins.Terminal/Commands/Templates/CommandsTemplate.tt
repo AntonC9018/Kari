@@ -1,8 +1,8 @@
 ﻿<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeGenerator<CommandsAnalyzer>" #>
 <#@ assembly name="System.Core" #>
+<#@ import namespace="Kari.GeneratorCore" #>
 
-
-namespace <#= Namespace #>
+namespace <#= Project.GeneratedNamespace #>
 {
 <#  foreach (var info in m._infos) 
     { 

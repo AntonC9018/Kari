@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -23,7 +24,26 @@ namespace Kari.GeneratorCore.CodeAnalysis
             }
         }
 
-        public static IEnumerable<System.Type> GetAdministratorTypes()
+        public static void LoadPluginsPaths(string[] paths)
+        {
+            for (int i = 0; i < paths.Length; i++)
+            {
+                var extension = Path.GetExtension(paths[i]);
+                if (extension.Equals(".dll", StringComparison.OrdinalIgnoreCase))
+                {
+                    // if (File.Exists(paths[i]))
+                    {
+                        LoadPlugin(paths[i]);
+                    }
+                }
+                else
+                {
+                    LoadPluginsDirectory(paths[i]);
+                }
+            }
+        }
+
+        private static IEnumerable<System.Type> GetAdministratorTypes()
         {
             return Plugins.SelectMany(dll => dll.GetExportedTypes())
                 .Where(type => typeof(IAdministrator).IsAssignableFrom(type) && !type.IsAbstract);

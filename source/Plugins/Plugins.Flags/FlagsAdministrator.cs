@@ -1,12 +1,13 @@
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using Kari.GeneratorCore;
 using Kari.GeneratorCore.CodeAnalysis;
 
 namespace Kari.Plugins.Flags
 {
+    using System.Text.RegularExpressions;
+    using Kari.Plugins.Templates;
 
     public class FlagsAdministrator : IAdministrator, IAnalyzerMaster<FlagsAnalyzer>
     {

@@ -5,56 +5,24 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Newtonsoft.Json.Linq;
 
 namespace Kari.GeneratorCore.CodeAnalysis
 {
-    public static class Workflow
-    {
-        /// The order is:
-        ///     Create MasterEnvironment;
-        ///     FindProjects()
-        ///     Add Managers
-        ///     InitializeManagers()
-        ///     Run Collect()
-        ///     Initialize Managers callbacks 
-        ///     Sort the callbacks by priotity
-        ///     Run the callbacks in order
-        ///     Exit on any errors
-        ///     Generate code via Managers.
-
-        public static async Task Main(Compilation Compilation)
-        {
-            var tokenSource = new CancellationTokenSource();
-            var master = new MasterEnvironment(Compilation, "SomeProject", "SomeFolder", tokenSource.Token);
-            master.FindProjects();
-            
-            // master.Managers.Add(new CommandsMaster());
-            // Or a reflection based solution.
-            master.AddAllAdministrators();
-
-            master.InitializeAdministrators();
-            await master.Collect();
-            master.RunCallbacks();
-            await master.GenerateCode();
-        }
-    }
-
-
     public class MasterEnvironment
     {
         public static MasterEnvironment SingletonInstance { get; private set; }
         public string GeneratedDirectorySuffix { get; set; } = "Generated";
         public string GeneratedNamespaceSuffix => GeneratedDirectorySuffix;
 
-        public readonly ProjectEnvironmentData RootPseudoProject;
+        public ProjectEnvironmentData RootPseudoProject { get; private set; }
         public INamespaceSymbol RootNamespace => RootPseudoProject.RootNamespace;
         public string ProjectRootDirectory => RootPseudoProject.Directory;
+        public Compilation Compilation { get; private set; }
+        public RelevantSymbols Symbols { get; private set; }
 
         public readonly CancellationToken CancellationToken;
-        public readonly Compilation Compilation;
-        public readonly RelevantSymbols Symbols;
-        /// The very root namespace of the project.
         public readonly string RootNamespaceName;
         public readonly List<ProjectEnvironment> Projects = new List<ProjectEnvironment>();
         public readonly List<IAdministrator> Administrators = new List<IAdministrator>(5);
@@ -62,15 +30,22 @@ namespace Kari.GeneratorCore.CodeAnalysis
         /// <summary>
         /// Initializes the MasterEnvironment and replaces the global singleton instance.
         /// </summary>
-        public MasterEnvironment(Compilation compilation, string rootNamespace, string rootDirectory, CancellationToken cancellationToken)
+        public MasterEnvironment(string rootNamespace, string rootDirectory, CancellationToken cancellationToken)
         {
             CancellationToken = cancellationToken;
-            Compilation = compilation;
-            Symbols = new RelevantSymbols(compilation);
             RootNamespaceName = rootNamespace;
-            RootPseudoProject = new ProjectEnvironmentData(
-                rootDirectory, rootNamespace, Compilation.GetNamespace(rootNamespace));
             SingletonInstance = this;
+        }
+
+        public void InitializeCompilation(string rootDirectory, ref Compilation compilation)
+        {
+            compilation = compilation.AddSyntaxTrees(
+                Administrators.Select(a => 
+                    CSharpSyntaxTree.ParseText(a.GetAnnotations())));
+            Symbols = new RelevantSymbols(compilation);
+            RootPseudoProject = new ProjectEnvironmentData(
+                rootDirectory, RootNamespaceName, Compilation.GetNamespace(RootNamespaceName));
+            Compilation = compilation;
         }
 
         public void FindProjects()
@@ -199,6 +174,12 @@ namespace Kari.GeneratorCore.CodeAnalysis
 
     public interface IAdministrator
     {
+        /// <summary>
+        /// Get the content of the file with annotations associated with the given administrator.
+        /// This information will be used to update the existing compilation.
+        /// </summary>
+        string GetAnnotations();
+
         /// <summary>
         /// Method called after a reference to MasterEnvironment has been set.
         /// The MasterEnvironment already contains the projects at this point.

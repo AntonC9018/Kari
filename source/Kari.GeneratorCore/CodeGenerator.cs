@@ -35,102 +35,38 @@ namespace Kari.GeneratorCore
            Compilation compilation,
            string rootNamespace,
            string outputDirectoryOrFile,
-           bool writeAttributes,
-           bool clearOutputDirectory)
+           bool clearOutputDirectory,
+           string[] pluginsPaths)
         {
-            var namespaceDot = string.IsNullOrWhiteSpace(outNamespace) ? string.Empty : outNamespace + ".";
-            bool hadAnnotations = compilation.ContainsSymbolsWithName(nameof(Kari.KariWeirdDetectionAttribute));
-
-            // Perhaps not the most ideal check, but I'm sure it will work out.
-            if (!hadAnnotations)
-            {
-                compilation = compilation.AddSyntaxTrees(CSharpSyntaxTree.ParseText(DummyAttributes.Text));
-            }
             
             // =======================================================================
-            var sw = Stopwatch.StartNew(); logger("Project Compilation Start: " + compilation.AssemblyName);
-
-            var environment = new Environment(compilation, rootNamespace, logger);
-            var parsersTemplate   = new ParsersTemplate();
-            var commandsTemplate  = new CommandsTemplate();
-            var flagsTemplate     = new FlagsTemplate();
-
-            flagsTemplate.Namespace = outNamespace;
-
-            // TODO: Both the output folder and the namespace should be configurable per project (e.g. asmdef)
-            commandsTemplate.Namespace = rootNamespace + ".CommandTerminal.Generated";
-            parsersTemplate.Namespace = rootNamespace + ".CommandTerminal.Generated";
-
-            logger("Project Compilation Complete:" + sw.Elapsed.ToString());
-
-            // =======================================================================
-            logger("Method Collect Start"); sw.Restart();
-            environment.Collect();
-            parsersTemplate.CollectInfo(environment);
-            commandsTemplate.CollectInfo(environment, parsersTemplate);
-            flagsTemplate.CollectInfo(environment);
-            logger("Method Collect Complete:" + sw.Elapsed.ToString());
-
-            // =======================================================================
-            logger("Output Generation Start"); sw.Restart();
-            if (Path.GetExtension(outputDirectoryOrFile) != ".cs")
+            var sw = new Stopwatch(); 
+            
+            void Measure(string name, System.Action action)
             {
-                var outputDirectory = outputDirectoryOrFile;
-                if (Directory.Exists(outputDirectory))
-                {
-                    if (clearOutputDirectory)
-                    {
-                        foreach (var file in Directory.EnumerateFiles(outputDirectory, "*.cs"))
-                        {
-                            File.Delete(file);
-                        }
-                    }
-                }
-                else
-                {
-                    Directory.CreateDirectory(outputDirectory);
-                }
-
-                // Multiple-file output
-                await OutputToDirAsync(outputDirectoryOrFile, commandsTemplate.Namespace, "Commands", commandsTemplate.TransformText(), cancellationToken);
-                await OutputToDirAsync(outputDirectoryOrFile, "Kari.CommandTerminal", "Parsers", parsersTemplate.TransformText(), cancellationToken);
-                await OutputToDirAsync(outputDirectoryOrFile, flagsTemplate.Namespace, "Flags", flagsTemplate.TransformText(), cancellationToken);
-
-                if (writeAttributes && !hadAnnotations)
-                {
-                    await OutputAsync(Path.Combine(outputDirectoryOrFile, "Annotations.cs"), DummyAttributes.Text, cancellationToken);
-                }
+                sw.Restart();
+                logger($"{name} Start");
+                Task.Run(action);
+                logger($"{name} Complete: {sw.Elapsed.ToString()}");
             }
-            logger("Output Generation Complete:" + sw.Elapsed.ToString());
-        }
+            
+            var tokenSource = new CancellationTokenSource();
+            var master = new MasterEnvironment("SomeProject", "SomeFolder", cancellationToken);
 
-        private Task OutputToDirAsync(string dir, string ns, string name, string text, CancellationToken cancellationToken)
-        {
-            return OutputAsync(Path.Combine(dir, $"{ns}_{name}".Replace(".", "_").Replace("global::", string.Empty) + ".cs"), text, cancellationToken);
-        }
+            Measure("Project Compilation", () => {
+                AdministratorFinder.LoadPluginsPaths(pluginsPaths);
+                AdministratorFinder.AddAllAdministrators(master);
+                master.InitializeCompilation("idk", ref compilation);
+                master.FindProjects();
+                master.InitializeAdministrators();
+            });
 
-        private Task OutputAsync(string path, string text, CancellationToken cancellationToken)
-        {
-            path = path.Replace("global::", string.Empty);
+            Measure("Method Collect", async () => {
+                await master.Collect();
+                master.RunCallbacks();
+            });
 
-            const string prefix = "[Out]";
-            logger(prefix + path);
-
-            var fi = new FileInfo(path);
-            if (!fi.Directory.Exists)
-            {
-                fi.Directory.Create();
-            }
-
-            System.IO.File.WriteAllText(path, NormalizeNewLines(text), NoBomUtf8);
-            return Task.CompletedTask;
-        }
-
-        private static string NormalizeNewLines(string content)
-        {
-            // The T4 generated code may be text with mixed line ending types. (CR + CRLF)
-            // We need to normalize the line ending type in each Operating Systems. (e.g. Windows=CRLF, Linux/macOS=LF)
-            return content.Replace("\r\n", "\n").Replace("\n", System.Environment.NewLine);
+            Measure("Output Generation", async () => await master.GenerateCode());
         }
     }
 }

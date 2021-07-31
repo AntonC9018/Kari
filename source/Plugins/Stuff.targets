@@ -1,0 +1,43 @@
+<Project>
+  <ItemGroup>
+    <!-- Roslyn references. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.10.0" />
+    <PackageReference Include="Microsoft.Build" Version="16.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildProjectDirectory)\..\..\Kari.GeneratorCore\Kari.GeneratorCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+
+    <!-- The T4 reference. See this awesome sample https://github.com/nogic1008/T4Sample    -->
+    <!-- The actual T4 implementation here https://github.com/mono/t4                       -->
+    <!-- It is way easier to use than the built-in implementation in provided by MS via VS. -->
+    <PackageReference Include="Mono.TextTemplating" Version="2.2.1" />
+
+    <!-- These just define VARIABLES, used below for the transform `target` -->
+    <TextTemplates Include="**\*Template.tt" />
+    <Annotations Include="**\Annotations.cs" />
+    <Generated Include="**\*.Generated.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Annotations_Folders Include="@(Annotations->'%(RecursiveDir)')" />
+  </ItemGroup>
+
+  <Target Name="TextTemplateTransform" BeforeTargets="BeforeBuild">
+
+    <!-- %(Whatever) does iteration over the given 'Glob', representing an individual element of the sequence. -->
+    <!-- The path to the file is %(TextTemplates.Filename).tt, because I've set the wd to the folder  it is contained. --> 
+    <Exec Condition="@(TextTemplates) != ''" Command="dotnet t4 %(TextTemplates.Identity) -class $(AssemblyName).%(TextTemplates.Filename) -out %(TextTemplates.Identity).Generated.cs" />
+
+    <!-- There is no -class option, because this is a design time template, I think it is called. -->
+    <!-- TODO: Move into a targets and use from plugins. -->
+    <Exec WorkingDirectory="%(Annotations_Folders.FullPath)" Condition="@(Annotations_Folders) != ''" Command="dotnet t4 $(DummyAnnotationsTemplatePath) -out DummyAnnotations.Generated.cs" />
+  </Target>
+
+  <Target Name="TextTemplateClean" AfterTargets="Clean">
+    <Delete Files="@(Generated)" />
+  </Target>
+</Project>

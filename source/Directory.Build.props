@@ -17,9 +17,9 @@
   </PropertyGroup>
 
   <Target Name="WorkaroundConfigNotFound" BeforeTargets="GenerateBindingRedirects">
-    <Message Text="$(MSBuildThisFileDirectory)..\Build\bin\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config" Importance="high" />
+    <Message Text="$(MSBUILD_OUTPUT_PATH)\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config" Importance="high" />
     <PropertyGroup>
-      <_GenerateBindingRedirectsIntermediateAppConfig>$(MSBuildThisFileDirectory)..\Build\bin\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config</_GenerateBindingRedirectsIntermediateAppConfig>
+      <_GenerateBindingRedirectsIntermediateAppConfig>$(MSBUILD_OUTPUT_PATH)\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config</_GenerateBindingRedirectsIntermediateAppConfig>
     </PropertyGroup>
   </Target>
 </Project>

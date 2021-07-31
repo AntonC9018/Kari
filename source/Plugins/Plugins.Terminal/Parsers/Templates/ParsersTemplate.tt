@@ -1,5 +1,6 @@
 ﻿<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeGenerator<ParsersAnalyzer>" #>
 <#@ assembly name="System.Core" #>
+<#@ import namespace="Kari.GeneratorCore" #>
 
 namespace <#= Project.GeneratedNamespace #>
 {

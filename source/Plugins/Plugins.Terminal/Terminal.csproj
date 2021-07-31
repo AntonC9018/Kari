@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Kari.Plugins.Terminal</AssemblyName>
+  </PropertyGroup>
+
+  <ImportGroup>
+    <Import Project="..\Stuff.props" />
+    <Import Project="..\Stuff.targets" />
+  </ImportGroup>
+</Project>
