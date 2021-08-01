@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 
-namespace Kari.GeneratorCore.CodeAnalysis
+namespace Kari.GeneratorCore.Workflow
 {
     public class ProjectEnvironmentData
     {

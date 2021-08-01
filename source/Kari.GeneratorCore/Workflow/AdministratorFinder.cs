@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
-namespace Kari.GeneratorCore.CodeAnalysis
+namespace Kari.GeneratorCore.Workflow
 {
     public static class AdministratorFinder
     {

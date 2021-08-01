@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 
-namespace Kari.GeneratorCore.CodeAnalysis
+namespace Kari.GeneratorCore.Workflow
 {
     public readonly struct AttributeSymbolWrapper<T>
     {

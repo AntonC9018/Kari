@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using Kari.GeneratorCore;
-using Kari.GeneratorCore.CodeAnalysis;
+using Kari.GeneratorCore.Workflow;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 

@@ -1,6 +1,6 @@
 using System;
 using System.Threading.Tasks;
-using Kari.GeneratorCore.CodeAnalysis;
+using Kari.GeneratorCore.Workflow;
 
 namespace Kari.Plugins.Terminal
 {

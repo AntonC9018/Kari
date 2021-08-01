@@ -39,18 +39,25 @@
         public async Task RunAsync(
             [Option("Input path to MSBuild project file or to the directory containing source files.")] 
             string input,
-            [Option("Output folder path, appended to project paths to produce the output folder.")] 
-            string output,
+            [Option("The suffix added to each subproject (or the root project) indicating the output folder.")] 
+            string generatedName = "Generated",
             [Option("Conditional compiler symbols, split with ','. Ignored if a project file is specified for input.")] 
             string? conditionalSymbol = null,
             [Option("Set input namespace root name.")]
             string rootNamespace = "",
-            [Option("Whether the attributes should be written to output. The attributes are never written if they already exist among the source files.")]
+            [Option("Whether the attributes should be written to output.")]
             bool writeAttributes = true,
-            [Option("Delete all cs files in the output folder")]
-            bool clearOutputFolder = false)
+            [Option("Delete all cs files in the output folder.")]
+            bool clearOutputFolder = false,
+            [Option("Plugins folder or full paths to individual plugin dlls separated by ','.")]
+            string? pluginsLocations = null,
+            [Option("Plugin names to be used for code analysis and generation separated by ','. All plugins are used by default.")]
+            string? pluginNames = null)
         {
-            output = Path.GetFullPath(output);
+            if (generatedName == "" && clearOutputFolder)
+            {
+                
+            }
 
             Workspace? workspace = null;
             try
@@ -59,7 +66,7 @@
                 if (Directory.Exists(input))
                 {
                     string[]? conditionalSymbols = conditionalSymbol?.Split(',');
-                    compilation = await PseudoCompilation.CreateFromDirectoryAsync(input, output, conditionalSymbols, this.Context.CancellationToken);
+                    compilation = await PseudoCompilation.CreateFromDirectoryAsync(input, generatedName, conditionalSymbols, this.Context.CancellationToken);
                 }
                 else
                 {
@@ -70,14 +77,6 @@
                         rootNamespace = compilation.AssemblyName;
                     }
                 }
-
-                await new Kari.GeneratorCore.CodeGenerator(x => Console.WriteLine(x), this.Context.CancellationToken)
-                    .GenerateFileAsync(
-                        compilation,
-                        rootNamespace,
-                        output,
-                        writeAttributes,
-                        clearOutputFolder).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

@@ -8,6 +8,8 @@ You can call `baton kari unity` to run the code generator on the subproject, but
 You can use e.g. `dotnet run -p Kari.Generator/Kari.Generator.csproj` to compile and run Kari.
 
 
+You will need to pass the full path to the plugins folder you want to use, or 
+
 ## Reference issues
 
 ### Flags enum example

@@ -15,12 +15,12 @@ namespace Kari.Generator
 {
     internal static class PseudoCompilation
     {
-        internal static async Task<CSharpCompilation> CreateFromDirectoryAsync(string directoryRoot, string outputFolder, IEnumerable<string>? preprocessorSymbols, CancellationToken cancellationToken)
+        internal static CSharpCompilation CreateFromDirectoryAsync(string directoryRoot, string generatedFolderPrefix, IEnumerable<string>? preprocessorSymbols, CancellationToken cancellationToken)
         {
             var parseOption = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None, SourceCodeKind.Regular, CleanPreprocessorSymbols(preprocessorSymbols));
 
             var syntaxTrees = new List<SyntaxTree>();
-            foreach (var file in IterateCsFileWithoutBinObj(directoryRoot, outputFolder))
+            foreach (var file in IterateCsFileWithoutBinObj(directoryRoot, generatedFolderPrefix))
             {
                 var text = File.ReadAllText(file, Encoding.UTF8);
                 var syntax = CSharpSyntaxTree.ParseText(text, parseOption);

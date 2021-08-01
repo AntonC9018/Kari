@@ -8,7 +8,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Newtonsoft.Json.Linq;
 
-namespace Kari.GeneratorCore.CodeAnalysis
+namespace Kari.GeneratorCore.Workflow
 {
     public class Singleton<T> where T : Singleton<T>
     {
