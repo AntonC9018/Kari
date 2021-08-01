@@ -14,7 +14,7 @@ namespace Kari.GeneratorCore.CodeAnalysis
         public readonly string GeneratedNamespace;
         public readonly INamespaceSymbol RootNamespace;
         
-        public MasterEnvironment Master => MasterEnvironment.SingletonInstance;
+        public MasterEnvironment Master => MasterEnvironment.Instance;
         public Compilation Compilation => Master.Compilation;
         public RelevantSymbols Symbols => Master.Symbols;
 

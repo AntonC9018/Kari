@@ -7,8 +7,10 @@
 <#@ import namespace="System.Text.RegularExpressions" #>
 <#@ output extension=".cs" #>
 
-<#	var currentPath = Directory.GetCurrentDirectory();
-	var absolutePath = Path.Combine(currentPath, "Annotations.cs");
+<#	// I have no clue if it's even possible to pass parameters to templates in a normal way
+	// But this hack works I guess.
+	var absolutePath = System.Environment.GetEnvironmentVariable("ANNOTATIONS_FILENAME");
+	var classname = Path.GetFileNameWithoutExtension(absolutePath);
 	var attributesText = File.ReadAllText(absolutePath, Encoding.UTF8);
 	var attributesTextEscaped = attributesText.Replace("\"", "\"\""); 
 
@@ -28,15 +30,14 @@
 		}
 
 		var n = attributesText.Substring(nspaceIndex, bracketIndex - nspaceIndex - 1);
-		n = n.Replace("\r\n", "").Replace("\n", "");
-		return n;
+		return n.Replace("\r", "").Replace("\n", "");
 	}
 
 	string namespaceDeclaration = lambda();
 #>
 <#= namespaceDeclaration #> 
 {
-	public static class DummyAnnotations
+	public static class Dummy<#= classname #>
 	{
 		public const string Text = @"<#= attributesTextEscaped #>";
 	}

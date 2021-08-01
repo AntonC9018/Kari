@@ -7,7 +7,7 @@ namespace Kari.Plugins.Terminal
         public static AttributeSymbolWrapper<ParserAttribute> ParserAttribute { get; private set; }
         public static void Initialize() 
         { 
-            var compilation = MasterEnvironment.SingletonInstance.Compilation;
+            var compilation = MasterEnvironment.Instance.Compilation;
             ParserAttribute = new AttributeSymbolWrapper<ParserAttribute>(compilation);
         }
     }

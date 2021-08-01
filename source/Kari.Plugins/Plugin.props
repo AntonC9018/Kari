@@ -1,4 +1,11 @@
 <Project>
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <DummyAnnotationsTemplatePath>$(MSBUILD_KARI_ROOT_PATH)Kari.Plugins\DummyAnnotations.tt</DummyAnnotationsTemplatePath>
+    <!-- RS1024 is Compare Symbols correctly, making me use `SymbolComparison.Default.Equals()` instead of `==` -->
+    <NoWarn>$(NoWarn);RS1024</NoWarn>
+  </PropertyGroup>
+  
   <ItemGroup>
     <!-- Roslyn references. -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.10.0" />
@@ -6,11 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(MSBuildProjectDirectory)\..\..\Kari.GeneratorCore\Kari.GeneratorCore.csproj" />
+    <ProjectReference Include="$(MSBUILD_KARI_ROOT_PATH)Kari.GeneratorCore\Kari.GeneratorCore.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-
     <!-- The T4 reference. See this awesome sample https://github.com/nogic1008/T4Sample    -->
     <!-- The actual T4 implementation here https://github.com/mono/t4                       -->
     <!-- It is way easier to use than the built-in implementation in provided by MS via VS. -->
@@ -18,23 +24,26 @@
 
     <!-- These just define VARIABLES, used below for the transform `target` -->
     <TextTemplates Include="**\*Template.tt" />
-    <Annotations Include="**\Annotations.cs" />
-    <Generated Include="**\*.Generated.cs" />
-  </ItemGroup>
 
-  <ItemGroup>
-    <Annotations_Folders Include="@(Annotations->'%(RecursiveDir)')" />
+    <Annotations Include="**\*Annotations.cs" />
+    <Annotations Include="**\Annotations.cs" />
+    <Annotations Include="$(MSBuildProjectDirectory)*Annotations.cs" />
+    <Annotations Include="$(MSBuildProjectDirectory)Annotations.cs" Condition="Exists('$(MSBuildProjectDirectory)Annotations.cs')" />
+
+    <Generated Include="**\*.Generated.cs" />
   </ItemGroup>
 
   <Target Name="TextTemplateTransform" BeforeTargets="BeforeBuild">
 
     <!-- %(Whatever) does iteration over the given 'Glob', representing an individual element of the sequence. -->
     <!-- The path to the file is %(TextTemplates.Filename).tt, because I've set the wd to the folder  it is contained. --> 
-    <Exec Condition="@(TextTemplates) != ''" Command="dotnet t4 %(TextTemplates.Identity) -class $(AssemblyName).%(TextTemplates.Filename) -out %(TextTemplates.Identity).Generated.cs" />
+    <Exec Condition="@(TextTemplates) != ''" Command="dotnet t4 %(TextTemplates.Identity) -class $(AssemblyName).%(TextTemplates.Filename) -out %(TextTemplates.RecursiveDir)%(TextTemplates.Filename).Generated.cs" />
 
     <!-- There is no -class option, because this is a design time template, I think it is called. -->
     <!-- TODO: Move into a targets and use from plugins. -->
-    <Exec WorkingDirectory="%(Annotations_Folders.FullPath)" Condition="@(Annotations_Folders) != ''" Command="dotnet t4 $(DummyAnnotationsTemplatePath) -out DummyAnnotations.Generated.cs" />
+    <!-- The set thing is my hack of passing a variable to the template. -->
+    <Exec Condition="@(Annotations) != ''" Command="set ANNOTATIONS_FILENAME=%(Annotations.Identity) &amp; dotnet t4 $(DummyAnnotationsTemplatePath) -out %(Annotations.RecursiveDir)%(Annotations.Filename).Generated.cs" />
+    
   </Target>
 
   <Target Name="TextTemplateClean" AfterTargets="Clean">

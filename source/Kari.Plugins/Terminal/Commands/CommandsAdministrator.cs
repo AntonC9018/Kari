@@ -8,27 +8,26 @@ namespace Kari.Plugins.Terminal
 {
     /// Generates project-wide code for the essential commands
     /// Manages individual per-project CommandsTemplates
-    public partial class CommandsAdministrator : IAdministrator, IAnalyzerMaster<CommandsAnalyzer>
+    public partial class CommandsAdministrator : Singleton<CommandsAdministrator>, IAdministrator
     {
         public const int InitializeParsersPriority = ParsersAdministrator.CheckPriority + 1;
-        public CommandsAnalyzer[] Slaves { get; set; }
-        public IGenerator<CommandsAnalyzer> CreateGenerator() => new CommandsTemplate();
+        public CommandsAnalyzer[] _slaves;
 
         public void Initialize()
         {
-            this.Slaves_Initialize();
+            AnalyzerMaster.Initialize(ref _slaves);
             TerminalData.Load();
             CommandSymbols.Initialize();
         }
 
         public Task Collect()
         { 
-            return this.Slaves_CollectTask();
+            return AnalyzerMaster.CollectTask(_slaves);
         }
 
         public Task Generate()
         {
-            var slavesTask = this.Slaves_GenerateTask("Commands.cs");
+            var slavesTask = AnalyzerMaster.GenerateTask(_slaves, new CommandsTemplate(), "Commands.cs");
             var ownTask = Task.Run(() => {
                 {
                     var project = TerminalData.TerminalProject;
@@ -36,11 +35,11 @@ namespace Kari.Plugins.Terminal
                     project.WriteLocalFile("CommandBasics.cs", template.TransformText());
                 }
                 {
-                    var project = MasterEnvironment.SingletonInstance.RootPseudoProject;
+                    var project = MasterEnvironment.Instance.RootPseudoProject;
                     var template = new CommandsInitializationTemplate();
                     template.Project = project;
                     template.m = this;
-                    project.WriteLocalFile("CommandsInitialization.cs", template.TrasformText());
+                    project.WriteLocalFile("CommandsInitialization.cs", template.TransformText());
                 }
             });
             return Task.WhenAll(slavesTask, ownTask);
@@ -53,10 +52,12 @@ namespace Kari.Plugins.Terminal
 
         private void InitializeParsersCallback()
         {
-            for (int i = 0; i < Slaves.Length; i++)
+            for (int i = 0; i < _slaves.Length; i++)
             {
-                Slaves[i].InitializeParsers(); // callback functions
+                _slaves[i].InitializeParsers(); // callback functions
             }
         }
+
+        public string GetAnnotations() => DummyCommandsAnnotations.Text;
     }
 }

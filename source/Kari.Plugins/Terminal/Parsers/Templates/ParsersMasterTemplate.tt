@@ -2,7 +2,7 @@
 <#@ assembly name="System.Core" #>
 <#@ import namespace="Kari.GeneratorCore" #>
 
-namespace <#= Project.GeneratedNamespace #>
+namespace <#= TerminalData.TerminalProject.GeneratedNamespace #>
 {
     /// <summary>
     /// Encapsulates a method that does parsing.

@@ -8,7 +8,7 @@ namespace Kari.Plugins.Flags
         public static AttributeSymbolWrapper<NiceFlagsAttribute> NiceFlagsAttribute { get; private set; }
         public static void Initialize() 
         { 
-            Compilation compilation = MasterEnvironment.SingletonInstance.Compilation;
+            Compilation compilation = MasterEnvironment.Instance.Compilation;
             NiceFlagsAttribute = new AttributeSymbolWrapper<NiceFlagsAttribute>(compilation);
         }
     }

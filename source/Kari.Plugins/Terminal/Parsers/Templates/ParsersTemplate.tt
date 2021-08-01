@@ -8,8 +8,7 @@ namespace <#= Project.GeneratedNamespace #>
 
     public static partial class Parsers
     {
-<#  } 
-    foreach (var func in m._customParserFunctionInfos)
+<#  foreach (var func in m._customParserFunctionInfos)
     { 
         string parserName = func.Name + "Parser"; #>
         public class <#= parserName #> : IValueParser<<#= func.TypeName #>>

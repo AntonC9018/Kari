@@ -2,7 +2,7 @@
 <#@ assembly name="System.Core" #>
 <#@ import namespace="Kari.GeneratorCore" #>
 
-namespace <#= Namespace #>
+namespace <#= Project.GeneratedNamespace #>
 { 
     using System.Collections.Generic;
 <#  foreach (var flag in m._infos)

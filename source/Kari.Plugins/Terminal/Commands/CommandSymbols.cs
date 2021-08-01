@@ -11,7 +11,7 @@ namespace Kari.Plugins.Terminal
 
         public static void Initialize() 
         { 
-            var compilation = MasterEnvironment.SingletonInstance.Compilation;
+            var compilation = MasterEnvironment.Instance.Compilation;
 			CommandAttribute		= new AttributeSymbolWrapper<CommandAttribute>	    (compilation);
 			FrontCommandAttribute 	= new AttributeSymbolWrapper<FrontCommandAttribute> (compilation);
 			OptionAttribute			= new AttributeSymbolWrapper<OptionAttribute>	    (compilation);

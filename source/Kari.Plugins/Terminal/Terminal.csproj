@@ -5,7 +5,6 @@
   </PropertyGroup>
 
   <ImportGroup>
-    <Import Project="..\Stuff.props" />
-    <Import Project="..\Stuff.targets" />
+    <Import Project="$(PLUGIN_PROPS)" />
   </ImportGroup>
 </Project>

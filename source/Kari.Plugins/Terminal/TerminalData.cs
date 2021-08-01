@@ -26,10 +26,10 @@ namespace Kari.Plugins.Terminal
             else _isInited = true;
 
             // For now, let's just say we output to the project with "Terminal" in its name
-            TerminalProject = MasterEnvironment.SingletonInstance.Projects.Find(
+            TerminalProject = MasterEnvironment.Instance.Projects.Find(
                 project => project.RootNamespace.Name.Contains("Terminal"));
             // We default to the root project otherwise
-            TerminalProject ??= MasterEnvironment.SingletonInstance.RootPseudoProject;
+            TerminalProject ??= MasterEnvironment.Instance.RootPseudoProject;
         }
     }
 }

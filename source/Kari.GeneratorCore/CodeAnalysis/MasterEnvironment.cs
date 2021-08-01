@@ -10,9 +10,18 @@ using Newtonsoft.Json.Linq;
 
 namespace Kari.GeneratorCore.CodeAnalysis
 {
-    public class MasterEnvironment
+    public class Singleton<T> where T : Singleton<T>
     {
-        public static MasterEnvironment SingletonInstance { get; private set; }
+        public static T Instance { get; private set; }
+        public Singleton()
+        {
+            if (!(Instance is null)) throw new System.Exception("Cannot initialize a singleton multiple times.");
+            Instance = (T) this;
+        }
+    }
+
+    public class MasterEnvironment : Singleton<MasterEnvironment>
+    {
         public string GeneratedDirectorySuffix { get; set; } = "Generated";
         public string GeneratedNamespaceSuffix => GeneratedDirectorySuffix;
 
@@ -34,7 +43,6 @@ namespace Kari.GeneratorCore.CodeAnalysis
         {
             CancellationToken = cancellationToken;
             RootNamespaceName = rootNamespace;
-            SingletonInstance = this;
         }
 
         public void InitializeCompilation(string rootDirectory, ref Compilation compilation)
@@ -213,50 +221,36 @@ namespace Kari.GeneratorCore.CodeAnalysis
         void Collect(ProjectEnvironment project);
     }
 
-    public interface IAnalyzerMaster<T> : IAdministrator where T : IAnalyzer
+    public static class AnalyzerMaster
     {
-        T[] Slaves { get; set; }
-        IGenerator<T> CreateGenerator();
-        
-    }
-
-    public static class AnalyzerMasterHelpers
-    {
-        public static void Slaves_Initialize<T>(this IAnalyzerMaster<T> master) 
-            where T : IAnalyzer, new()
+        public static void Initialize<T>(ref T[] slaves) where T : IAnalyzer, new()
         {
-            var projects = MasterEnvironment.SingletonInstance.Projects;
-            var slaves = new T[projects.Count]; 
-            master.Slaves = slaves;
+            var projects = MasterEnvironment.Instance.Projects;
+            slaves = new T[projects.Count]; 
             for (int i = 0; i < projects.Count; i++)
             {
                 slaves[i] = new T();
             }
         }
 
-        public static void Slaves_Collect<T>(this IAnalyzerMaster<T> master) 
-            where T : IAnalyzer
+        public static void Collect<T>(T[] slaves) where T : IAnalyzer
         {
-            var projects = MasterEnvironment.SingletonInstance.Projects;
-            var slaves = master.Slaves;
+            var projects = MasterEnvironment.Instance.Projects;
             for (int i = 0; i < slaves.Length; i++)
             {
                 slaves[i].Collect(projects[i]);
             }
         }
 
-        public static Task Slaves_CollectTask<T>(this IAnalyzerMaster<T> master) 
-            where T : IAnalyzer
+        public static Task CollectTask<T>(T[] slaves) where T : IAnalyzer
         {
-            return Task.Run(() => Slaves_Collect(master));
+            return Task.Run(() => Collect(slaves));
         }
 
-        public static void Slaves_Generate<T>(this IAnalyzerMaster<T> master, string fileName)
+        public static void Generate<T>(T[] slaves, IGenerator<T> generator, string fileName)
             where T : IAnalyzer
         {
-            var projects = MasterEnvironment.SingletonInstance.Projects;
-            var slaves = master.Slaves;
-            var generator = master.CreateGenerator();
+            var projects = MasterEnvironment.Instance.Projects;
             for (int i = 0; i < slaves.Length; i++)
             {
                 generator.m = slaves[i];
@@ -267,23 +261,12 @@ namespace Kari.GeneratorCore.CodeAnalysis
                     projects[i].WriteLocalFile(fileName, generator.TransformText());
                 }
             }
-        } 
-
-        public static Task Slaves_GenerateTask<T>(this IAnalyzerMaster<T> master, string fileName) 
-            where T : IAnalyzer
-        {
-            return Task.Run(() => Slaves_Generate(master, fileName));
         }
 
-        public static IEnumerable<(ProjectEnvironment, T)> ProjectSlave_Enumerate<T>(this IAnalyzerMaster<T> master) 
+        public static Task GenerateTask<T>(T[] slaves, IGenerator<T> generator, string fileName) 
             where T : IAnalyzer
         {
-            var projects = MasterEnvironment.SingletonInstance.Projects;
-            var slaves = master.Slaves;
-            for (int i = 0; i < slaves.Length; i++)
-            {
-                yield return (projects[i], slaves[i]);
-            }
+            return Task.Run(() => Generate(slaves, generator, fileName));
         }
     }
 }

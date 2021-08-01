@@ -8,11 +8,9 @@ using Microsoft.CodeAnalysis;
 
 namespace Kari.Plugins.Terminal
 {
-    public class ParsersAdministrator : IAdministrator, IAnalyzerMaster<ParsersAnalyzer>
+    public class ParsersAdministrator : Singleton<ParsersAdministrator>, IAdministrator
     {
-        public static ParsersAdministrator Instance { get; private set; }
-        public ParsersAnalyzer[] Slaves { get; set; }
-        public IGenerator<ParsersAnalyzer> CreateGenerator() => new ParsersTemplate();
+        public ParsersAnalyzer[] _slaves;
 
         public const int CheckPriority = 1;
         private readonly Dictionary<ITypeSymbol, BuiltinParser> _builtinParsers = new Dictionary<ITypeSymbol, BuiltinParser>();
@@ -20,12 +18,11 @@ namespace Kari.Plugins.Terminal
 
         public void Initialize()
         {
-            Instance = this;
             TerminalData.Load();
             ParserSymbols.Initialize();
-            this.Slaves_Initialize();
+            AnalyzerMaster.Initialize(ref _slaves);
             var parsersFullyQualifiedClassName = TerminalData.GetFullyQualifiedParsersClassNameForDefaultProject();
-            var symbols = MasterEnvironment.SingletonInstance.Symbols;
+            var symbols = MasterEnvironment.Instance.Symbols;
 
             _builtinParsers.Add(symbols.Int,     new BuiltinParser(parsersFullyQualifiedClassName, "Int")      );
             _builtinParsers.Add(symbols.Short,   new BuiltinParser(parsersFullyQualifiedClassName, "Short")    );
@@ -99,16 +96,15 @@ namespace Kari.Plugins.Terminal
 
         public Task Collect()
         {
-            return this.Slaves_CollectTask();
+            return AnalyzerMaster.CollectTask(_slaves);
         }
 
         public Task Generate()
         {
-            var slavesTask = this.Slaves_GenerateTask("Parsers.cs");
+            var slavesTask = AnalyzerMaster.GenerateTask(_slaves, new ParsersTemplate(), "Parsers.cs");
             var ownTask = Task.Run(() => {
                 var project = TerminalData.TerminalProject;
                 var template = new ParsersMasterTemplate();
-                template.Project = project;
                 project.WriteLocalFile("ParsersBasics.cs", template.TransformText());
             });
 
@@ -120,5 +116,7 @@ namespace Kari.Plugins.Terminal
             // TODO: Add the check callback
             yield break;
         }
+
+        public string GetAnnotations() => DummyParsersAnnotations.Text;
     }
 }
