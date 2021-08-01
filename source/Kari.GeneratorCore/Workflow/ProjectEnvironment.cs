@@ -9,6 +9,8 @@ namespace Kari.GeneratorCore.Workflow
 {
     public class ProjectEnvironmentData
     {
+        public readonly Logger Logger;
+        public readonly IFileWriter FileWriter;
         public readonly string Directory;
         public readonly string NamespaceName;
         public readonly string GeneratedNamespace;
@@ -18,12 +20,14 @@ namespace Kari.GeneratorCore.Workflow
         public Compilation Compilation => Master.Compilation;
         public RelevantSymbols Symbols => Master.Symbols;
 
-        public ProjectEnvironmentData(string directory, string namespaceName, INamespaceSymbol rootNamespace)
+        public ProjectEnvironmentData(string directory, string namespaceName, INamespaceSymbol rootNamespace, IFileWriter fileWriter)
         {
             Directory = directory;
             NamespaceName = namespaceName;
             RootNamespace = rootNamespace;
             GeneratedNamespace = NamespaceName.Combine(Master.GeneratedNamespaceSuffix);
+            FileWriter = fileWriter;
+            Logger = new Logger(RootNamespace.Name);
         }
 
         /// <summary>
@@ -48,8 +52,8 @@ namespace Kari.GeneratorCore.Workflow
         public readonly List<INamedTypeSymbol> TypesWithAttributes = new List<INamedTypeSymbol>();
         public readonly List<IMethodSymbol> MethodsWithAttributes = new List<IMethodSymbol>();
 
-        public ProjectEnvironment(string directory, string namespaceName, INamespaceSymbol rootNamespace) 
-            : base(directory, namespaceName, rootNamespace)
+        public ProjectEnvironment(string directory, string namespaceName, INamespaceSymbol rootNamespace, IFileWriter fileWriter) 
+            : base(directory, namespaceName, rootNamespace, fileWriter)
         {
         }
 

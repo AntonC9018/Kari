@@ -28,9 +28,13 @@ namespace Kari.GeneratorCore.Workflow
         public ProjectEnvironmentData RootPseudoProject { get; private set; }
         public INamespaceSymbol RootNamespace => RootPseudoProject.RootNamespace;
         public string ProjectRootDirectory => RootPseudoProject.Directory;
+        public IFileWriter GlobalFileWriter => RootPseudoProject.FileWriter;
+
+
         public Compilation Compilation { get; private set; }
         public RelevantSymbols Symbols { get; private set; }
 
+        public readonly Logger Logger;
         public readonly CancellationToken CancellationToken;
         public readonly string RootNamespaceName;
         public readonly List<ProjectEnvironment> Projects = new List<ProjectEnvironment>();
@@ -39,21 +43,26 @@ namespace Kari.GeneratorCore.Workflow
         /// <summary>
         /// Initializes the MasterEnvironment and replaces the global singleton instance.
         /// </summary>
-        public MasterEnvironment(string rootNamespace, string rootDirectory, CancellationToken cancellationToken)
+        public MasterEnvironment(string rootNamespace, string rootDirectory, CancellationToken cancellationToken, Logger logger)
         {
             CancellationToken = cancellationToken;
             RootNamespaceName = rootNamespace;
+            Logger = logger;
         }
 
-        public void InitializeCompilation(string rootDirectory, ref Compilation compilation)
+        public void InitializeCompilation(ref Compilation compilation)
         {
             compilation = compilation.AddSyntaxTrees(
                 Administrators.Select(a => 
                     CSharpSyntaxTree.ParseText(a.GetAnnotations())));
             Symbols = new RelevantSymbols(compilation);
-            RootPseudoProject = new ProjectEnvironmentData(
-                rootDirectory, RootNamespaceName, Compilation.GetNamespace(RootNamespaceName));
             Compilation = compilation;
+        }
+
+        public void InitializeFileWriter(string rootDirectory, IFileWriter writer)
+        {
+            RootPseudoProject = new ProjectEnvironmentData(
+                rootDirectory, RootNamespaceName, Compilation.GetNamespace(RootNamespaceName), writer);
         }
 
         public void FindProjects()
@@ -95,7 +104,11 @@ namespace Kari.GeneratorCore.Workflow
                     // Check if any folders exist besided Editor folder
                     || Directory.EnumerateDirectories(projectDirectory).Any(path => !path.EndsWith("Editor")))
                 {
-                    var environment = new ProjectEnvironment(projectDirectory, namespaceName, projectNamespace);
+                    var environment = new ProjectEnvironment(
+                        directory:      projectDirectory,
+                        namespaceName:  namespaceName,
+                        rootNamespace:  projectNamespace,
+                        fileWriter:     GlobalFileWriter.GetProjectWriter(projectDirectory));
                     // TODO: Assume no duplicates for now, but this will have to be error-checked.
                     Projects.Add(environment);
                 }
@@ -123,7 +136,12 @@ namespace Kari.GeneratorCore.Workflow
                     System.Console.WriteLine($"Found an editor project {namespaceName}, but no `Editor` folder.");
                     continue;
                 }
-                var editorEnvironment = new ProjectEnvironment(editorDirectory, namespaceName + ".Editor", editorProjectNamespace);
+                var editorEnvironment = new ProjectEnvironment(
+                    directory:      editorDirectory,
+                    namespaceName:  namespaceName.Combine("Editor"),
+                    rootNamespace:  editorProjectNamespace,
+                    fileWriter:     GlobalFileWriter.GetProjectWriter(editorDirectory));
+                    
                 Projects.Add(editorEnvironment);
             }
         }
