@@ -78,11 +78,7 @@ namespace Kari.GeneratorCore.Workflow
             {
                 generator.m = slaves[i];
                 generator.Project = projects[i];
-
-                if (generator.ShouldWrite())
-                {
-                    projects[i].WriteFile(fileName, generator.TransformText());
-                }
+                projects[i].WriteFile(fileName, generator.TransformText());
             }
         }
 

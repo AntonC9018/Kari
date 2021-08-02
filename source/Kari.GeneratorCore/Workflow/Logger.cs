@@ -41,7 +41,7 @@ namespace Kari.GeneratorCore.Workflow
             Log(operationName + " Started.", LogType.Information);
             var s = Stopwatch.StartNew();
             await task;
-            Log(operationName + " Completed. Time elapsed: " + s.ToString(), LogType.Information);
+            Log(operationName + " Completed. Time elapsed: " + s.Elapsed.ToString(), LogType.Information);
         }
 
         /// <summary>
@@ -52,7 +52,7 @@ namespace Kari.GeneratorCore.Workflow
             Log(operationName + " Started.", LogType.Information);
             var s = Stopwatch.StartNew();
             operation();
-            Log(operationName + " Completed. Time elapsed: " + s.ToString(), LogType.Information);
+            Log(operationName + " Completed. Time elapsed: " + s.Elapsed.ToString(), LogType.Information);
         }
 
         /// <summary>
@@ -63,7 +63,7 @@ namespace Kari.GeneratorCore.Workflow
             Log(operationName + " Started.", LogType.Information);
             var s = Stopwatch.StartNew();
             await Task.Run(operation);
-            Log(operationName + " Completed. Time elapsed: " + s.ToString(), LogType.Information);
+            Log(operationName + " Completed. Time elapsed: " + s.Elapsed.ToString(), LogType.Information);
         }
 
         /// <summary>
@@ -74,7 +74,7 @@ namespace Kari.GeneratorCore.Workflow
             LogNoLock(operationName + " Started.", LogType.Information);
             var s = Stopwatch.StartNew();
             operation();
-            LogNoLock(operationName + " Completed. Time elapsed: " + s.ToString(), LogType.Information);
+            LogNoLock(operationName + " Completed. Time elapsed: " + s.Elapsed.ToString(), LogType.Information);
         }
 
         public void Log(string message, LogType type = LogType.Message)
@@ -94,7 +94,7 @@ namespace Kari.GeneratorCore.Workflow
         public void LogNoLock(string message, LogType type = LogType.Message)
         {
             Console.ForegroundColor = (ConsoleColor) type;
-            Console.WriteLine($"[{_name}]:\t{message}");
+            Console.WriteLine($"[{_name}]: {message}");
             _HasErrors = _HasErrors || (type == LogType.Error);
         }
 

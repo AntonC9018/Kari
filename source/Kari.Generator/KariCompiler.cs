@@ -107,8 +107,6 @@
             string? conditionalSymbol = null,
             [Option("Set input namespace root name.")]
             string rootNamespace = "",
-            [Option("Whether the attributes should be written to output.")]
-            bool writeAttributes = true,
             [Option("Delete all cs files in the output folder.")]
             bool clearOutput = false,
             [Option("Plugin names to be used for code analysis and generation separated by ','. All plugins are used by default.")]
@@ -123,6 +121,10 @@
             Workspace? workspace = null;
             try
             {
+                input            = Path.GetFullPath(NormalizeDirectorySeparators(input));
+                pluginsLocations = NormalizeDirectorySeparators(pluginsLocations);
+                generatedName    = NormalizeDirectorySeparators(generatedName);
+
                 _logger = new Logger("Master");
                 if (generatedName == "" && clearOutput)
                 {
@@ -193,7 +195,7 @@
                 }
                 else
                 {
-                    master.RootWriter = new SeparateCodeFileWriter(generatedName);
+                    master.RootWriter = new SeparateCodeFileWriter(outputPath);
                 }
 
                 await pluginsTask;
@@ -223,8 +225,13 @@
             }
             catch (OperationCanceledException)
             {
-                await Console.Error.WriteLineAsync("Canceled");
+                _logger.Log("Cancelled");
                 throw;
+            }
+            catch (Exception exc)
+            {
+                System.Console.Write(exc.Message);
+                System.Console.Write(exc.InnerException?.Message);
             }
             finally
             {

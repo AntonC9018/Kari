@@ -85,13 +85,13 @@ namespace Kari.GeneratorCore.Workflow
         private void OpenFile()
         {
             _file = new StreamWriter(_filePath, append: false, FileWriterData.NoBomUtf8);
-            _file.Write(FileWriterData.Header);
+            _file.WriteLine(FileWriterData.Header);
         }
 
         public void Dispose()
         {
             if (_file is null) return;
-            _file.Write(FileWriterData.Footer);
+            _file.WriteLine(FileWriterData.Footer);
             _file.Flush();
             _file.Close();
             _file = null;
@@ -101,7 +101,7 @@ namespace Kari.GeneratorCore.Workflow
         {
             if (_file is null) OpenFile();
             _file.WriteLine("// " + fileNameHint);
-            _file.Write(text);
+            _file.WriteLine(text);
         }
 
         public virtual IFileWriter GetWriter(string filePath)
@@ -155,12 +155,10 @@ namespace Kari.GeneratorCore.Workflow
         public void WriteCodeFile(string fileName, string text)
         {
             var path = Path.Combine(_baseFolder, fileName);
-            Debug.Assert(!File.Exists(path));
-
-            var file = new StreamWriter(path, append: true, FileWriterData.NoBomUtf8);
-            file.Write(FileWriterData.Header);
-            file.Write(text);
-            file.Write(FileWriterData.Footer);
+            var file = new StreamWriter(path, append: false, FileWriterData.NoBomUtf8);
+            file.WriteLine(FileWriterData.Header);
+            file.WriteLine(text);
+            file.WriteLine(FileWriterData.Footer);
             file.Flush();
             file.Close();
         }

@@ -34,6 +34,7 @@ namespace Kari.GeneratorCore.Workflow
         /// </summary>
         public void WriteFile(string fileName, string text)
         {
+            if (text == null) return;
             FileWriter.WriteCodeFile(fileName, text);
         }
 

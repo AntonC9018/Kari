@@ -11,12 +11,6 @@ namespace Kari.GeneratorCore
     public interface ICodeTemplate
     {
         /// <summary>
-        /// Returns true if anything valuable will be generated once TransformText() is run.
-        /// For example, if the model contains no data, this would return true, since the generated
-        /// code will just include the namespace declaration and potentially the usings.
-        /// </summary>
-        bool ShouldWrite();
-        /// <summary>
         /// Generates code as a string.
         /// </summary>
         string TransformText();

@@ -24,11 +24,4 @@
       <_GenerateBindingRedirectsIntermediateAppConfig>$(MSBUILD_OUTPUT_PATH)\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config</_GenerateBindingRedirectsIntermediateAppConfig>
     </PropertyGroup>
   </Target>
-
-  <Target Name="WorkaroundAppConfigPathTooLong" BeforeTargets="GenerateBindingRedirects">
-  <Message Text="$(IntermediateOutputPath)$(TargetFileName).config" Importance="high" />
-    <PropertyGroup>
-      <_GenerateBindingRedirectsIntermediateAppConfig>$(IntermediateOutputPath)$(TargetFileName).config</_GenerateBindingRedirectsIntermediateAppConfig>
-    </PropertyGroup>
-  </Target>
 </Project>
