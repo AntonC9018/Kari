@@ -99,9 +99,12 @@ namespace Kari.GeneratorCore.Workflow
 
         public void WriteCodeFile(string fileNameHint, string text)
         {
-            if (_file is null) OpenFile();
-            _file.WriteLine("// " + fileNameHint);
-            _file.WriteLine(text);
+            lock (_file)
+            {
+                if (_file is null) OpenFile();
+                _file.WriteLine("// " + fileNameHint);
+                _file.WriteLine(text);
+            }
         }
 
         public virtual IFileWriter GetWriter(string filePath)

@@ -19,6 +19,7 @@ namespace Kari.Generated
         bool ParseFlag(string optionName, bool defaultValue = false, bool flagValue = true);
         T ParseOption<T>(string optionName, IValueParser<T> parser);
         T ParseOption<T>(string optionName, T defaultValue, IValueParser<T> parser);
+        void EndParsing();
     }
 
     /// <summary>

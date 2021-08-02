@@ -9,7 +9,7 @@ namespace <#= Project.GeneratedNamespace #>
     {
         public static void InitializeBuiltinCommands()
         {
-            <# var ns = TerminalAdministrator.TerminalProject.GeneratedNamespace; #>
+<# var ns = TerminalAdministrator.TerminalProject.GeneratedNamespace; #>
             <#= ns #>.Commands.BuiltinCommands = new <#= ns #>.CommandInfo[]
             {
 <#  foreach (var slave in m)

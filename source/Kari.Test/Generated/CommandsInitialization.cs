@@ -11,8 +11,10 @@ namespace Kari.Generated
     {
         public static void InitializeBuiltinCommands()
         {
-                        Kari.Generated.Commands.BuiltinCommands = new Kari.Generated.CommandInfo[]
+            Kari.Generated.Commands.BuiltinCommands = new Kari.Generated.CommandInfo[]
             {
+                new CommandInfo(name: "Hello", command: new HelloCommand()),
+                new CommandInfo(name: "Func", command: new FuncCommand()),
             };
         }
     }

@@ -6,11 +6,12 @@ namespace Kari.Plugins.Flags
     public class FlagsAdministrator : IAdministrator
     {
         public FlagsAnalyzer[] _slaves;
+        private readonly Logger _logger = new Logger("FlagsPlugin");
 
         public void Initialize() 
         {
             AnalyzerMaster.Initialize(ref _slaves);
-            FlagsSymbols.Initialize();
+            FlagsSymbols.Initialize(_logger);
         }
         public Task Collect() => AnalyzerMaster.CollectAsync(_slaves);
         public Task Generate() 

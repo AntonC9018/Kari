@@ -9,7 +9,7 @@ namespace Kari.GeneratorCore.Workflow
     {
         Message = ConsoleColor.Gray,
         Error = ConsoleColor.Red,
-        Warning = ConsoleColor.Yellow,
+        Warning = ConsoleColor.DarkYellow,
         Information = ConsoleColor.Cyan
     }
 

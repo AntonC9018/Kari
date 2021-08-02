@@ -14,10 +14,10 @@ namespace Kari.GeneratorCore.Workflow
             return (INamedTypeSymbol) compilation.GetTypeByMetadataName(t.FullName);
         }
 
-        public AttributeSymbolWrapper(Compilation compilation)
+        public AttributeSymbolWrapper(Compilation compilation, Logger logger)
         {
             symbol = GetKnownSymbol(compilation, typeof(T));
-            if (symbol is null) throw new Exception($"{typeof(T)} not found in the compilation");
+            if (symbol is null) logger.LogError($"{typeof(T)} not found in the compilation");
         }
     }
     

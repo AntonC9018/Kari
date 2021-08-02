@@ -210,28 +210,26 @@
                 });
                 if (Logger.AnyLoggerHasErrors) { return; }
 
-                await _logger.MeasureAsync("Method Collect", async () => {
+                async Task startCollectTask() {
                     await master.Collect();
                     master.RunCallbacks();
-                });
+                }
+                await _logger.MeasureAsync("Method Collect", startCollectTask());
                 if (Logger.AnyLoggerHasErrors) { return; }
 
-                await _logger.MeasureAsync("Output Generation", async () => {
+                async Task startGenerateTask()
+                {
                     if (clearOutput) master.ClearOutput();
                     await master.GenerateCode();
                     master.CloseWriters();
-                });
+                }
+                await _logger.MeasureAsync("Output Generation", startGenerateTask());
                 if (Logger.AnyLoggerHasErrors) { return; }
             }
             catch (OperationCanceledException)
             {
                 _logger.Log("Cancelled");
                 throw;
-            }
-            catch (Exception exc)
-            {
-                System.Console.Write(exc.Message);
-                System.Console.Write(exc.InnerException?.Message);
             }
             finally
             {

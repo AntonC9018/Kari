@@ -50,7 +50,8 @@
 
 	internal static class Dummy<#= classname #>
 	{
-		internal const string Text = @"<#= attributesTextEscaped #>";
+		internal const string Text = @"<#= attributesTextEscaped #>
+";
 	}
 
 	internal static partial class <#= symbolsClass #>
@@ -60,12 +61,12 @@
         internal static AttributeSymbolWrapper<<#= attibuteClassName #>> <#= attibuteClassName #> { get; private set; } 
 <#	} #>
 
-        internal static void Initialize() 
+        internal static void Initialize(Logger logger) 
         { 
             var compilation = MasterEnvironment.Instance.Compilation;
 <# 	foreach (var attibuteClassName in attributeClassNames) 
 	{ #>
-			<#= attibuteClassName #> = new AttributeSymbolWrapper<<#= attibuteClassName #>>(compilation);
+			<#= attibuteClassName #> = new AttributeSymbolWrapper<<#= attibuteClassName #>>(compilation, logger);
 <#	} #>
         }
     }

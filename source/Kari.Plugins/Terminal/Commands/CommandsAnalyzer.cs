@@ -116,8 +116,11 @@ namespace Kari.Plugins.Terminal
             var helpMessageBuilder = new StringBuilder();
             helpMessageBuilder.AppendLine(usageBuilder.ToString());
             helpMessageBuilder.AppendLine();
-            helpMessageBuilder.AppendLine(info.CommandAttribute.Help);
-            helpMessageBuilder.AppendLine();
+            if (!string.IsNullOrEmpty(info.CommandAttribute.Help))
+            {
+                helpMessageBuilder.AppendLine(info.CommandAttribute.Help);
+                helpMessageBuilder.AppendLine();
+            }
             helpMessageBuilder.AppendLine(argsBuilder.ToString());
 
             executeBuilder.AppendLine("// Take in all the positional arguments.");
@@ -317,10 +320,9 @@ namespace Kari.Plugins.Terminal
                 {
                     var option = new OptionInfo(parameter, optionAttribute);
                     
-                    // For now, just throw. Later, add proper error handling.
                     if (option.Attribute.IsFlag && option.Symbol.Type != environment.Symbols.Bool)
                     {
-                        throw new System.Exception($"Flag option {option.Name} in {Name} command must be a boolean.");
+                        environment.Logger.LogError($"Flag option {option.Name} in {Name} command must be a boolean.");
                     }
 
                     Options.Add(option);

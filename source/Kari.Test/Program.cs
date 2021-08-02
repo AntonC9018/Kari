@@ -11,6 +11,11 @@ namespace Kari.Generated
     {
         public bool HasErrors => throw new NotImplementedException();
 
+        public void EndParsing()
+        {
+            throw new NotImplementedException();
+        }
+
         public T ParseArgument<T>(int argumentIndex, string argumentName, IValueParser<T> parser)
         {
             throw new NotImplementedException();
@@ -50,6 +55,7 @@ namespace Kari.Test
 
         static void Main(string[] args)
         {
+            
         }
     }
 }

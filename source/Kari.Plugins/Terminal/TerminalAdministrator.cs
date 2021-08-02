@@ -13,6 +13,7 @@ namespace Kari.Plugins.Terminal
         public ParsersAnalyzer[] _parserAnalyzers;
         public CommandsAnalyzer[] _commandAnalyzers;
         public static ProjectEnvironmentData TerminalProject { get; private set; }
+        private Logger _logger;
 
         public void Initialize()
         {
@@ -22,8 +23,10 @@ namespace Kari.Plugins.Terminal
             // We default to the root project otherwise
             TerminalProject ??= MasterEnvironment.Instance.RootPseudoProject;
 
-            ParserSymbols.Initialize();
-            CommandSymbols.Initialize();
+            _logger = new Logger("TerminalPlugin");
+
+            ParserSymbols.Initialize(_logger);
+            CommandSymbols.Initialize(_logger);
             AnalyzerMaster.Initialize(ref _parserAnalyzers);
             AnalyzerMaster.Initialize(ref _commandAnalyzers);
             ParserDatabase.InitializeSingleton(new ParserDatabase(TerminalProject));

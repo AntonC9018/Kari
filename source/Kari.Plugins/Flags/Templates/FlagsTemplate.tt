@@ -1,7 +1,7 @@
 <#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeGenerator<FlagsAnalyzer>" #>
 <#@ assembly name="System.Core" #>
 <#@ import namespace="Kari.GeneratorCore" #>
-
+<#  if (m._infos.Count == 0) return null; #>
 namespace <#= Project.GeneratedNamespace #>
 { 
     using System.Collections.Generic;

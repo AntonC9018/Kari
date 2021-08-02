@@ -62,6 +62,7 @@ namespace Kari.Plugins.Terminal
         internal const int CheckPriority = 1;
         private readonly Dictionary<ITypeSymbol, BuiltinParser> _builtinParsers = new Dictionary<ITypeSymbol, BuiltinParser>();
         private readonly Dictionary<ITypeSymbol, CustomParserInfo> _customParsersTypeMap = new Dictionary<ITypeSymbol, CustomParserInfo>();
+        private readonly Logger _logger = new Logger("Parsers");
 
         internal static string GetFullyQualifiedParsersClassNameForProject(ProjectEnvironmentData environment)
         {
@@ -119,7 +120,7 @@ namespace Kari.Plugins.Terminal
                     {
                         if (parser.Next is null)
                         {
-                            throw new System.Exception($"No such parser {parser.Name} for type {argument.Symbol.Type}");
+                            _logger.LogError($"No such parser {parser.Name} for type {argument.Symbol.Type}");
                         }
                         parser = parser.Next;
                     }
@@ -139,7 +140,8 @@ namespace Kari.Plugins.Terminal
                 }
             }
 
-            throw new System.Exception($"Found no parsers for type {argument.Symbol.Type}");
+            _logger.LogError($"Found no parsers for type {argument.Symbol.Type}");
+            return null;
         }
     }
 }

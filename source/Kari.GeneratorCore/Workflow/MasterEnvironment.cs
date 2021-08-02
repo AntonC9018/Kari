@@ -52,14 +52,16 @@ namespace Kari.GeneratorCore.Workflow
             RootNamespace = compilation.TryGetNamespace(RootNamespaceName);
 
             // TODO: log instead?
-            if (RootNamespace is null) throw new System.Exception($"No such namespace {RootNamespaceName}");
+            if (RootNamespace is null) Logger.LogError($"No such namespace {RootNamespaceName}");
         }
 
         private void AddProject(ProjectEnvironment project)
         {
+            Logger.Log($"Adding project {project.NamespaceName}");
             Projects.Add(project);
             if (project.NamespaceName == CommonProjectName)
             {
+                Logger.Log($"Found the common project {project.NamespaceName}");
                 CommonPseudoProject = project;
             }
         }
@@ -67,11 +69,19 @@ namespace Kari.GeneratorCore.Workflow
         public void FindProjects()
         {
             // TODO: log instead?
-            if (RootWriter is null) throw new System.Exception("The file writer must have been set by now.");
+            if (RootWriter is null) 
+            {
+                Logger.LogError("The file writer must have been set by now.");
+                return;
+            }
+
+            Logger.Log($"Searching for asmdef's in {ProjectRootDirectory}");
 
             // find asmdef's
             foreach (var asmdef in Directory.EnumerateFiles(ProjectRootDirectory, "*.asmdef", SearchOption.AllDirectories))
             {
+                Logger.Log($"Found an asmdef file at {asmdef}");
+                
                 var projectDirectory = Path.GetDirectoryName(asmdef);
                 var fileName = Path.GetFileNameWithoutExtension(asmdef);
 
@@ -84,6 +94,10 @@ namespace Kari.GeneratorCore.Workflow
                     namespaceName = nameToken.Value<string>();
                     // TODO: Report bettter
                     Debug.Assert(!(namespaceName is null));
+                    if (namespaceName is null)
+                    {
+                        Logger.LogError($"Not found the namespace name of the project at {asmdef}");
+                    }
                 }
                 else
                 {
@@ -134,8 +148,7 @@ namespace Kari.GeneratorCore.Workflow
                 var editorDirectory = Path.Combine(projectDirectory, "Editor");
                 if (!Directory.Exists(editorDirectory))
                 {
-                    // TODO: better error handling
-                    System.Console.WriteLine($"Found an editor project {namespaceName}, but no `Editor` folder.");
+                    Logger.LogWarning($"Found an editor project {namespaceName}, but no `Editor` folder.");
                     continue;
                 }
                 var editorEnvironment = new ProjectEnvironment(
@@ -146,8 +159,6 @@ namespace Kari.GeneratorCore.Workflow
                     
                 AddProject(editorEnvironment);
             }
-
-            InitializePseudoProjects();
         }
 
         public void InitializePseudoProjects()
@@ -174,14 +185,12 @@ namespace Kari.GeneratorCore.Workflow
 
             if (CommonPseudoProject is null) 
             {
-                if (CommonProjectName is null) 
+                if (!(CommonProjectName is null))
                 {
-                    CommonPseudoProject = RootPseudoProject;
+                    Logger.LogWarning($"No common project {CommonProjectName}. The common files will be generated into root.");
                 }
-                else 
-                {
-                    throw new System.Exception($"No common project {CommonProjectName}");
-                }
+
+                CommonPseudoProject = RootPseudoProject;
             }
         }
 
@@ -193,12 +202,15 @@ namespace Kari.GeneratorCore.Workflow
             }
         }
 
-        public Task Collect()
+        public async Task Collect()
         {
             var cachingTasks = Projects.Select(project => project.Collect());
+            await Task.WhenAll(cachingTasks);
+            CancellationToken.ThrowIfCancellationRequested();
+
             var managerTasks = Administrators.Select(admin => admin.Collect());
-            return Task.Factory.ContinueWhenAll(
-                cachingTasks.ToArray(), (_) => Task.WhenAll(managerTasks), CancellationToken);
+            await Task.WhenAll(managerTasks);
+            CancellationToken.ThrowIfCancellationRequested();
         }
 
         public void RunCallbacks()
