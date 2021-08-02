@@ -1,13 +1,8 @@
-using System.Collections.Generic;
-using System.IO;
 using System.Threading.Tasks;
-using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
 
 namespace Kari.Plugins.Flags
 {
-    using System.Text.RegularExpressions;
-
     public class FlagsAdministrator : IAdministrator
     {
         public FlagsAnalyzer[] _slaves;
@@ -17,9 +12,14 @@ namespace Kari.Plugins.Flags
             AnalyzerMaster.Initialize(ref _slaves);
             FlagsSymbols.Initialize();
         }
-        public Task Collect() => AnalyzerMaster.CollectTask(_slaves);
-        public Task Generate() => AnalyzerMaster.GenerateTask(_slaves, new FlagsTemplate(), "Flags.cs");
-        public IEnumerable<CallbackInfo> GetCallbacks() { yield break; }
+        public Task Collect() => AnalyzerMaster.CollectAsync(_slaves);
+        public Task Generate() 
+        {
+            return Task.WhenAll(
+                AnalyzerMaster.GenerateAsync(_slaves, "Flags.cs", new FlagsTemplate()),
+                MasterEnvironment.Instance.CommonPseudoProject.WriteFileAsync("FlagsAnnotations.cs", DummyFlagsAnnotations.Text)
+            );
+        }
         public string GetAnnotations() => DummyFlagsAnnotations.Text;
     }
 

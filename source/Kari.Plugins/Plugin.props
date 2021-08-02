@@ -42,7 +42,7 @@
     <!-- There is no -class option, because this is a design time template, I think it is called. -->
     <!-- TODO: Move into a targets and use from plugins. -->
     <!-- The set thing is my hack of passing a variable to the template. -->
-    <Exec Condition="@(Annotations) != ''" Command="set ANNOTATIONS_FILENAME=%(Annotations.Identity) &amp; dotnet t4 $(DummyAnnotationsTemplatePath) -out %(Annotations.RecursiveDir)%(Annotations.Filename).Generated.cs" />
+    <Exec Condition="@(Annotations) != ''" Command="dotnet t4 $(DummyAnnotationsTemplatePath) -out %(Annotations.RecursiveDir)%(Annotations.Filename).Generated.cs -p:AnnotationsPath=&quot;%(Annotations.Identity)&quot;" />
     
   </Target>
 

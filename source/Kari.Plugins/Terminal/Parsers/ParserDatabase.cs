@@ -1,29 +1,77 @@
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
-using Kari.Plugins.Terminal;
 using Microsoft.CodeAnalysis;
 
 namespace Kari.Plugins.Terminal
 {
-    public class ParsersAdministrator : Singleton<ParsersAdministrator>, IAdministrator
+    public interface IParserInfo
     {
-        public ParsersAnalyzer[] _slaves;
+        string Name { get; }
+        string FullName { get; }
+    }
 
-        public const int CheckPriority = 1;
+    public class BuiltinParser : IParserInfo
+    {
+        public string Name { get; }
+        public string FullName { get; }
+        public BuiltinParser(string parsersFullyQualifiedClassName, string name)
+        {
+            Name = name;
+            FullName = parsersFullyQualifiedClassName.Combine(name);
+        }
+    }
+
+    public class CustomParserInfo : IParserInfo
+    {
+        public readonly ParserAttribute Attribute;
+        public readonly ITypeSymbol Type;
+        public readonly string TypeName;
+        public readonly string FullyQualifiedName;
+
+        private CustomParserInfo(ISymbol symbol, string parsersFullyQualifiedClassName, ParserAttribute attribute)
+        {
+            Attribute = attribute;
+            Attribute.Name ??= symbol.Name;
+            FullName = parsersFullyQualifiedClassName.Combine(Attribute.Name);
+            FullyQualifiedName = symbol.GetFullyQualifiedName();
+            Next = null;
+        }
+
+        public CustomParserInfo(IMethodSymbol symbol, ParserAttribute attribute, string namespaceName) 
+            : this((ISymbol) symbol, namespaceName, attribute)
+        {
+            Type = symbol.Parameters[symbol.Parameters.Length - 1].Type;
+            TypeName = Type.GetFullyQualifiedName();
+        }
+
+        public CustomParserInfo(INamedTypeSymbol symbol, ParserAttribute attribute, string namespaceName)
+            : this((ISymbol) symbol, namespaceName, attribute)
+        {
+            Type = symbol.TypeArguments[symbol.TypeArguments.Length - 1];
+            TypeName = Type.GetFullyQualifiedName();
+        }
+
+        public string Name => Attribute.Name;
+        public string FullName { get; }
+        public CustomParserInfo Next { get; set; }
+    }
+
+    internal class ParserDatabase : Singleton<ParserDatabase>
+    {
+        internal const int CheckPriority = 1;
         private readonly Dictionary<ITypeSymbol, BuiltinParser> _builtinParsers = new Dictionary<ITypeSymbol, BuiltinParser>();
         private readonly Dictionary<ITypeSymbol, CustomParserInfo> _customParsersTypeMap = new Dictionary<ITypeSymbol, CustomParserInfo>();
 
-        public void Initialize()
+        internal static string GetFullyQualifiedParsersClassNameForProject(ProjectEnvironmentData environment)
         {
-            TerminalData.Load();
-            ParserSymbols.Initialize();
-            AnalyzerMaster.Initialize(ref _slaves);
-            var parsersFullyQualifiedClassName = TerminalData.GetFullyQualifiedParsersClassNameForDefaultProject();
-            var symbols = MasterEnvironment.Instance.Symbols;
+            return environment.GeneratedNamespace.Combine("Parsers");
+        }
 
+        public ParserDatabase(ProjectEnvironmentData terminalProject)
+        {
+            var parsersFullyQualifiedClassName = GetFullyQualifiedParsersClassNameForProject(terminalProject);
+            var symbols = MasterEnvironment.Instance.Symbols;
             _builtinParsers.Add(symbols.Int,     new BuiltinParser(parsersFullyQualifiedClassName, "Int")      );
             _builtinParsers.Add(symbols.Short,   new BuiltinParser(parsersFullyQualifiedClassName, "Short")    );
             _builtinParsers.Add(symbols.Long,    new BuiltinParser(parsersFullyQualifiedClassName, "Long")     );
@@ -92,31 +140,6 @@ namespace Kari.Plugins.Terminal
             }
 
             throw new System.Exception($"Found no parsers for type {argument.Symbol.Type}");
-        }  
-
-        public Task Collect()
-        {
-            return AnalyzerMaster.CollectTask(_slaves);
         }
-
-        public Task Generate()
-        {
-            var slavesTask = AnalyzerMaster.GenerateTask(_slaves, new ParsersTemplate(), "Parsers.cs");
-            var ownTask = Task.Run(() => {
-                var project = TerminalData.TerminalProject;
-                var template = new ParsersMasterTemplate();
-                project.WriteLocalFile("ParsersBasics.cs", template.TransformText());
-            });
-
-            return Task.WhenAll(slavesTask, ownTask);
-        }
-
-        public IEnumerable<CallbackInfo> GetCallbacks()
-        {
-            // TODO: Add the check callback
-            yield break;
-        }
-
-        public string GetAnnotations() => DummyParsersAnnotations.Text;
     }
 }

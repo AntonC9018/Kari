@@ -3,7 +3,7 @@
 <#@ import namespace="Kari.GeneratorCore" #>
 <#@ import namespace="Kari.Plugins.Terminal" #>
 
-namespace <#= TerminalData.TerminalProject.GeneratedNamespace #>
+namespace <#= TerminalAdministrator.TerminalProject.GeneratedNamespace #>
 {
     /// <summary>
     /// The CommandContext class must implement the following duck interface.

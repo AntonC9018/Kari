@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Text;
-using System.Threading.Tasks;
 using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
 using Microsoft.CodeAnalysis;
@@ -375,7 +374,7 @@ namespace Kari.Plugins.Terminal
 
         public void InitializeParser()
         {
-            Parser = ParsersAdministrator.Instance.GetParser(this);
+            Parser = ParserDatabase.Instance.GetParser(this);
         }
     }
 

@@ -160,6 +160,8 @@
                 }
 
                 var master = new MasterEnvironment(rootNamespace, projectDirectory, Context.CancellationToken, _logger);
+                // Set the master instance globally
+                MasterEnvironment.InitializeSingleton(master);
                 var pluginsTask = _logger.Measure("Load Plugins", () => LoadPlugins(master, pluginsLocations, pluginNames));
                 
                 await pluginsTask;

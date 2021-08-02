@@ -5,12 +5,30 @@ using System.Text;
 
 namespace Kari.GeneratorCore.Workflow
 {
-    public interface IFileWriter
+    /// <summary>
+    /// Provides an abstraction for writing code files to a given output file.
+    /// The file may be written in a different folder or file than requested.
+    /// See the implementing classes for the different available options.
+    /// </summary>
+    public interface IFileWriter : IDisposable
     {
+        /// <summary>
+        /// Returns a new writer, scoped to the generated output file/directory 
+        /// of the given project base directory.
+        /// </summary>
         IFileWriter GetProjectWriter(string projectDirectory);
-        void WriteCodeFile(string filename, string text);
+
+        /// <summary>
+        /// Writes the given text to a file.
+        /// The `fileNameHint` parameter indicates the desired file name, but the function
+        /// gives no guarantees of the actual file the text will be written to.
+        /// </summary>
+        void WriteCodeFile(string fileNameHint, string text);
     }
 
+    /// <summary>
+    /// Data common to all writers, such as the header and the footer of the generated files.
+    /// </summary>
     public static class FileWriterData
     {
         public static readonly Encoding NoBomUtf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
@@ -25,14 +43,40 @@ namespace Kari.GeneratorCore.Workflow
         public const string Footer = "#pragma warning restore";
     }
 
-    public class SingleCodeFileWriter : IFileWriter, IDisposable
+    /// <summary>
+    /// Dumps all output in a single file, indicated by `MasterEnvironment.Instance.GeneratedDirectorySuffix`.
+    /// Must be initialized after you have set the global MasterEnvironment instance.
+    /// </summary>
+    public class SingleCodeFileWriter : OneFilePerProjectFileWriter
     {
-        public StreamWriter? _file;
+        // Works the same as OneFilePerProjectFileWriter, but returns the first instance every time.
+        // That instance will be set to the output file of the RootProject.
+        public override IFileWriter GetProjectWriter(string projectDirectory)
+        {
+            return this;
+        }
+    }
+
+    /// <summary>
+    /// Dumps the output in a single file, unique per identified project.
+    /// The output file is determined by `MasterEnvironment.Instance.GeneratedDirectorySuffix`.
+    /// </summary>
+    public class OneFilePerProjectFileWriter : IFileWriter, IDisposable
+    {
+        private readonly string _filePath;
+        private StreamWriter? _file;
+
+        public OneFilePerProjectFileWriter() : this(MasterEnvironment.Instance.ProjectRootDirectory) {}
+
+        private OneFilePerProjectFileWriter(string directory)
+        {
+            _filePath = Path.Combine(directory, MasterEnvironment.Instance.GeneratedDirectorySuffix, ".cs");
+            Directory.CreateDirectory(_filePath);
+        }
 
         private void OpenFile()
         {
-            var path = Path.Combine(MasterEnvironment.Instance.ProjectRootDirectory, MasterEnvironment.Instance.GeneratedDirectorySuffix, ".cs");
-            _file = new StreamWriter(path, append: false, FileWriterData.NoBomUtf8);
+            _file = new StreamWriter(_filePath, append: false, FileWriterData.NoBomUtf8);
             _file.Write(FileWriterData.Header);
         }
 
@@ -45,19 +89,24 @@ namespace Kari.GeneratorCore.Workflow
             _file = null;
         }
 
-        public IFileWriter GetProjectWriter(string projectDirectory)
-        {
-            return this;
-        }
-
-        public void WriteCodeFile(string filename, string text)
+        public void WriteCodeFile(string fileNameHint, string text)
         {
             if (_file is null) OpenFile();
-            _file.WriteLine("// " + filename);
+            _file.WriteLine("// " + fileNameHint);
             _file.Write(text);
+        }
+
+        public virtual IFileWriter GetProjectWriter(string projectDirectory)
+        {
+            return new OneFilePerProjectFileWriter(projectDirectory);
         }
     }
 
+    /// <summary>
+    /// Dumps all output in the respective separate files, conforming to the requested file name.
+    /// The output is written to the output folder of the specified project.
+    /// The output folder is determined by `MasterEnvironment.Instance.GeneratedDirectorySuffix`.
+    /// </summary>
     public class SeparateCodeFileWriter : IFileWriter
     {
         private readonly string _baseFolder;
@@ -70,14 +119,16 @@ namespace Kari.GeneratorCore.Workflow
             Directory.CreateDirectory(_baseFolder);
         }
 
+        public void Dispose(){}
+
         public IFileWriter GetProjectWriter(string projectDirectory)
         {
             return new SeparateCodeFileWriter(projectDirectory);
         }
 
-        public void WriteCodeFile(string filename, string text)
+        public void WriteCodeFile(string fileName, string text)
         {
-            var path = Path.Combine(_baseFolder, filename);
+            var path = Path.Combine(_baseFolder, fileName);
             Debug.Assert(!File.Exists(path));
 
             var file = new StreamWriter(path, append: true, FileWriterData.NoBomUtf8);

@@ -1,4 +1,4 @@
-<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeGenerator<CommandsAdministrator>" #>
+<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeGenerator<CommandsAnalyzer[]>" #>
 <#@ assembly name="System.Core" #>
 <#@ import namespace="Kari.GeneratorCore" #>
 <#@ import namespace="Kari.Plugins.Terminal" #>
@@ -9,10 +9,10 @@ namespace <#= Project.GeneratedNamespace #>
     {
         public static void InitializeBuiltinCommands()
         {
-            <# var ns = TerminalData.TerminalProject.GeneratedNamespace; #>
+            <# var ns = TerminalAdministrator.TerminalProject.GeneratedNamespace; #>
             <#= ns #>.Commands.BuiltinCommands = new <#= ns #>.CommandInfo[]
             {
-<#  foreach (var slave in m._slaves)
+<#  foreach (var slave in m)
     {
         foreach (var info in slave._infos)
         { #>

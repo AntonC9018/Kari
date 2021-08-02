@@ -6,13 +6,12 @@
 <#@ import namespace="System.IO" #>
 <#@ import namespace="System.Text.RegularExpressions" #>
 <#@ output extension=".cs" #>
-
-<#	// I have no clue if it's even possible to pass parameters to templates in a normal way
-	// But this hack works I guess.
-	var absolutePath = System.Environment.GetEnvironmentVariable("ANNOTATIONS_FILENAME");
+<#@ parameter name="AnnotationsPath" type="string" #>
+<#	
+	var absolutePath = AnnotationsPath;
 	var classname = Path.GetFileNameWithoutExtension(absolutePath);
 	var attributesText = File.ReadAllText(absolutePath, Encoding.UTF8);
-	var attributesTextEscaped = attributesText.Replace("\"", "\"\""); 
+	var attributesTextEscaped = attributesText.Replace("\"", "\"\"").Replace("internal", "public"); 
 
 	// literally the first line has the namespace declaration
 	string lambda()
@@ -29,16 +28,45 @@
 			return attributesText;
 		}
 
-		var n = attributesText.Substring(nspaceIndex, bracketIndex - nspaceIndex - 1);
-		return n.Replace("\r", "").Replace("\n", "");
+		var n = attributesText.Substring(nspaceIndex, bracketIndex - nspaceIndex);
+		return n.Replace("\r\n", "").Replace("\n", "");
 	}
 
 	string namespaceDeclaration = lambda();
+
+	string ReplaceLastOccurrence(string source, string find, string replace)
+	{
+		int place = source.LastIndexOf(find);
+		if (place == -1) return source;
+		return source.Remove(place, find.Length).Insert(place, replace);
+	}
+	var symbolsClass = ReplaceLastOccurrence(classname, "Annotations", "Symbols");
+	var attributeClassRegex = new Regex(@"class\s+([a-zA-Z]+Attribute)\s*:\s*[a-zA-Z.]*Attribute");
+	var attributeClassNames = attributeClassRegex.Matches(attributesText).Select(m => m.Groups[1].Value);
 #>
 <#= namespaceDeclaration #> 
 {
-	public static class Dummy<#= classname #>
+	using Kari.GeneratorCore.Workflow;
+
+	internal static class Dummy<#= classname #>
 	{
-		public const string Text = @"<#= attributesTextEscaped #>";
+		internal const string Text = @"<#= attributesTextEscaped #>";
 	}
+
+	internal static partial class <#= symbolsClass #>
+    {
+<# 	foreach (var attibuteClassName in attributeClassNames) 
+	{ #>
+        internal static AttributeSymbolWrapper<<#= attibuteClassName #>> <#= attibuteClassName #> { get; private set; } 
+<#	} #>
+
+        internal static void Initialize() 
+        { 
+            var compilation = MasterEnvironment.Instance.Compilation;
+<# 	foreach (var attibuteClassName in attributeClassNames) 
+	{ #>
+			<#= attibuteClassName #> = new AttributeSymbolWrapper<<#= attibuteClassName #>>(compilation);
+<#	} #>
+        }
+    }
 }

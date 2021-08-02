@@ -10,33 +10,24 @@ using Newtonsoft.Json.Linq;
 
 namespace Kari.GeneratorCore.Workflow
 {
-    public class Singleton<T> where T : Singleton<T>
-    {
-        public static T Instance { get; private set; }
-        public Singleton()
-        {
-            if (!(Instance is null)) throw new System.Exception("Cannot initialize a singleton multiple times.");
-            Instance = (T) this;
-        }
-    }
-
     public class MasterEnvironment : Singleton<MasterEnvironment>
     {
+        public string CommonProjectName { get; set; } = "Common"; 
         public string GeneratedDirectorySuffix { get; set; } = "Generated";
+        public IFileWriter GlobalFileWriter { get; set; }
         public string GeneratedNamespaceSuffix => GeneratedDirectorySuffix;
 
+        public ProjectEnvironmentData CommonPseudoProject { get; private set; }
         public ProjectEnvironmentData RootPseudoProject { get; private set; }
-        public INamespaceSymbol RootNamespace => RootPseudoProject.RootNamespace;
-        public string ProjectRootDirectory => RootPseudoProject.Directory;
-        public IFileWriter GlobalFileWriter => RootPseudoProject.FileWriter;
 
-
+        public INamespaceSymbol RootNamespace { get; private set; }
         public Compilation Compilation { get; private set; }
         public RelevantSymbols Symbols { get; private set; }
 
         public readonly Logger Logger;
         public readonly CancellationToken CancellationToken;
         public readonly string RootNamespaceName;
+        public readonly string ProjectRootDirectory;
         public readonly List<ProjectEnvironment> Projects = new List<ProjectEnvironment>();
         public readonly List<IAdministrator> Administrators = new List<IAdministrator>(5);
 
@@ -47,6 +38,7 @@ namespace Kari.GeneratorCore.Workflow
         {
             CancellationToken = cancellationToken;
             RootNamespaceName = rootNamespace;
+            ProjectRootDirectory = rootDirectory;
             Logger = logger;
         }
 
@@ -57,16 +49,26 @@ namespace Kari.GeneratorCore.Workflow
                     CSharpSyntaxTree.ParseText(a.GetAnnotations())));
             Symbols = new RelevantSymbols(compilation);
             Compilation = compilation;
+            RootNamespace = compilation.TryGetNamespace(RootNamespaceName);
+
+            // TODO: log instead?
+            if (RootNamespace is null) throw new System.Exception($"No such namespace {RootNamespaceName}");
         }
 
-        public void InitializeFileWriter(string rootDirectory, IFileWriter writer)
+        private void AddProject(ProjectEnvironment project)
         {
-            RootPseudoProject = new ProjectEnvironmentData(
-                rootDirectory, RootNamespaceName, Compilation.GetNamespace(RootNamespaceName), writer);
+            Projects.Add(project);
+            if (project.NamespaceName == CommonProjectName)
+            {
+                CommonPseudoProject = project;
+            }
         }
 
         public void FindProjects()
         {
+            // TODO: log instead?
+            if (GlobalFileWriter is null) throw new System.Exception("The file writer must have been set by now.");
+
             // find asmdef's
             foreach (var asmdef in Directory.EnumerateFiles(ProjectRootDirectory, "*.asmdef", SearchOption.AllDirectories))
             {
@@ -110,7 +112,7 @@ namespace Kari.GeneratorCore.Workflow
                         rootNamespace:  projectNamespace,
                         fileWriter:     GlobalFileWriter.GetProjectWriter(projectDirectory));
                     // TODO: Assume no duplicates for now, but this will have to be error-checked.
-                    Projects.Add(environment);
+                    AddProject(environment);
                 }
 
                 // Check if "Editor" is in the array of included platforms.
@@ -142,7 +144,44 @@ namespace Kari.GeneratorCore.Workflow
                     rootNamespace:  editorProjectNamespace,
                     fileWriter:     GlobalFileWriter.GetProjectWriter(editorDirectory));
                     
-                Projects.Add(editorEnvironment);
+                AddProject(editorEnvironment);
+            }
+            
+            InitializePseudoProjects();
+        }
+
+        public void InitializePseudoProjects()
+        {
+            if (Projects.Count == 0)
+            {
+                var rootProject = new ProjectEnvironment(
+                    directory:      ProjectRootDirectory,
+                    namespaceName:  RootNamespaceName,
+                    rootNamespace:  RootNamespace,
+                    fileWriter:     GlobalFileWriter);
+                Projects.Add(rootProject);
+                RootPseudoProject = rootProject;
+            }
+            else
+            {
+                RootPseudoProject = new ProjectEnvironmentData(
+                    directory:      ProjectRootDirectory,
+                    namespaceName:  RootNamespaceName,
+                    fileWriter:     GlobalFileWriter,
+                    logger:         new Logger("Root")
+                );
+            }
+
+            if (CommonPseudoProject is null) 
+            {
+                if (CommonProjectName is null) 
+                {
+                    CommonPseudoProject = RootPseudoProject;
+                }
+                else 
+                {
+                    throw new System.Exception($"No common project {CommonProjectName}");
+                }
             }
         }
 
@@ -195,96 +234,6 @@ namespace Kari.GeneratorCore.Workflow
         {
             Priority = priority;
             Callback = callback;
-        }
-    }
-
-    public interface IAdministrator
-    {
-        /// <summary>
-        /// Get the content of the file with annotations associated with the given administrator.
-        /// This information will be used to update the existing compilation.
-        /// </summary>
-        string GetAnnotations();
-
-        /// <summary>
-        /// Method called after a reference to MasterEnvironment has been set.
-        /// The MasterEnvironment already contains the projects at this point.
-        /// </summary>
-        void Initialize();
-
-        /// <summary>
-        /// The method called asynchronously by the MasterEnvironment to initiate the symbol collection process.
-        /// You must initiate the symbol collecting processes of the resources you control.
-        /// </summary>
-        Task Collect();
-
-        /// <summary>
-        /// The method through which the MasterEnvironment figures out the dependencies between the different
-        /// resources and administrators. This function must return the callbacks with the associated
-        /// priority numbers. The lower the priority, the sooner the callback will execute.
-        /// By knowing what priority number a different Administrator will use, you can run your handler
-        /// right before or right after theirs, by setting the priority of your handler to a lower or to 
-        /// a higher value respectively.
-        /// </summary>
-        IEnumerable<CallbackInfo> GetCallbacks();
-
-        /// <summary>
-        /// The method called asynchronously by the MasterEnvironment to initiate the code generation process.
-        /// </summary>
-        Task Generate();
-    }
-    
-    public interface IAnalyzer
-    {
-        void Collect(ProjectEnvironment project);
-    }
-
-    public static class AnalyzerMaster
-    {
-        public static void Initialize<T>(ref T[] slaves) where T : IAnalyzer, new()
-        {
-            var projects = MasterEnvironment.Instance.Projects;
-            slaves = new T[projects.Count]; 
-            for (int i = 0; i < projects.Count; i++)
-            {
-                slaves[i] = new T();
-            }
-        }
-
-        public static void Collect<T>(T[] slaves) where T : IAnalyzer
-        {
-            var projects = MasterEnvironment.Instance.Projects;
-            for (int i = 0; i < slaves.Length; i++)
-            {
-                slaves[i].Collect(projects[i]);
-            }
-        }
-
-        public static Task CollectTask<T>(T[] slaves) where T : IAnalyzer
-        {
-            return Task.Run(() => Collect(slaves));
-        }
-
-        public static void Generate<T>(T[] slaves, IGenerator<T> generator, string fileName)
-            where T : IAnalyzer
-        {
-            var projects = MasterEnvironment.Instance.Projects;
-            for (int i = 0; i < slaves.Length; i++)
-            {
-                generator.m = slaves[i];
-                generator.Project = projects[i];
-
-                if (generator.ShouldWrite())
-                {
-                    projects[i].WriteLocalFile(fileName, generator.TransformText());
-                }
-            }
-        }
-
-        public static Task GenerateTask<T>(T[] slaves, IGenerator<T> generator, string fileName) 
-            where T : IAnalyzer
-        {
-            return Task.Run(() => Generate(slaves, generator, fileName));
         }
     }
 }
