@@ -13,9 +13,9 @@ namespace Kari.GeneratorCore.Workflow
     public class MasterEnvironment : Singleton<MasterEnvironment>
     {
         public string CommonProjectName { get; set; } = "Common"; 
-        public string GeneratedDirectorySuffix { get; set; } = "Generated";
-        public IFileWriter GlobalFileWriter { get; set; }
-        public string GeneratedNamespaceSuffix => GeneratedDirectorySuffix;
+        public string GeneratedPath { get; set; } = "Generated";
+        public string GeneratedNamespaceSuffix { get; set; } = "Generated";
+        public IFileWriter RootWriter { get; set; }
 
         public ProjectEnvironmentData CommonPseudoProject { get; private set; }
         public ProjectEnvironmentData RootPseudoProject { get; private set; }
@@ -67,7 +67,7 @@ namespace Kari.GeneratorCore.Workflow
         public void FindProjects()
         {
             // TODO: log instead?
-            if (GlobalFileWriter is null) throw new System.Exception("The file writer must have been set by now.");
+            if (RootWriter is null) throw new System.Exception("The file writer must have been set by now.");
 
             // find asmdef's
             foreach (var asmdef in Directory.EnumerateFiles(ProjectRootDirectory, "*.asmdef", SearchOption.AllDirectories))
@@ -110,7 +110,7 @@ namespace Kari.GeneratorCore.Workflow
                         directory:      projectDirectory,
                         namespaceName:  namespaceName,
                         rootNamespace:  projectNamespace,
-                        fileWriter:     GlobalFileWriter.GetProjectWriter(projectDirectory));
+                        fileWriter:     RootWriter.GetWriter(Path.Combine(projectDirectory, GeneratedPath)));
                     // TODO: Assume no duplicates for now, but this will have to be error-checked.
                     AddProject(environment);
                 }
@@ -142,11 +142,11 @@ namespace Kari.GeneratorCore.Workflow
                     directory:      editorDirectory,
                     namespaceName:  namespaceName.Combine("Editor"),
                     rootNamespace:  editorProjectNamespace,
-                    fileWriter:     GlobalFileWriter.GetProjectWriter(editorDirectory));
+                    fileWriter:     RootWriter.GetWriter(Path.Combine(editorDirectory, GeneratedPath)));
                     
                 AddProject(editorEnvironment);
             }
-            
+
             InitializePseudoProjects();
         }
 
@@ -158,8 +158,8 @@ namespace Kari.GeneratorCore.Workflow
                     directory:      ProjectRootDirectory,
                     namespaceName:  RootNamespaceName,
                     rootNamespace:  RootNamespace,
-                    fileWriter:     GlobalFileWriter);
-                Projects.Add(rootProject);
+                    fileWriter:     RootWriter);
+                AddProject(rootProject);
                 RootPseudoProject = rootProject;
             }
             else
@@ -167,7 +167,7 @@ namespace Kari.GeneratorCore.Workflow
                 RootPseudoProject = new ProjectEnvironmentData(
                     directory:      ProjectRootDirectory,
                     namespaceName:  RootNamespaceName,
-                    fileWriter:     GlobalFileWriter,
+                    fileWriter:     RootWriter,
                     logger:         new Logger("Root")
                 );
             }
@@ -215,6 +215,22 @@ namespace Kari.GeneratorCore.Workflow
             for (int i = 0; i < infos.Count; i++)
             {
                 infos[i].Callback();
+            }
+        }
+
+        public void ClearOutput()
+        {
+            for (int i = 0; i < Projects.Count; i++)
+            {
+                Projects[i].FileWriter.DeleteOutput();
+            }
+        }
+
+        public void CloseWriters()
+        {
+            for (int i = 0; i < Projects.Count; i++)
+            {
+                Projects[i].FileWriter.Dispose();
             }
         }
 

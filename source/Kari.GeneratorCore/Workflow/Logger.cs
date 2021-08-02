@@ -25,7 +25,7 @@ namespace Kari.GeneratorCore.Workflow
         /// <summary>
         /// Whether a message with the type of error has been reported so far.
         /// </summary>
-        public static bool HasErrors => _HasErrors;
+        public static bool AnyLoggerHasErrors => _HasErrors;
         private readonly string _name;
 
         public Logger(string name)
@@ -36,7 +36,7 @@ namespace Kari.GeneratorCore.Workflow
         /// <summary>
         /// Measures an operation.
         /// </summary>
-        public async Task Measure(string operationName, Task task)
+        public async Task MeasureAsync(string operationName, Task task)
         {
             Log(operationName + " Started.", LogType.Information);
             var s = Stopwatch.StartNew();
@@ -58,7 +58,7 @@ namespace Kari.GeneratorCore.Workflow
         /// <summary>
         /// Measures an operation.
         /// </summary>
-        public async Task Measure(string operationName, System.Action operation)
+        public async Task MeasureAsync(string operationName, System.Action operation)
         {
             Log(operationName + " Started.", LogType.Information);
             var s = Stopwatch.StartNew();

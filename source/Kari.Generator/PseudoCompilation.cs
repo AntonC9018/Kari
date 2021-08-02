@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -13,7 +14,7 @@ namespace Kari.Generator
 {
     internal static class PseudoCompilation
     {
-        internal static CSharpCompilation CreateFromDirectory(string directoryRoot, string generatedFolderPrefix)
+        internal static CSharpCompilation CreateFromDirectory(string directoryRoot, string generatedFolderPrefix, CancellationToken cancellationToken)
         {
             var parseOption = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None, SourceCodeKind.Regular);
 
@@ -24,6 +25,7 @@ namespace Kari.Generator
                 var text = File.ReadAllText(file, Encoding.UTF8);
                 var syntax = CSharpSyntaxTree.ParseText(text, parseOption);
                 syntaxTrees.Add(syntax);
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             var metadata = GetStandardReferences().Select(x => MetadataReference.CreateFromFile(x)).ToArray();
