@@ -16,7 +16,6 @@ namespace Kari.GeneratorCore.Workflow
         public readonly string GeneratedNamespace;
         
         public MasterEnvironment Master => MasterEnvironment.Instance;
-        public Compilation Compilation => Master.Compilation;
 
         public ProjectEnvironmentData(string directory, string namespaceName, IFileWriter fileWriter, Logger logger)
         {

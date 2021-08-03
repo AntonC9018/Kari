@@ -43,11 +43,11 @@ namespace Kari.GeneratorCore.Workflow
 
         public void InitializeCompilation(ref Compilation compilation)
         {
-            compilation = compilation.AddSyntaxTrees(
+            Compilation = compilation.AddSyntaxTrees(
                 Administrators.Select(a => CSharpSyntaxTree.ParseText(a.GetAnnotations())));
-            Symbols.Initialize(compilation);
-            Compilation = compilation;
-            RootNamespace = compilation.TryGetNamespace(RootNamespaceName);
+            Symbols.Initialize(Compilation);
+            Compilation = Compilation;
+            RootNamespace = Compilation.TryGetNamespace(RootNamespaceName);
 
             // TODO: log instead?
             if (RootNamespace is null) Logger.LogError($"No such namespace {RootNamespaceName}");

@@ -1,61 +1,79 @@
 ﻿using System;
-using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
-using Kari.Generated;
-using Kari.Plugins.Terminal;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
-namespace Kari.Generated
+namespace Test
 {
-    public class CommandContext : IDuckCommandContext
+    using Kari.GeneratorCore;
+    using Kari.GeneratorCore.Workflow;
+
+    public class HelloAttribute : System.Attribute
     {
-        public bool HasErrors => throw new NotImplementedException();
-
-        public void EndParsing()
-        {
-            throw new NotImplementedException();
-        }
-
-        public T ParseArgument<T>(int argumentIndex, string argumentName, IValueParser<T> parser)
-        {
-            throw new NotImplementedException();
-        }
-
-        public bool ParseFlag(string optionName, bool defaultValue = false, bool flagValue = true)
-        {
-            throw new NotImplementedException();
-        }
-
-        public T ParseOption<T>(string optionName, IValueParser<T> parser)
-        {
-            throw new NotImplementedException();
-        }
-
-        public T ParseOption<T>(string optionName, T defaultValue, IValueParser<T> parser)
-        {
-            throw new NotImplementedException();
-        }
+        public int i;
+        public HelloAttribute(int num) { i = num; }
     }
-}
 
-namespace Kari.Test
-{
     class Program
     {
-        [FrontCommand("Hello", "World")]
-        public static void Func(CommandContext ctx)
+        private static IEnumerable<MetadataReference> DistinctReference(IEnumerable<MetadataReference> metadataReferences)
         {
-
+            var set = new HashSet<string>();
+            foreach (var item in metadataReferences)
+            {
+                if (item.Display is object && set.Add(Path.GetFileName(item.Display)))
+                {
+                    yield return item;
+                }
+            }
         }
-
-        [Command("join", "123")]
-        public static void Hello(int i)
-        {
-        }
-
+        
         static void Main(string[] args)
         {
-            
+            string source = @"
+namespace Test 
+{ 
+    [Hello(123)]
+    public class World{}
+}";
+            string attribute = @"
+namespace Test 
+{ 
+    public class HelloAttribute : System.Attribute
+    {
+        public int i;
+        public HelloAttribute(int num) { i = num; }
+    }
+}";
+            Type[] ts = { typeof(object), typeof(Attribute) };
+
+            var metadata = ts
+               .Select(x => x.Assembly.Location)
+               .Distinct()
+               .ToList();
+
+            var distinct = DistinctReference(metadata.Select(x => MetadataReference.CreateFromFile(x)).ToArray());
+
+            var sourceSyntaxTree = CSharpSyntaxTree.ParseText(source);
+            var attributeSyntaxTree = CSharpSyntaxTree.ParseText(attribute);
+            var syntaxTrees = new List<SyntaxTree> { 
+                sourceSyntaxTree,
+                // attributeSyntaxTree,
+            };
+
+            var compilation = CSharpCompilation.Create(
+                "CodeGenTemp",
+                syntaxTrees,
+                distinct,
+                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+
+            compilation = compilation.AddSyntaxTrees(attributeSyntaxTree);
+
+            var world = compilation.GetSymbolsWithName("World").Single();
+            var attrClass = compilation.GetSymbolsWithName("HelloAttribute").Single();
+            var attrInstantiation = world.GetAttributes()[0].MapToType<Test.HelloAttribute>();
         }
     }
 }

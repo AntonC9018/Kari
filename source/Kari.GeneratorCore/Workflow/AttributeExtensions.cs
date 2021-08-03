@@ -26,7 +26,9 @@ namespace Kari.GeneratorCore.Workflow
         public static T MapToType<T>(this AttributeData attributeData) where T : Attribute
         {
             T attribute;
-            if (attributeData.AttributeConstructor != null && attributeData.ConstructorArguments.Length > 0)
+            bool a = typeof(T).Name == "ParserAttribute";
+
+            if (attributeData.ConstructorArguments.Length > 0 && attributeData.AttributeConstructor != null)
             {
                 attribute = (T) Activator.CreateInstance(typeof(T), attributeData.GetActualConstuctorParams().ToArray());
             }
@@ -92,7 +94,15 @@ namespace Kari.GeneratorCore.Workflow
             Logger.Debug.LogDebug(symbol.Name);
             if (TryGetAttributeData(symbol, attributeSymbolWrapper.symbol, out var attributeData))
             {
-                attribute = attributeData.MapToType<T>();
+                try
+                {
+                    attribute = attributeData.MapToType<T>();
+                }
+                catch
+                {
+                    attribute = null;
+                    Logger.Debug.LogError("Invalid?");
+                }
                 return true;
             }
             attribute = default;
