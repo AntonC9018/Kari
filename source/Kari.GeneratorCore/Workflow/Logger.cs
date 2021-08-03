@@ -10,7 +10,8 @@ namespace Kari.GeneratorCore.Workflow
         Message = ConsoleColor.Gray,
         Error = ConsoleColor.Red,
         Warning = ConsoleColor.DarkYellow,
-        Information = ConsoleColor.Cyan
+        Information = ConsoleColor.Cyan,
+        Debug = ConsoleColor.DarkRed
     }
 
     /// <summary>
@@ -27,6 +28,7 @@ namespace Kari.GeneratorCore.Workflow
         /// </summary>
         public static bool AnyLoggerHasErrors => _HasErrors;
         private readonly string _name;
+        public static readonly Logger Debug = new Logger("DEBUG");
 
         public Logger(string name)
         {
@@ -111,6 +113,11 @@ namespace Kari.GeneratorCore.Workflow
         public void LogInfo(string message)
         {
             Log(message, LogType.Information);
+        }
+
+        public void LogDebug(string message)
+        {
+            Log(message, LogType.Debug);
         }
     }
 }

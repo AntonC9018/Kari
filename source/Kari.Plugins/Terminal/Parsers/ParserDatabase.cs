@@ -30,9 +30,10 @@ namespace Kari.Plugins.Terminal
         public readonly string TypeName;
         public readonly string FullyQualifiedName;
 
-        private CustomParserInfo(ISymbol symbol, string parsersFullyQualifiedClassName, ParserAttribute attribute)
+        private CustomParserInfo(ISymbol symbol, ParserAttribute attribute, string parsersFullyQualifiedClassName)
         {
             Attribute = attribute;
+            Logger.Debug.Log($"Attribute name: {attribute.Name}, symbol name: {symbol.Name}.");
             Attribute.Name ??= symbol.Name;
             FullName = parsersFullyQualifiedClassName.Combine(Attribute.Name);
             FullyQualifiedName = symbol.GetFullyQualifiedName();
@@ -40,15 +41,15 @@ namespace Kari.Plugins.Terminal
             Next = null;
         }
 
-        public CustomParserInfo(IMethodSymbol symbol, ParserAttribute attribute, string namespaceName) 
-            : this((ISymbol) symbol, namespaceName, attribute)
+        public CustomParserInfo(IMethodSymbol symbol, ParserAttribute attribute, string parsersFullyQualifiedClassName) 
+            : this((ISymbol) symbol, attribute, parsersFullyQualifiedClassName)
         {
             Type = symbol.Parameters[symbol.Parameters.Length - 1].Type;
             TypeName = Type.GetFullyQualifiedName();
         }
 
-        public CustomParserInfo(INamedTypeSymbol symbol, ParserAttribute attribute, string namespaceName)
-            : this((ISymbol) symbol, namespaceName, attribute)
+        public CustomParserInfo(INamedTypeSymbol symbol, ParserAttribute attribute, string parsersFullyQualifiedClassName)
+            : this((ISymbol) symbol, attribute, parsersFullyQualifiedClassName)
         {
             Type = symbol.TypeArguments[symbol.TypeArguments.Length - 1];
             TypeName = Type.GetFullyQualifiedName();

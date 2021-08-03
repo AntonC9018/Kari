@@ -44,8 +44,7 @@ namespace Kari.GeneratorCore.Workflow
         public void InitializeCompilation(ref Compilation compilation)
         {
             compilation = compilation.AddSyntaxTrees(
-                Administrators.Select(a => 
-                    CSharpSyntaxTree.ParseText(a.GetAnnotations())));
+                Administrators.Select(a => CSharpSyntaxTree.ParseText(a.GetAnnotations())));
             Symbols.Initialize(compilation);
             Compilation = compilation;
             RootNamespace = compilation.TryGetNamespace(RootNamespaceName);
@@ -91,11 +90,10 @@ namespace Kari.GeneratorCore.Workflow
                 if (asmdefJson.TryGetValue("name", out JToken nameToken))
                 {
                     namespaceName = nameToken.Value<string>();
-                    // TODO: Report bettter
-                    Debug.Assert(!(namespaceName is null));
                     if (namespaceName is null)
                     {
                         Logger.LogError($"Not found the namespace name of the project at {asmdef}");
+                        continue;
                     }
                 }
                 else
@@ -107,10 +105,18 @@ namespace Kari.GeneratorCore.Workflow
                 // Even the editor project will have this namespace, because of the convention.
                 INamespaceSymbol projectNamespace = Compilation.TryGetNamespace(namespaceName);
                 
+                if (!namespaceName.StartsWith(RootNamespaceName) && projectNamespace is null)
+                {
+                    // We do not require asmdef's to prefix the name with the project namespace
+                    // TODO: Maybe do that.
+                    var prefixedName = RootNamespaceName.Combine(namespaceName);
+                    Logger.LogWarning($"The namespace {namespaceName} was not found. Trying {prefixedName}.");
+                    projectNamespace = Compilation.TryGetNamespace(prefixedName);
+                }
+                
                 if (projectNamespace is null)
                 {
-                    // TODO: Report this in a better way
-                    System.Console.WriteLine($"The namespace {namespaceName} deduced from asmdef project {fileName} could not be found in the compilation.");
+                    Logger.LogWarning($"The namespace {namespaceName} deduced from project at {asmdef} could not be found in the compilation.");
                     continue;
                 }
 

@@ -115,8 +115,8 @@
             bool singleFileOutput = false,
             [Option("Whether to not scan for subprojects and always treat the entire codebase as a single root project. This implies the files will be generated in a single folder. With `singleFileOutput` set to true implies generating all code for the entire project in the single file.")]
             bool monolithicProject = false,
-            [Option("The common project namespace name (appended to rootNamespace). This is the project where all the attributes and other things common to all projects will end up. Ignored when `monolithicProject` is set to true.")]
-            string commonName = "Common")
+            [Option("The common project namespace name (appended to rootNamespace). This is the project where all the attributes and other things common to all projects will end up. Ignored when `monolithicProject` is set to true. Default: \"RootNamespace.Common\"")]
+            string? commonNamespace = null)
         {
             Workspace? workspace = null;
             try
@@ -164,13 +164,17 @@
                 {
                     master.CommonProjectName = null;
                 }
-                else if (commonName == "")
+                else if (commonNamespace == "")
                 {
                     _logger.LogError($"The common project name cannot be empty. If you wish to treat the entire code base as one monolithic project, use that option instead.");
                 }
                 else
                 {
-                    master.CommonProjectName = rootNamespace.Combine(commonName);
+                    if (commonNamespace is null)
+                    {
+                        commonNamespace = rootNamespace.Combine("Common");
+                    }
+                    master.CommonProjectName = commonNamespace;
                 }
 
                 var pluginsTask = _logger.MeasureAsync("Load Plugins", () => LoadPlugins(master, pluginsLocations, pluginNames, token));

@@ -56,11 +56,20 @@ namespace Kari.Plugins.Terminal
 
         public string GetClassName(ICommandMethodInfo info)
         {
-            var candidate = info.Name.Replace(".", "_");
+            string candidate;
 
-            if (_names.Contains(candidate.ToUpper()))
+            if (info.Name.IndexOf('.') != -1)
             {
-                _logger.LogWarning($"Potentially ambiguous command names: {info.Name} and {candidate}");
+                candidate = info.Name.Replace(".", "_");
+
+                if (_names.Contains(candidate.ToUpper()))
+                {
+                    _logger.LogWarning($"Potentially ambiguous command names: {info.Name} and {candidate}");
+                }
+            }
+            else
+            {
+                candidate = info.Name;
             }
 
             return candidate + "Command";
@@ -145,8 +154,8 @@ namespace Kari.Plugins.Terminal
             for (int i = 0; i < positionalArguments.Count; i++)
             {
                 var name = positionalArguments[i].Name;
-                var parserText = positionalArguments[i].Parser.Name;
-                executeBuilder.AppendLine($"var __{name} = context.ParseArgument({i}, \"{name}\", Parsers.{parserText});");
+                var parserText = positionalArguments[i].Parser.FullName;
+                executeBuilder.AppendLine($"var __{name} = context.ParseArgument({i}, \"{name}\", {parserText});");
             }
 
             if (optionLikeArguments.Count > 0)
@@ -158,13 +167,13 @@ namespace Kari.Plugins.Terminal
                     var argumentIndex = positionalArguments.Count + i;
                     var name = optionLikeArguments[i].Attribute.Name;
                     var typeText = optionLikeArguments[i].Symbol.Type.GetFullyQualifiedName();
-                    var parserText = optionLikeArguments[i].Parser.Name;
+                    var parserText = positionalArguments[i].Parser.FullName;
 
                     executeBuilder.AppendLine($"{typeText} __{name};");
                     // The argument is present as a positional argument
                     executeBuilder.AppendLine($"if (context.Arguments.Count > {argumentIndex})");
                     executeBuilder.StartBlock();
-                    executeBuilder.AppendLine($"__{name} = context.ParseArgument({argumentIndex}, \"{name}\", Parsers.{parserText});");
+                    executeBuilder.AppendLine($"__{name} = context.ParseArgument({argumentIndex}, \"{name}\", {parserText});");
                     executeBuilder.EndBlock();
                     // The argument is present as an option
                     executeBuilder.AppendLine("else");
@@ -173,12 +182,12 @@ namespace Kari.Plugins.Terminal
                     // Parse with default value, no option does not error out
                     if (optionLikeArguments[i].HasDefaultValue)
                     {
-                        executeBuilder.AppendLine($"__{name} = context.ParseOption(\"{name}\", {optionLikeArguments[i].DefaultValueText}, Parsers.{parserText});");
+                        executeBuilder.AppendLine($"__{name} = context.ParseOption(\"{name}\", {optionLikeArguments[i].DefaultValueText}, {parserText});");
                     }
                     // No option errors out
                     else
                     {
-                        executeBuilder.AppendLine($"__{name} = context.ParseOption(\"{name}\", Parsers.{parserText});");
+                        executeBuilder.AppendLine($"__{name} = context.ParseOption(\"{name}\", {parserText});");
                     }
 
                     executeBuilder.EndBlock();
@@ -200,7 +209,7 @@ namespace Kari.Plugins.Terminal
                         // If a custom parser is used, we must pass it to the function
                         if (option.Parser is CustomParserInfo customParser)
                         {
-                            executeBuilder.AppendLine($"{typeText} __{name} = context.ParseFlag(\"{name}\", defaultValue: {defaultValueText}, parser: Parsers.{customParser.Name});");
+                            executeBuilder.AppendLine($"{typeText} __{name} = context.ParseFlag(\"{name}\", defaultValue: {defaultValueText}, parser: {customParser.FullName});");
                         }
                         // A default parser bool is used
                         else
@@ -210,7 +219,7 @@ namespace Kari.Plugins.Terminal
                     }
                     else
                     {
-                        executeBuilder.AppendLine($"{typeText} __{name} = context.ParseOption(\"{name}\", defaultValue: {defaultValueText}, Parsers.{option.Parser.Name});");
+                        executeBuilder.AppendLine($"{typeText} __{name} = context.ParseOption(\"{name}\", defaultValue: {defaultValueText}, {option.Parser.FullName});");
                     }
                 }
             }

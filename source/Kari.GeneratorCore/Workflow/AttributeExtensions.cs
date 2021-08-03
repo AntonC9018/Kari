@@ -89,6 +89,7 @@ namespace Kari.GeneratorCore.Workflow
 
         public static bool TryGetAttribute<T>(this ISymbol symbol, AttributeSymbolWrapper<T> attributeSymbolWrapper, out T attribute) where T : System.Attribute
         {
+            Logger.Debug.LogDebug(symbol.Name);
             if (TryGetAttributeData(symbol, attributeSymbolWrapper.symbol, out var attributeData))
             {
                 attribute = attributeData.MapToType<T>();

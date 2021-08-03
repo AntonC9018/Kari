@@ -1,10 +1,5 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
-using Microsoft.CodeAnalysis;
 
 namespace Kari.Plugins.Terminal
 {
@@ -58,7 +53,7 @@ namespace Kari.Plugins.Terminal
                 AnalyzerMaster.GenerateAsync(_commandAnalyzers, "Commands.cs", new CommandsTemplate()),
                 TerminalProject.WriteFileAsync("ParsersBasics.cs", new ParsersMasterTemplate()),
                 TerminalProject.WriteFileAsync("CommandBasics.cs", new CommandsBasicsTemplate()),
-                TerminalProject.WriteFileAsync("CommandsInitialization.cs", commandsInitializationTemplate),
+                MasterEnvironment.Instance.RootPseudoProject.WriteFileAsync("CommandsInitialization.cs", commandsInitializationTemplate),
                 TerminalProject.WriteFileAsync("TerminalAnnotations.cs", GetAnnotations())
             );
         }
