@@ -33,7 +33,6 @@ namespace Kari.Plugins.Terminal
         private CustomParserInfo(ISymbol symbol, ParserAttribute attribute, string parsersFullyQualifiedClassName)
         {
             Attribute = attribute;
-            Logger.Debug.Log($"Attribute name: {attribute.Name}, symbol name: {symbol.Name}.");
             Attribute.Name ??= symbol.Name;
             FullName = parsersFullyQualifiedClassName.Combine(Attribute.Name);
             FullyQualifiedName = symbol.GetFullyQualifiedName();
@@ -127,6 +126,7 @@ namespace Kari.Plugins.Terminal
                         if (parser.Next is null)
                         {
                             _logger.LogError($"No such parser {parser.Name} for type {argument.Symbol.Type}.");
+                            return null;
                         }
                         parser = parser.Next;
                     }

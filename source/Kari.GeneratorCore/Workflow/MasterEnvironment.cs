@@ -45,6 +45,7 @@ namespace Kari.GeneratorCore.Workflow
         {
             Compilation = compilation.AddSyntaxTrees(
                 Administrators.Select(a => CSharpSyntaxTree.ParseText(a.GetAnnotations())));
+
             Symbols.Initialize(Compilation);
             Compilation = Compilation;
             RootNamespace = Compilation.TryGetNamespace(RootNamespaceName);

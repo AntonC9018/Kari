@@ -89,24 +89,61 @@ namespace Kari.GeneratorCore.Workflow
             return false;
         }
 
-        public static bool TryGetAttribute<T>(this ISymbol symbol, AttributeSymbolWrapper<T> attributeSymbolWrapper, out T attribute) where T : System.Attribute
+        public readonly struct AttributeConversionResult<T> where T : System.Attribute
         {
-            Logger.Debug.LogDebug(symbol.Name);
+            // result null, message null     -> not success
+            // result T, message null        -> good
+            // result T, message not null    -> impossible
+            // result null, message not null -> error
+            public readonly T Result; 
+            public readonly string Message;
+            public bool IsError => Message != null && Result is null;
+            public bool IsSuccess => Result != null && Message is null;
+            public bool IsFail => Result == null && Message is null;
+
+            private AttributeConversionResult(string message)
+            {
+                this.Result = null;
+                this.Message = message;
+            }
+
+            private AttributeConversionResult(T result)
+            {
+                this.Result = result;
+                this.Message = null;
+            }
+
+            public static AttributeConversionResult<T> Fail => new AttributeConversionResult<T>(result: null);
+            public static AttributeConversionResult<T> Success(T result) =>  new AttributeConversionResult<T>(result);
+            public static AttributeConversionResult<T> Error(string message) => new AttributeConversionResult<T>(message);
+
+            public static implicit operator T(AttributeConversionResult<T> result) => result.Result;
+        }
+
+        public static AttributeConversionResult<T> GetAttributeConversionResult<T>(this ISymbol symbol, AttributeSymbolWrapper<T> attributeSymbolWrapper) where T : System.Attribute
+        {
             if (TryGetAttributeData(symbol, attributeSymbolWrapper.symbol, out var attributeData))
             {
+                T attribute;
                 try
                 {
                     attribute = attributeData.MapToType<T>();
                 }
-                catch
+                catch (Exception exception)
                 {
-                    attribute = null;
-                    Logger.Debug.LogError("Invalid?");
+                    return AttributeConversionResult<T>.Error(exception.Message);
                 }
-                return true;
+                return AttributeConversionResult<T>.Success(attribute);
             }
-            attribute = default;
-            return false;
+            return AttributeConversionResult<T>.Fail;
+        }
+
+        public static bool TryGetAttribute<T>(this ISymbol symbol, AttributeSymbolWrapper<T> attributeSymbolWrapper, Logger logger, out T attribute) where T : System.Attribute
+        {
+            var result = GetAttributeConversionResult<T>(symbol, attributeSymbolWrapper);
+            if (result.IsError) logger.LogError($"Invalid attribute usage at {symbol.Name}: {result.Message}");
+            attribute = result.Result;
+            return result.IsSuccess;
         }
 
         public static IEnumerable<T> GetAttributes<T>(this ISymbol symbol, AttributeSymbolWrapper<T> attributeSymbolWrapper) where T : System.Attribute

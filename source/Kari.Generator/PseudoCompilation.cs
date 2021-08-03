@@ -19,8 +19,7 @@ namespace Kari.Generator
             var parseOption = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None, SourceCodeKind.Regular);
 
             var syntaxTrees = new List<SyntaxTree>();
-            var generatedFolder = Path.GetFullPath(generatedFolderPrefix);
-            foreach (var file in IterateCsFileWithoutBinObjIgnoringFolder(directoryRoot, generatedFolder))
+            foreach (var file in IterateCsFileWithoutBinObjIgnoringFolder(directoryRoot, generatedFolderPrefix))
             {
                 var text = File.ReadAllText(file, Encoding.UTF8);
                 var syntax = CSharpSyntaxTree.ParseText(text, parseOption);
@@ -115,7 +114,7 @@ namespace Kari.Generator
                 {
                     continue;
                 }
-                if (ingoredFolderName != dir)
+                if (!dir.EndsWith(ingoredFolderName))
                 {
                     foreach (var item in IterateCsFileWithoutBinObjIgnoringFolder(dir, ingoredFolderName))
                     {

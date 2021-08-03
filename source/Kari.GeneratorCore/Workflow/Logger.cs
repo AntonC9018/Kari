@@ -28,10 +28,12 @@ namespace Kari.GeneratorCore.Workflow
         /// </summary>
         public static bool AnyLoggerHasErrors => _HasErrors;
         private readonly string _name;
+        private readonly LogType _defaultLogType;
         public static readonly Logger Debug = new Logger("DEBUG");
 
-        public Logger(string name)
+        public Logger(string name, LogType defaultLogType = LogType.Message)
         {
+            _defaultLogType = defaultLogType;
             _name = name;
         }
 
@@ -79,7 +81,12 @@ namespace Kari.GeneratorCore.Workflow
             LogNoLock(operationName + " Completed. Time elapsed: " + s.Elapsed.ToString(), LogType.Information);
         }
 
-        public void Log(string message, LogType type = LogType.Message)
+        public void Log(string message)
+        {
+            Log(message, _defaultLogType);
+        }
+
+        public void Log(string message, LogType type)
         {
             lock (_MessageLock)
             {

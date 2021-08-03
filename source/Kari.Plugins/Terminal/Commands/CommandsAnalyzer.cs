@@ -25,21 +25,22 @@ namespace Kari.Plugins.Terminal
         public void Collect(ProjectEnvironment environment)
         {
             _logger = environment.Logger;
+
             foreach (var method in environment.MethodsWithAttributes)
             {
                 if (!method.IsStatic) continue;
                 
-                if (method.TryGetAttribute(CommandSymbols.CommandAttribute, out var commandAttribute))
+                if (method.TryGetAttribute(CommandSymbols.CommandAttribute, _logger, out var commandAttribute))
                 {
-                    var info = new CommandMethodInfo(method, commandAttribute);
+                    var info = new CommandMethodInfo(method, commandAttribute, environment.GeneratedNamespace);
                     info.Collect(environment);
                     _infos.Add(info);
                     RegisterCommandName(info.Name);
                 }
                 
-                if (method.TryGetAttribute(CommandSymbols.FrontCommandAttribute, out var frontCommandAttribute))
+                if (method.TryGetAttribute(CommandSymbols.FrontCommandAttribute, _logger, out var frontCommandAttribute))
                 {
-                    var info = new FrontCommandMethodInfo(method, frontCommandAttribute);
+                    var info = new FrontCommandMethodInfo(method, frontCommandAttribute, environment.GeneratedNamespace);
                     _frontInfos.Add(info);
                     RegisterCommandName(info.Name);
                 }
@@ -56,23 +57,15 @@ namespace Kari.Plugins.Terminal
 
         public string GetClassName(ICommandMethodInfo info)
         {
-            string candidate;
-
-            if (info.Name.IndexOf('.') != -1)
+            if (info.IsEscapedClassName)
             {
-                candidate = info.Name.Replace(".", "_");
-
-                if (_names.Contains(candidate.ToUpper()))
+                if (_names.Contains(info.ClassName.ToUpper()))
                 {
-                    _logger.LogWarning($"Potentially ambiguous command names: {info.Name} and {candidate}");
+                    _logger.LogWarning($"Potentially ambiguous command names: {info.Name} and {info.ClassName}");
                 }
             }
-            else
-            {
-                candidate = info.Name;
-            }
 
-            return candidate + "Command";
+            return info.ClassName;
         }
 
         public string TransformFrontCommand(FrontCommandMethodInfo info, string initialIndentation = "")
@@ -143,9 +136,9 @@ namespace Kari.Plugins.Terminal
             var helpMessageBuilder = new StringBuilder();
             helpMessageBuilder.AppendLine(usageBuilder.ToString());
             helpMessageBuilder.AppendLine();
-            if (!string.IsNullOrEmpty(info.CommandAttribute.Help))
+            if (!string.IsNullOrEmpty(info.Attribute.Help))
             {
-                helpMessageBuilder.AppendLine(info.CommandAttribute.Help);
+                helpMessageBuilder.AppendLine(info.Attribute.Help);
                 helpMessageBuilder.AppendLine();
             }
             helpMessageBuilder.AppendLine(argsBuilder.ToString());
@@ -167,7 +160,7 @@ namespace Kari.Plugins.Terminal
                     var argumentIndex = positionalArguments.Count + i;
                     var name = optionLikeArguments[i].Attribute.Name;
                     var typeText = optionLikeArguments[i].Symbol.Type.GetFullyQualifiedName();
-                    var parserText = positionalArguments[i].Parser.FullName;
+                    var parserText = optionLikeArguments[i].Parser.FullName;
 
                     executeBuilder.AppendLine($"{typeText} __{name};");
                     // The argument is present as a positional argument
@@ -270,7 +263,7 @@ namespace Kari.Plugins.Terminal
 
             executeBuilder.EndBlock();
             
-            classBuilder.AppendLine($"public {className}() : base(_MinimumNumberOfArguments, _MaximumNumberOfArguments, \"{info.CommandAttribute.Help}\", _HelpMessage) {{}}");
+            classBuilder.AppendLine($"public {className}() : base(_MinimumNumberOfArguments, _MaximumNumberOfArguments, \"{info.Attribute.Help}\", _HelpMessage) {{}}");
             classBuilder.Indent();
             classBuilder.Append("public const string _HelpMessage = @\"");
             classBuilder.Append(helpMessageBuilder.ToString().Replace("\"", "\"\""));
@@ -291,38 +284,65 @@ namespace Kari.Plugins.Terminal
     public interface ICommandMethodInfo
     {
         string Name { get; }
+        bool IsEscapedClassName { get; }
+        string ClassName { get; }
+        string FullClassName { get; }
+        ICommandAttribute GetAttribute();
+    }
+
+    public abstract class FrontCommandMethodInfoBase : ICommandMethodInfo
+    {
+        public abstract ICommandAttribute GetAttribute();
+        public string Name => GetAttribute().Name;
+        public bool IsEscapedClassName { get; }
+        public string ClassName { get; }
+        public string FullClassName { get; }
+
+        public FrontCommandMethodInfoBase(IMethodSymbol method, ICommandAttribute attribute, string generatedNamespace)
+        {
+            attribute.Name ??= method.Name;
+            if (Name.Contains('.'))
+            {
+                IsEscapedClassName = true;
+                ClassName = attribute.Name.Replace('.', '_') + "Command";
+            }
+            else
+            {
+                IsEscapedClassName = false;
+                ClassName = attribute.Name + "Command";
+            }
+            FullClassName = generatedNamespace.Combine(ClassName);
+        }
     }
     
-    public class FrontCommandMethodInfo : ICommandMethodInfo
+    public class FrontCommandMethodInfo : FrontCommandMethodInfoBase
     {
         public readonly IMethodSymbol Symbol;
+        public override ICommandAttribute GetAttribute() => Attribute;
         public readonly FrontCommandAttribute Attribute;
 
-        public FrontCommandMethodInfo(IMethodSymbol symbol, FrontCommandAttribute frontCommandAttribute)
+        public FrontCommandMethodInfo(IMethodSymbol symbol, FrontCommandAttribute frontCommandAttribute, string generatedNamespace)
+            : base(symbol, frontCommandAttribute, generatedNamespace)
         {
             Symbol = symbol;
             Attribute = frontCommandAttribute;
-            frontCommandAttribute.Name ??= symbol.Name;
         }
-
-        public string Name => Attribute.Name;
     }
 
-    public class CommandMethodInfo : ICommandMethodInfo
+    public class CommandMethodInfo : FrontCommandMethodInfoBase
     {
         public readonly IMethodSymbol Symbol;
-        public readonly CommandAttribute CommandAttribute;
+        public readonly CommandAttribute Attribute;
+        public override ICommandAttribute GetAttribute() => Attribute;
         public readonly List<ArgumentInfo> PositionalArguments;
         public readonly List<ArgumentInfo> OptionLikeArguments;
         public readonly List<OptionInfo> Options;
 
-        public string Name => CommandAttribute.Name;
-
-        public CommandMethodInfo(IMethodSymbol symbol, CommandAttribute commandAttribute)
+        public CommandMethodInfo(IMethodSymbol symbol, CommandAttribute commandAttribute, string generatedNamespace)
+            : base(symbol, commandAttribute, generatedNamespace)
         {
             Symbol = symbol;
-            CommandAttribute = commandAttribute;
-            commandAttribute.Name ??= symbol.Name;
+            Attribute = commandAttribute;
             PositionalArguments = new List<ArgumentInfo>();
             OptionLikeArguments = new List<ArgumentInfo>();
             Options = new List<OptionInfo>();
@@ -343,7 +363,7 @@ namespace Kari.Plugins.Terminal
             for (int i = 0; i < Symbol.Parameters.Length; i++)
             {
                 var parameter = Symbol.Parameters[i];
-                if (parameter.TryGetAttribute(CommandSymbols.ArgumentAttribute, out var argumentAttribute))
+                if (parameter.TryGetAttribute(CommandSymbols.ArgumentAttribute, environment.Logger, out var argumentAttribute))
                 {
                     var argInfo = new ArgumentInfo(parameter, argumentAttribute);
                     AddName(argInfo.Name);
@@ -358,7 +378,7 @@ namespace Kari.Plugins.Terminal
                     continue;
                 }
                 // TODO: check if the name is valid (unique among options)
-                if (parameter.TryGetAttribute(CommandSymbols.OptionAttribute, out var optionAttribute))
+                if (parameter.TryGetAttribute(CommandSymbols.OptionAttribute, environment.Logger, out var optionAttribute))
                 {
                     var option = new OptionInfo(parameter, optionAttribute);
                     AddName(option.Name);
