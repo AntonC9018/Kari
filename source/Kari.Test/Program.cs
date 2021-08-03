@@ -7,15 +7,11 @@ using Microsoft.CodeAnalysis.CSharp;
 
 namespace Test
 {
+    using System.Reflection;
     using Kari.GeneratorCore;
     using Kari.GeneratorCore.Workflow;
 
-    public class HelloAttribute : System.Attribute
-    {
-        public int i;
-        public HelloAttribute(int num) { i = num; }
-    }
-
+    
     class Program
     {
         private static IEnumerable<MetadataReference> DistinctReference(IEnumerable<MetadataReference> metadataReferences)
@@ -39,13 +35,11 @@ namespace Test
     public class World{}
 }";
             string attribute = @"
-namespace Test 
-{ 
-    public class HelloAttribute : System.Attribute
-    {
-        public int i;
-        public HelloAttribute(int num) { i = num; }
-    }
+public class HelloAttribute : System.Attribute
+{
+    public int i;
+    public HelloAttribute() {}
+    public HelloAttribute(int num) { i = num; }
 }";
             Type[] ts = { typeof(object), typeof(Attribute) };
 
@@ -73,7 +67,10 @@ namespace Test
 
             var world = compilation.GetSymbolsWithName("World").Single();
             var attrClass = compilation.GetSymbolsWithName("HelloAttribute").Single();
-            var attrInstantiation = world.GetAttributes()[0].MapToType<Test.HelloAttribute>();
+
+            var dll = Assembly.LoadFrom(@"E:\Coding\C#\some_project\Build\bin\Kari.OtherTest\Debug\netcoreapp3.1\Kari.OtherTest.dll");
+            var runClass = dll.GetExportedTypes().Single(type => type.Name == "Run");
+            ((MethodInfo) runClass.GetMember("RunThing").Single()).Invoke(null, new object[] { world });
         }
     }
 }
