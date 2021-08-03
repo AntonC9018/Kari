@@ -17,7 +17,6 @@ namespace Kari.GeneratorCore.Workflow
         
         public MasterEnvironment Master => MasterEnvironment.Instance;
         public Compilation Compilation => Master.Compilation;
-        public RelevantSymbols Symbols => Master.Symbols;
 
         public ProjectEnvironmentData(string directory, string namespaceName, IFileWriter fileWriter, Logger logger)
         {
@@ -46,6 +45,12 @@ namespace Kari.GeneratorCore.Workflow
         public Task WriteFileAsync(string fileName, ICodeTemplate template)
         {
             return Task.Run(() => WriteFile(fileName, template.TransformText()));
+        }
+
+        public void ClearOutput()
+        {
+            Logger.Log($"Clearing the generated output.");
+            FileWriter.DeleteOutput();
         }
     }
 
@@ -86,6 +91,7 @@ namespace Kari.GeneratorCore.Workflow
                             MethodsWithAttributes.Add(method);
                     }
                 }
+                Logger.Log($"Collected {Types.Count} types, {TypesWithAttributes.Count} annotated types, {MethodsWithAttributes.Count} annotated methods.");
             });
         }
     }

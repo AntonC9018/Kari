@@ -107,5 +107,10 @@ namespace Kari.GeneratorCore.Workflow
         {
             Log(message, LogType.Warning);
         }
+
+        public void LogInfo(string message)
+        {
+            Log(message, LogType.Information);
+        }
     }
 }

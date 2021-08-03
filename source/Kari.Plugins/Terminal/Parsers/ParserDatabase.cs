@@ -24,6 +24,7 @@ namespace Kari.Plugins.Terminal
 
     public class CustomParserInfo : IParserInfo
     {
+        public readonly ISymbol Symbol;
         public readonly ParserAttribute Attribute;
         public readonly ITypeSymbol Type;
         public readonly string TypeName;
@@ -35,6 +36,7 @@ namespace Kari.Plugins.Terminal
             Attribute.Name ??= symbol.Name;
             FullName = parsersFullyQualifiedClassName.Combine(Attribute.Name);
             FullyQualifiedName = symbol.GetFullyQualifiedName();
+            Symbol = symbol;
             Next = null;
         }
 
@@ -72,21 +74,20 @@ namespace Kari.Plugins.Terminal
         public ParserDatabase(ProjectEnvironmentData terminalProject)
         {
             var parsersFullyQualifiedClassName = GetFullyQualifiedParsersClassNameForProject(terminalProject);
-            var symbols = MasterEnvironment.Instance.Symbols;
-            _builtinParsers.Add(symbols.Int,     new BuiltinParser(parsersFullyQualifiedClassName, "Int")      );
-            _builtinParsers.Add(symbols.Short,   new BuiltinParser(parsersFullyQualifiedClassName, "Short")    );
-            _builtinParsers.Add(symbols.Long,    new BuiltinParser(parsersFullyQualifiedClassName, "Long")     );
-            _builtinParsers.Add(symbols.Sbyte,   new BuiltinParser(parsersFullyQualifiedClassName, "Sbyte")    );
-            _builtinParsers.Add(symbols.Ushort,  new BuiltinParser(parsersFullyQualifiedClassName, "Ushort")   );
-            _builtinParsers.Add(symbols.Uint,    new BuiltinParser(parsersFullyQualifiedClassName, "Uint")     );
-            _builtinParsers.Add(symbols.Ulong,   new BuiltinParser(parsersFullyQualifiedClassName, "Ulong")    );
-            _builtinParsers.Add(symbols.Byte,    new BuiltinParser(parsersFullyQualifiedClassName, "Byte")     );
-            _builtinParsers.Add(symbols.Float,   new BuiltinParser(parsersFullyQualifiedClassName, "Float")    );
-            _builtinParsers.Add(symbols.Double,  new BuiltinParser(parsersFullyQualifiedClassName, "Double")   );
-            _builtinParsers.Add(symbols.Decimal, new BuiltinParser(parsersFullyQualifiedClassName, "Decimal")  );
-            _builtinParsers.Add(symbols.Char,    new BuiltinParser(parsersFullyQualifiedClassName, "Char")     );
-            _builtinParsers.Add(symbols.Bool,    new BuiltinParser(parsersFullyQualifiedClassName, "Bool")     );
-            _builtinParsers.Add(symbols.String,  new BuiltinParser(parsersFullyQualifiedClassName, "String")   );
+            _builtinParsers.Add(Symbols.Int,     new BuiltinParser(parsersFullyQualifiedClassName, "Int")      );
+            _builtinParsers.Add(Symbols.Short,   new BuiltinParser(parsersFullyQualifiedClassName, "Short")    );
+            _builtinParsers.Add(Symbols.Long,    new BuiltinParser(parsersFullyQualifiedClassName, "Long")     );
+            _builtinParsers.Add(Symbols.Sbyte,   new BuiltinParser(parsersFullyQualifiedClassName, "Sbyte")    );
+            _builtinParsers.Add(Symbols.Ushort,  new BuiltinParser(parsersFullyQualifiedClassName, "Ushort")   );
+            _builtinParsers.Add(Symbols.Uint,    new BuiltinParser(parsersFullyQualifiedClassName, "Uint")     );
+            _builtinParsers.Add(Symbols.Ulong,   new BuiltinParser(parsersFullyQualifiedClassName, "Ulong")    );
+            _builtinParsers.Add(Symbols.Byte,    new BuiltinParser(parsersFullyQualifiedClassName, "Byte")     );
+            _builtinParsers.Add(Symbols.Float,   new BuiltinParser(parsersFullyQualifiedClassName, "Float")    );
+            _builtinParsers.Add(Symbols.Double,  new BuiltinParser(parsersFullyQualifiedClassName, "Double")   );
+            _builtinParsers.Add(Symbols.Decimal, new BuiltinParser(parsersFullyQualifiedClassName, "Decimal")  );
+            _builtinParsers.Add(Symbols.Char,    new BuiltinParser(parsersFullyQualifiedClassName, "Char")     );
+            _builtinParsers.Add(Symbols.Bool,    new BuiltinParser(parsersFullyQualifiedClassName, "Bool")     );
+            _builtinParsers.Add(Symbols.String,  new BuiltinParser(parsersFullyQualifiedClassName, "String")   );
         }
 
         public void AddParser(CustomParserInfo info)
@@ -95,6 +96,10 @@ namespace Kari.Plugins.Terminal
             {
                 if (_customParsersTypeMap.TryGetValue(info.Type, out var parser))
                 {
+                    if (parser.Name == info.Name)
+                    {
+                        _logger.LogError($"Parser {info.Name} has been redefined at {info.Symbol.Locations[0]}.");
+                    }
                     while (parser.Next != null)
                     {
                         parser = parser.Next;
@@ -120,7 +125,7 @@ namespace Kari.Plugins.Terminal
                     {
                         if (parser.Next is null)
                         {
-                            _logger.LogError($"No such parser {parser.Name} for type {argument.Symbol.Type}");
+                            _logger.LogError($"No such parser {parser.Name} for type {argument.Symbol.Type}.");
                         }
                         parser = parser.Next;
                     }
@@ -140,7 +145,7 @@ namespace Kari.Plugins.Terminal
                 }
             }
 
-            _logger.LogError($"Found no parsers for type {argument.Symbol.Type}");
+            _logger.LogError($"Found no parsers for type {argument.Symbol.Type}.");
             return null;
         }
     }

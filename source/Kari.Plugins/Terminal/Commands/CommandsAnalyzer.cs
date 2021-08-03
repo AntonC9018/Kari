@@ -9,33 +9,39 @@ namespace Kari.Plugins.Terminal
 {
     public partial class CommandsAnalyzer : IAnalyzer
     {
-        public readonly List<CommandMethodInfo> _infos;
-        public readonly List<FrontCommandMethodInfo> _frontInfos;
+        private readonly HashSet<string> _names = new HashSet<string>();
+        public readonly List<CommandMethodInfo> _infos = new List<CommandMethodInfo>();
+        public readonly List<FrontCommandMethodInfo> _frontInfos = new List<FrontCommandMethodInfo>();
+        private Logger _logger;
 
-        public CommandsAnalyzer()
+        private void RegisterCommandName(string name)
         {
-            _infos = new List<CommandMethodInfo>();
-            _frontInfos = new List<FrontCommandMethodInfo>();
+            if (!_names.Add(name.ToUpper()))
+            {
+                _logger.LogError($"Duplicate command {name}");
+            }
         }
 
         public void Collect(ProjectEnvironment environment)
         {
+            _logger = environment.Logger;
             foreach (var method in environment.MethodsWithAttributes)
             {
                 if (!method.IsStatic) continue;
                 
                 if (method.TryGetAttribute(CommandSymbols.CommandAttribute, out var commandAttribute))
                 {
-                    // TODO: check if the name is valid (it has not been submitted already)
                     var info = new CommandMethodInfo(method, commandAttribute);
                     info.Collect(environment);
                     _infos.Add(info);
+                    RegisterCommandName(info.Name);
                 }
                 
                 if (method.TryGetAttribute(CommandSymbols.FrontCommandAttribute, out var frontCommandAttribute))
                 {
                     var info = new FrontCommandMethodInfo(method, frontCommandAttribute);
                     _frontInfos.Add(info);
+                    RegisterCommandName(info.Name);
                 }
             }
         }
@@ -48,10 +54,22 @@ namespace Kari.Plugins.Terminal
             }
         }
 
-        public string TransformFrontCommand(FrontCommandMethodInfo info,  string initialIndentation = "")
+        public string GetClassName(ICommandMethodInfo info)
+        {
+            var candidate = info.Name.Replace(".", "_");
+
+            if (_names.Contains(candidate.ToUpper()))
+            {
+                _logger.LogWarning($"Potentially ambiguous command names: {info.Name} and {candidate}");
+            }
+
+            return candidate + "Command";
+        }
+
+        public string TransformFrontCommand(FrontCommandMethodInfo info, string initialIndentation = "")
         {
             var builder = new CodeBuilder(indentation: "    ", initialIndentation);
-            var className = $"{info.Name}Command";
+            var className = GetClassName(info);
             builder.AppendLine($"public class {className} : CommandBase");
             builder.StartBlock();
             builder.AppendLine($"public override void Execute(CommandContext context) => {info.Symbol.GetFullyQualifiedName()}(context);");
@@ -64,7 +82,7 @@ namespace Kari.Plugins.Terminal
         public string TransformCommand(CommandMethodInfo info, string initialIndentation = "")
         {
             var classBuilder = new CodeBuilder(indentation: "    ", initialIndentation);
-            var className = $"{info.Name}Command";
+            var className = GetClassName(info);
             classBuilder.AppendLine($"public class {className} : CommandBase");
             classBuilder.StartBlock();
 
@@ -261,7 +279,12 @@ namespace Kari.Plugins.Terminal
         }
     }
 
-    public class FrontCommandMethodInfo
+    public interface ICommandMethodInfo
+    {
+        string Name { get; }
+    }
+    
+    public class FrontCommandMethodInfo : ICommandMethodInfo
     {
         public readonly IMethodSymbol Symbol;
         public readonly FrontCommandAttribute Attribute;
@@ -276,7 +299,7 @@ namespace Kari.Plugins.Terminal
         public string Name => Attribute.Name;
     }
 
-    public class CommandMethodInfo
+    public class CommandMethodInfo : ICommandMethodInfo
     {
         public readonly IMethodSymbol Symbol;
         public readonly CommandAttribute CommandAttribute;
@@ -298,13 +321,23 @@ namespace Kari.Plugins.Terminal
 
         public void Collect(ProjectEnvironment environment)
         {
+            var paramNames = new HashSet<string>();
+
+            void AddName(string name)
+            {
+                if (!paramNames.Add(name.ToUpper()))
+                {
+                    environment.Logger.LogError($"Duplicate parameter {name} (case-insensitive).");
+                }
+            }
+
             for (int i = 0; i < Symbol.Parameters.Length; i++)
             {
                 var parameter = Symbol.Parameters[i];
-                // TODO: check if the name is valid (unique among arguments)
                 if (parameter.TryGetAttribute(CommandSymbols.ArgumentAttribute, out var argumentAttribute))
                 {
                     var argInfo = new ArgumentInfo(parameter, argumentAttribute);
+                    AddName(argInfo.Name);
                     if (!argumentAttribute.IsOptionLike)
                     {
                         PositionalArguments.Add(argInfo);
@@ -319,8 +352,9 @@ namespace Kari.Plugins.Terminal
                 if (parameter.TryGetAttribute(CommandSymbols.OptionAttribute, out var optionAttribute))
                 {
                     var option = new OptionInfo(parameter, optionAttribute);
+                    AddName(option.Name);
                     
-                    if (option.Attribute.IsFlag && option.Symbol.Type != environment.Symbols.Bool)
+                    if (option.Attribute.IsFlag && option.Symbol.Type != Symbols.Bool)
                     {
                         environment.Logger.LogError($"Flag option {option.Name} in {Name} command must be a boolean.");
                     }
@@ -328,7 +362,9 @@ namespace Kari.Plugins.Terminal
                     Options.Add(option);
                     continue;
                 }
-                PositionalArguments.Add(new ArgumentInfo(parameter, new ArgumentAttribute("")));
+                var defaultInfo = new ArgumentInfo(parameter, new ArgumentAttribute(""));
+                PositionalArguments.Add(defaultInfo);
+                AddName(defaultInfo.Name);
             }
         }
 

@@ -22,7 +22,6 @@ namespace Kari.GeneratorCore.Workflow
 
         public INamespaceSymbol RootNamespace { get; private set; }
         public Compilation Compilation { get; private set; }
-        public RelevantSymbols Symbols { get; private set; }
 
         public readonly Logger Logger;
         public readonly CancellationToken CancellationToken;
@@ -47,7 +46,7 @@ namespace Kari.GeneratorCore.Workflow
             compilation = compilation.AddSyntaxTrees(
                 Administrators.Select(a => 
                     CSharpSyntaxTree.ParseText(a.GetAnnotations())));
-            Symbols = new RelevantSymbols(compilation);
+            Symbols.Initialize(compilation);
             Compilation = compilation;
             RootNamespace = compilation.TryGetNamespace(RootNamespaceName);
 
@@ -234,8 +233,9 @@ namespace Kari.GeneratorCore.Workflow
         {
             for (int i = 0; i < Projects.Count; i++)
             {
-                Projects[i].FileWriter.DeleteOutput();
+                Projects[i].ClearOutput();
             }
+            RootPseudoProject.ClearOutput();
         }
 
         public void CloseWriters()

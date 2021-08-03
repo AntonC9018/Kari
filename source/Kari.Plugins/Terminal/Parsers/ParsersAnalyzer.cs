@@ -19,8 +19,6 @@ namespace Kari.Plugins.Terminal
         {
             string parsersFullyQualifiedClassName = ParserDatabase.GetFullyQualifiedParsersClassNameForProject(environment);
 
-            var symbols = environment.Symbols;
-
             foreach (var type in environment.TypesWithAttributes)
             {
                 if (type.TryGetAttribute(ParserSymbols.ParserAttribute, out var parserAttribute))
