@@ -13,10 +13,10 @@ namespace <#= TerminalAdministrator.TerminalProject.GeneratedNamespace #>
     public interface IDuckCommandContext
     {
         bool HasErrors { get; }
-        T ParseArgument<T>(int argumentIndex, string argumentName, IValueParser<T> parser);
-        bool ParseFlag(string optionName, bool defaultValue = false, bool flagValue = true);
-        T ParseOption<T>(string optionName, IValueParser<T> parser);
-        T ParseOption<T>(string optionName, T defaultValue, IValueParser<T> parser);
+        T ParseArgument<T>(int index, string name, IValueParser<T> parser);
+        bool ParseFlag(string name, bool defaultValue = false, bool flagValue = true);
+        T ParseOption<T>(string name, IValueParser<T> parser);
+        T ParseOption<T>(string name, T defaultValue, IValueParser<T> parser);
         void EndParsing();
     }
 
