@@ -312,46 +312,53 @@ namespace Kari.GeneratorCore.Workflow
         }
 
         /// <summary>
-        /// Returns the value after the '=' of the given parameter within a function.
-        /// If no default value has been given to the parameter, 'default' is returned.
-        /// For some special types, like bool and ints, 'false' and '0' are returned.
+        /// Returns "null" for reference types and "default" for value types.
+        /// For some special types, like bool and ints, "false" and "0" are returned.
         /// </summary>
         public static string GetDefaultValueText(this IParameterSymbol parameter)
         {
-            var syntax = (ParameterSyntax) parameter.DeclaringSyntaxReferences[0].GetSyntax();
+            // var syntax = (ParameterSyntax) parameter.DeclaringSyntaxReferences[0].GetSyntax();
 
-            if (syntax.Default is null)
+            if (parameter.Type.SpecialType == SpecialType.None)
             {
-                if (parameter.Type.SpecialType == SpecialType.None)
-                    return "default";
-
-                switch (parameter.Type.SpecialType)
-                {
-                    case SpecialType.System_Boolean:
-                        return "false";
-                    case SpecialType.System_Int16:
-                    case SpecialType.System_Int32:
-                    case SpecialType.System_Int64:
-                    case SpecialType.System_UInt16:
-                    case SpecialType.System_UInt32:
-                    case SpecialType.System_UInt64:
-                    case SpecialType.System_Byte:
-                    case SpecialType.System_SByte:
-                    case SpecialType.System_Single:
-                    case SpecialType.System_Double:
-                        return "0";
-                    case SpecialType.System_String:
-                        return "null";
-                }
+                if (parameter.Type.IsReferenceType) return "null";
+                else return "default";
             }
 
-            return syntax.Default.Value.ToString();
+            switch (parameter.Type.SpecialType)
+            {
+                case SpecialType.System_Boolean:
+                    return "false";
+                case SpecialType.System_Int16:
+                case SpecialType.System_Int32:
+                case SpecialType.System_Int64:
+                case SpecialType.System_UInt16:
+                case SpecialType.System_UInt32:
+                case SpecialType.System_UInt64:
+                case SpecialType.System_Byte:
+                case SpecialType.System_SByte:
+                case SpecialType.System_Single:
+                case SpecialType.System_Double:
+                    return "0";
+                case SpecialType.System_String:
+                    return "null";
+            }
+
+            return "default";
         }
 
         public static string Combine(this string mainPart, string part, string separator = ".")
         {
             if (mainPart == "") return part;
             return mainPart + separator + part;
+        }
+
+        public static string GetLocationInfo(this ISymbol symbol)
+        {
+            var locations = symbol.Locations;
+            if (locations.Length == 0) return "Unknown location";
+            var span = locations[0].GetLineSpan();
+            return $"{locations[0].SourceTree.FilePath}:{span.StartLinePosition.Line + 1}:{span.StartLinePosition.Character + 1}";
         }
     }
 }

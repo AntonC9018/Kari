@@ -125,11 +125,32 @@ namespace Kari.Plugins.Terminal
                 var option = options[i];
                 usageBuilder.Append($"[-{option.Name}=value] ");
 
+                string typeString;
+                if (option.Attribute.IsFlag)
+                {
+                    // Not the default boolean
+                    if (option.Parser is CustomParserInfo customParser)
+                    {
+                        typeString = $"Flag: {customParser.Name}";
+                    }
+                    // Default boolean parser
+                    else
+                    {
+                        typeString = "Flag";
+                    }
+                }
+                else
+                {
+                    typeString = option.Parser.Name;
+                }
+
+                if (option.HasDefaultValue)
+                {
+                    typeString += $", ={option.DefaultValueText}";
+                }
+
                 argsBuilder.Append(column: 0, "-" + option.Name);
-                argsBuilder.Append(column: 1, 
-                    option.Attribute.IsFlag 
-                        ? $"Flag, ={option.DefaultValueText}"
-                        : $"{option.Parser.Name}");
+                argsBuilder.Append(column: 1, typeString);
                 argsBuilder.Append(column: 2, option.Attribute.Help);
             }
 
@@ -301,7 +322,7 @@ namespace Kari.Plugins.Terminal
         public FrontCommandMethodInfoBase(IMethodSymbol method, ICommandAttribute attribute, string generatedNamespace)
         {
             attribute.Name ??= method.Name;
-            if (Name.Contains('.'))
+            if (attribute.Name.Contains('.'))
             {
                 IsEscapedClassName = true;
                 ClassName = attribute.Name.Replace('.', '_') + "Command";
@@ -425,18 +446,25 @@ namespace Kari.Plugins.Terminal
     {
         public IParameterSymbol Symbol { get; }
         public IParserInfo Parser { get; protected set; }
-        private string _defaultValueText;
-        public string DefaultValueText => (_defaultValueText is null) ? "default" : _defaultValueText;
-        public bool HasDefaultValue => !(_defaultValueText is null);
+        public readonly string DefaultValueText;
+        public readonly bool HasDefaultValue;
         public string Name => GetAttribute().Name;
         public abstract IArgument GetAttribute();
-
 
         protected ArgumentBase(IParameterSymbol symbol)
         {
             Symbol = symbol;
             var syntax = (ParameterSyntax) symbol.DeclaringSyntaxReferences[0].GetSyntax();
-            _defaultValueText = syntax.Default?.Value.ToString();
+            if (syntax.Default is null)
+            {
+                HasDefaultValue = false;
+                DefaultValueText = symbol.GetDefaultValueText();
+            }
+            else
+            {
+                HasDefaultValue = true;
+                DefaultValueText = syntax.Default.Value.ToString();
+            }   
         }
 
         public void InitializeParser()

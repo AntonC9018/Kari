@@ -98,7 +98,7 @@ namespace Kari.Plugins.Terminal
                 {
                     if (parser.Name == info.Name)
                     {
-                        _logger.LogError($"Parser {info.Name} has been redefined at {info.Symbol.Locations[0]}.");
+                        _logger.LogError($"Parser {info.Name} has been redefined at {info.Symbol.GetLocationInfo()}.");
                     }
                     while (parser.Next != null)
                     {
@@ -113,10 +113,15 @@ namespace Kari.Plugins.Terminal
             }
         }
 
+        private string GetInfo(IArgumentInfo argument)
+        {
+            return $"for type {argument.Symbol.Type} at {argument.Symbol.GetLocationInfo()}.";
+        }
+
         public IParserInfo GetParser(IArgumentInfo argument)
         {
             var customParser = argument.GetAttribute().Parser;
-
+            
             if (!(customParser is null))
             {
                 if (_customParsersTypeMap.TryGetValue(argument.Symbol.Type, out var parser))
@@ -125,7 +130,7 @@ namespace Kari.Plugins.Terminal
                     {
                         if (parser.Next is null)
                         {
-                            _logger.LogError($"No such parser {parser.Name} for type {argument.Symbol.Type}.");
+                            _logger.LogError($"No such parser {customParser} {GetInfo(argument)}");
                             return null;
                         }
                         parser = parser.Next;
@@ -146,7 +151,7 @@ namespace Kari.Plugins.Terminal
                 }
             }
 
-            _logger.LogError($"Found no parsers for type {argument.Symbol.Type}.");
+            _logger.LogError($"Found no parsers {GetInfo(argument)}.");
             return null;
         }
     }

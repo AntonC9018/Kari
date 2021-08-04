@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Text;
 
 namespace Kari.Generator
 {
@@ -22,9 +23,8 @@ namespace Kari.Generator
             foreach (var file in IterateCsFileWithoutBinObjIgnoringFolder(directoryRoot, generatedFolderPrefix))
             {
                 var text = File.ReadAllText(file, Encoding.UTF8);
-                var syntax = CSharpSyntaxTree.ParseText(text, parseOption);
+                var syntax = CSharpSyntaxTree.ParseText(text, parseOption, path: file, cancellationToken: cancellationToken);
                 syntaxTrees.Add(syntax);
-                cancellationToken.ThrowIfCancellationRequested();
             }
 
             var metadata = GetStandardReferences().Select(x => MetadataReference.CreateFromFile(x)).ToArray();

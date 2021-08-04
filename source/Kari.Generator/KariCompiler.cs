@@ -38,65 +38,7 @@
 
         private Logger _logger;
 
-        private void LoadPlugins(MasterEnvironment master, string pluginsLocations, string? namesToAdd, CancellationToken cancellationToken)
-        {
-            var finder = new AdministratorFinder();
-            string[] plugins = pluginsLocations.Split(',');
-
-            for (int i = 0; i < plugins.Length; i++)
-            {
-                void Handle(string error) 
-                {
-                    _logger.LogError($"Error while processing plugin input #{i}, {plugins[i]}: {error}");
-                }
-
-                try
-                {
-                    if (Directory.Exists(plugins[i]))
-                    {
-                        finder.LoadPluginsDirectory(plugins[i]);
-                        continue;
-                    }
-                    if (File.Exists(plugins[i]))
-                    {
-                        finder.LoadPlugin(plugins[i]);
-                        continue;
-                    }
-                    Handle("The specified plugin folder or file does not exist.");
-                    cancellationToken.ThrowIfCancellationRequested();
-                }
-                catch (FileLoadException exception)
-                {
-                    Handle(exception.Message);
-                }
-                catch (BadImageFormatException exception)
-                {
-                    Handle(exception.Message);
-                }
-            }
-
-            if (Logger.AnyLoggerHasErrors) return;
-
-            if (namesToAdd is null)
-            {
-                finder.AddAllAdministrators(master);
-            }
-            else
-            {
-                var names = namesToAdd.Split(',').ToHashSet();
-                finder.AddAdministrators(master, names);
-
-                if (names.Count > 0)
-                {
-                    foreach (var name in names)
-                    {
-                        _logger.LogError($"Invalid administrator name: {name}");
-                    }
-                }
-            }
-        }
-
-        public async Task RunAsync(
+        public async Task<int> RunAsync(
             [Option("Input path to MSBuild project file or to the directory containing source files.")] 
             string input,
             [Option("Plugins folder or full paths to individual plugin dlls separated by ','.")]
@@ -152,7 +94,7 @@
                 else
                 {
                     _logger.LogError($"No such input file or directory {input}.");
-                    return;
+                    return 1;
                 }
 
                 var master = new MasterEnvironment(rootNamespace, projectDirectory, token, _logger);
@@ -204,7 +146,7 @@
 
                 await pluginsTask;
                 await compileTask;
-                if (Logger.AnyLoggerHasErrors) { return; }
+                if (Logger.AnyLoggerHasErrors) return 1;
 
                 _logger.MeasureSync("Environment Initialization", () => {
                     master.InitializeCompilation(ref compilation);
@@ -212,14 +154,14 @@
                     master.InitializePseudoProjects();
                     master.InitializeAdministrators();
                 });
-                if (Logger.AnyLoggerHasErrors) { return; }
+                if (Logger.AnyLoggerHasErrors) return 1;
 
                 async Task startCollectTask() {
                     await master.Collect();
                     master.RunCallbacks();
                 }
                 await _logger.MeasureAsync("Method Collect", startCollectTask());
-                if (Logger.AnyLoggerHasErrors) { return; }
+                if (Logger.AnyLoggerHasErrors) return 1;
 
                 async Task startGenerateTask()
                 {
@@ -228,16 +170,75 @@
                     master.CloseWriters();
                 }
                 await _logger.MeasureAsync("Output Generation", startGenerateTask());
-                if (Logger.AnyLoggerHasErrors) { return; }
+                if (Logger.AnyLoggerHasErrors) return 1;
             }
             catch (OperationCanceledException)
             {
                 _logger.Log("Cancelled");
-                throw;
+                return 1;
             }
             finally
             {
                 workspace?.Dispose();
+            }
+            return 0;
+        }
+
+        private void LoadPlugins(MasterEnvironment master, string pluginsLocations, string? namesToAdd, CancellationToken cancellationToken)
+        {
+            var finder = new AdministratorFinder();
+            string[] plugins = pluginsLocations.Split(',');
+
+            for (int i = 0; i < plugins.Length; i++)
+            {
+                void Handle(string error) 
+                {
+                    _logger.LogError($"Error while processing plugin input #{i}, {plugins[i]}: {error}");
+                }
+
+                try
+                {
+                    if (Directory.Exists(plugins[i]))
+                    {
+                        finder.LoadPluginsDirectory(plugins[i]);
+                        continue;
+                    }
+                    if (File.Exists(plugins[i]))
+                    {
+                        finder.LoadPlugin(plugins[i]);
+                        continue;
+                    }
+                    Handle("The specified plugin folder or file does not exist.");
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+                catch (FileLoadException exception)
+                {
+                    Handle(exception.Message);
+                }
+                catch (BadImageFormatException exception)
+                {
+                    Handle(exception.Message);
+                }
+            }
+
+            if (Logger.AnyLoggerHasErrors) return;
+
+            if (namesToAdd is null)
+            {
+                finder.AddAllAdministrators(master);
+            }
+            else
+            {
+                var names = namesToAdd.Split(',').ToHashSet();
+                finder.AddAdministrators(master, names);
+
+                if (names.Count > 0)
+                {
+                    foreach (var name in names)
+                    {
+                        _logger.LogError($"Invalid administrator name: {name}");
+                    }
+                }
             }
         }
 
