@@ -6,53 +6,68 @@ Kari is designed for use in this particular project, and is has not been tested 
 
 You can call `baton kari unity` to run the code generator on the subproject, but the code generator can be used directly, without `baton`.
 You can use e.g. `dotnet run -p Kari.Generator/Kari.Generator.csproj` to compile and run Kari.
+For further help, call `Kari` without arguments to see the different options.
+
+`Baton` also provides commands for compiling Kari and the plugins: do `baton kari build --help` for more info
 
 
-You will need to pass the full path to the plugins folder you want to use, or 
+## Plugins
 
-## Reference issues
+Plugins are assemblies that get to analyze the user code provided by `Kari`, and generate the output code.
+`Kari` links to plugins dynamically, thus it's not coupled with any particular code generation logic.
 
-### Flags enum example
+`Kari` groups asmdef projects by their namespace, and generates its output in a subfolder next to each asmdef project ("Generated" by default). 
+`Kari` also generates root output, such as startup functions. This runner code may reference any of the other assemblies and no assembly can reference it back.
 
-So, currently, Kari outputs all the generated code into a single file/directory.
-With this, come reference issues. Let me explain.
+### Administrators
 
-Assume code from module `A` (say asmdef or csproj, essentially compiling into a separate dll) used the code generator to create helper extension methods for flags. This is the simplest usage scenario.
+Plugins must define an administrator class that manages code generation provided by the plugin. A single plugin may define multiple administrators.
 
-Assume for illustration purposes that all the generated files compile into a single dll as well. 
+Administrators must be public classes implementing `IAdministrator`. They must implement at least the following methods:
 
-So, the folder structure is like this:
+1. `void Initialize()`, used to initialize any global state, and use global state to initialize oneself. This function is called before any code is analyzed, but after the projects have been found.
+2. `Task Collect()`, used to collect any symbols needed for code generation. The symbols are usually put in a list, often wrapped in custom `Info` classes. 
+3. `Task Generate()`, used to write output files.
+4. `string GetAnnotations()`, used to return the provided to the consumer code interface (the attributes etc), as a string.
 
-- A
-  - FlagsEnum.cs
-  - A.csproj
-- Generated
-  - FlagsEnumHelpers.cs
-  - Generated.csproj
+`MasterAnalyzer` class provides helper functions of managing a group of per-project (asmdef) analyzers, which may `Collect()` the symbols required to those, per-project. See the Flags plugin for a simple example.
 
-If `A` were to use the generated helper functions, it would have to reference `Generated.csproj`, so `A.dll` is dependent on `Generated.dll`. However, the extension methods sitting in `FlagsEnumHelpers.cs` must also be aware of the flags enum from `A`.
-We have a circualr reference, which is no good.
 
-A solution would be generate `FlagsEnumHelpers.cs` within `A`, like this:
+### How to make a plugin
 
-- A
-  - FlagsEnum.cs
-  - Generated
-    - FlagsEnumHelpers.cs
+The easiest way is to copy e.g. the Flags plugin folder, rename the project. The key part is to import the Plugin properties in the csproj file:
 
-Without a global generated folder in this case.
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
 
-### How to solve? - Requirements
+  <PropertyGroup>
+    <!-- Must match the namespace -->
+    <AssemblyName>Kari.Plugins.Flags</AssemblyName>
+  </PropertyGroup>
 
-We're working with code at semantic level. There are a couple of ideas of how to figure out which folder to place the output `FlagsEnumHelpers.cs`:
+  <ImportGroup>
+    <!-- PLUGIN_PROPS gets the absolute path to Plugin.props -->
+    <!-- "..\Plugin.props" should also work -->
+    <Import Project="$(PLUGIN_PROPS)" />
+  </ImportGroup>
+</Project>
+```
 
-1. Based on the previously found `asmdef` or `csproj`, in a `Generated` folder within the folder, so `A/Generated`. 
-This would have the issue of placing both editor and runtime scripts within the same `Generated` folder, which can be salvaged programatically, by checking the path for any `Editor` parts.
 
-2. Base the folder structure on namespaces. So, the enum `A/FlagsEnum.cs` will have to be in the namespace `RootNamespace.A`, while a file `A/Editor/Stuff/class.cs` will have to be `RootNamespace.A.Editor.Stuff`. They will be generated in the folders `A/Generated` and `A/Editor/Stuff/Generated` respectively. This is good, but a combined approach might be better and would reduce the number of generated folders, so they would generate into `A/Generated/FlagsEnumHelpers.cs` and `A/Generated/Editor/Stuff_class.cs` respectively.
+### Attribute helpers
 
-Both are tough to accomplish.
+`Plugin.props` makes it easy for you to define attributes and query them in your code. 
+All you need to do, is to make a file whose name ends with `Annotations.cs`, including simply `Annotations.cs` and put all of your attributes in there. At build time, a generated file will be created, containing a class `DummyAttributes` with the source text of your annotations, and a `Symbols` class, containing the singleton that defines attribute wrappers for your classes for querying them in customer code.
 
-Currently, all the output goes into a single 
+To query symbols using these attributes, use `TryGetAttribute()` extension method of `ISymbol`:
+```C#
+// The logger used to output errors, e.g. invalid syntax. 
+var logger = new Logger("MyLogger");
+// TryGetAttribute returns true if the symbol contained the given attribute
+if (symbol.TryGetAttribute(Symbols.MyAttribute, logger, out MyAttribute attribute)
+{
+    // attribute contains an instance of your attribute, just like you would have in the customer code.
+}
+```
 
-- Run 
+Currently, it does not support arrays other than string arrays, but I have not yet had a use case for that.
