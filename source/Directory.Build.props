@@ -2,8 +2,10 @@
   <PropertyGroup>
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <!-- If not run by the python script, set these variables to a reasonable default -->
-    <MSBUILD_OUTPUT_PATH Condition="'$(MSBUILD_OUTPUT_PATH)' == ''">$(MSBuildThisFileDirectory)\..\Build\bin</MSBUILD_OUTPUT_PATH>
-    <MSBUILD_INTERMEDIATE_OUTPUT_PATH Condition="'$(MSBUILD_INTERMEDIATE_OUTPUT_PATH)' == ''">$(MSBuildThisFileDirectory)\..\Build\obj</MSBUILD_INTERMEDIATE_OUTPUT_PATH>
+    <MSBUILD_OUTPUT_PATH Condition="'$(MSBUILD_OUTPUT_PATH)' == ''">$(MSBuildThisFileDirectory)..\Build\bin</MSBUILD_OUTPUT_PATH>
+    <MSBUILD_INTERMEDIATE_OUTPUT_PATH Condition="'$(MSBUILD_INTERMEDIATE_OUTPUT_PATH)' == ''">$(MSBuildThisFileDirectory)..\Build\obj</MSBUILD_INTERMEDIATE_OUTPUT_PATH>
+    <MSBUILD_KARI_ROOT_PATH>$(MSBuildThisFileDirectory)</MSBUILD_KARI_ROOT_PATH>
+    <PLUGIN_PROPS>$(MSBuildThisFileDirectory)Kari.Plugins\Plugin.props</PLUGIN_PROPS>
     
     <BaseOutputPath>$(MSBUILD_OUTPUT_PATH)\$(MSBuildProjectName)\</BaseOutputPath>
     <OutputPath>$(BaseOutputPath)$(Configuration)\</OutputPath>
@@ -17,9 +19,9 @@
   </PropertyGroup>
 
   <Target Name="WorkaroundConfigNotFound" BeforeTargets="GenerateBindingRedirects">
-    <Message Text="$(MSBuildThisFileDirectory)..\Build\bin\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config" Importance="high" />
+    <Message Text="$(MSBUILD_OUTPUT_PATH)\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config" Importance="high" />
     <PropertyGroup>
-      <_GenerateBindingRedirectsIntermediateAppConfig>$(MSBuildThisFileDirectory)..\Build\bin\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config</_GenerateBindingRedirectsIntermediateAppConfig>
+      <_GenerateBindingRedirectsIntermediateAppConfig>$(MSBUILD_OUTPUT_PATH)\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config</_GenerateBindingRedirectsIntermediateAppConfig>
     </PropertyGroup>
   </Target>
 </Project>

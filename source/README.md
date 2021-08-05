@@ -1,1 +1,73 @@
 **Kari** is the temporary name of the code generator.
+
+## How to use?
+
+Kari is designed for use in this particular project, and is has not been tested anywhere else (yet).
+
+You can call `baton kari unity` to run the code generator on the subproject, but the code generator can be used directly, without `baton`.
+You can use e.g. `dotnet run -p Kari.Generator/Kari.Generator.csproj` to compile and run Kari.
+For further help, call `Kari` without arguments to see the different options.
+
+`Baton` also provides commands for compiling Kari and the plugins: do `baton kari build --help` for more info
+
+
+## Plugins
+
+Plugins are assemblies that get to analyze the user code provided by `Kari`, and generate the output code.
+`Kari` links to plugins dynamically, thus it's not coupled with any particular code generation logic.
+
+`Kari` groups asmdef projects by their namespace, and generates its output in a subfolder next to each asmdef project ("Generated" by default). 
+`Kari` also generates root output, such as startup functions. This runner code may reference any of the other assemblies and no assembly can reference it back.
+
+### Administrators
+
+Plugins must define an administrator class that manages code generation provided by the plugin. A single plugin may define multiple administrators.
+
+Administrators must be public classes implementing `IAdministrator`. They must implement at least the following methods:
+
+1. `void Initialize()`, used to initialize any global state, and use global state to initialize oneself. This function is called before any code is analyzed, but after the projects have been found.
+2. `Task Collect()`, used to collect any symbols needed for code generation. The symbols are usually put in a list, often wrapped in custom `Info` classes. 
+3. `Task Generate()`, used to write output files.
+4. `string GetAnnotations()`, used to return the provided to the consumer code interface (the attributes etc), as a string.
+
+`MasterAnalyzer` class provides helper functions of managing a group of per-project (asmdef) analyzers, which may `Collect()` the symbols required to those, per-project. See the Flags plugin for a simple example.
+
+
+### How to make a plugin
+
+The easiest way is to copy e.g. the Flags plugin folder, rename the project. The key part is to import the Plugin properties in the csproj file:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Must match the namespace -->
+    <AssemblyName>Kari.Plugins.Flags</AssemblyName>
+  </PropertyGroup>
+
+  <ImportGroup>
+    <!-- PLUGIN_PROPS gets the absolute path to Plugin.props -->
+    <!-- "..\Plugin.props" should also work -->
+    <Import Project="$(PLUGIN_PROPS)" />
+  </ImportGroup>
+</Project>
+```
+
+
+### Attribute helpers
+
+`Plugin.props` makes it easy for you to define attributes and query them in your code. 
+All you need to do, is to make a file whose name ends with `Annotations.cs`, including simply `Annotations.cs` and put all of your attributes in there. At build time, a generated file will be created, containing a class `DummyAttributes` with the source text of your annotations, and a `Symbols` class, containing the singleton that defines attribute wrappers for your classes for querying them in customer code.
+
+To query symbols using these attributes, use `TryGetAttribute()` extension method of `ISymbol`:
+```C#
+// The logger used to output errors, e.g. invalid syntax. 
+var logger = new Logger("MyLogger");
+// TryGetAttribute returns true if the symbol contained the given attribute
+if (symbol.TryGetAttribute(Symbols.MyAttribute, logger, out MyAttribute attribute)
+{
+    // attribute contains an instance of your attribute, just like you would have in the customer code.
+}
+```
+
+Currently, it does not support arrays other than string arrays, but I have not yet had a use case for that.

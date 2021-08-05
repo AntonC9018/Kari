@@ -1,0 +1,20 @@
+﻿<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeGenerator<CommandsAnalyzer>" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="Kari.GeneratorCore" #>
+<#  
+    // The no-output condition.
+    if (m._infos.Count == 0 && m._frontInfos.Count == 0) return null; #>
+
+namespace <#= Project.GeneratedNamespace #>
+{
+<#  foreach (var info in m._infos) 
+    { 
+        Write(m.TransformCommand(info, "    "));
+        Write("\n");
+    } 
+    foreach (var info in m._frontInfos)
+    {
+        Write(m.TransformFrontCommand(info, "    "));
+        Write("\n");
+    } #>
+}

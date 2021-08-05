@@ -228,7 +228,10 @@ namespace Kari.GeneratorCore
                 // Without the spacing at the last column
                 builder.Append('-',  spacing.Length * (Width - 1));
 
-                builder.AppendLine();
+                if (Height != 0)
+                {
+                    builder.AppendLine();
+                }
             }
             
             // Writes the other rows
@@ -248,7 +251,11 @@ namespace Kari.GeneratorCore
                 {
                     builder.Append(lastColumn[row]);
                 }
-                builder.AppendLine();
+
+                if (row < Height - 1)
+                {
+                    builder.AppendLine();
+                }
             }
 
             return builder.ToString();

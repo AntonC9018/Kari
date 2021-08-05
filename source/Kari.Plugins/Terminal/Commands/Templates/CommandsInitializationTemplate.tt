@@ -1,0 +1,29 @@
+<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeGenerator<CommandsAnalyzer[]>" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="Kari.GeneratorCore" #>
+<#@ import namespace="Kari.Plugins.Terminal" #>
+
+namespace <#= Project.GeneratedNamespace #>
+{
+    public static class CommandsInitialization
+    {
+        public static void InitializeBuiltinCommands()
+        {
+<# var ns = TerminalAdministrator.TerminalProject.GeneratedNamespace; #>
+            <#= ns #>.Commands.BuiltinCommands = new <#= ns #>.CommandInfo[]
+            {
+<#  foreach (var slave in m)
+    {
+        foreach (var info in slave._infos)
+        { #>
+                new <#= ns #>.CommandInfo(name: "<#= info.Name #>", command: new <#= info.FullClassName #>()),
+<#      } 
+        foreach (var info in slave._frontInfos)
+        { #>
+                new <#= ns #>.CommandInfo(name: "<#= info.Name #>", command: new <#= info.FullClassName #>()),
+<#      }
+    } #>
+            };
+        }
+    }
+}

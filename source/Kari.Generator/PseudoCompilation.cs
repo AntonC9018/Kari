@@ -9,25 +9,21 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 
 namespace Kari.Generator
 {
     internal static class PseudoCompilation
     {
-        internal static async Task<CSharpCompilation> CreateFromDirectoryAsync(string directoryRoot, string outputFile, IEnumerable<string>? preprocessorSymbols, CancellationToken cancellationToken)
+        internal static CSharpCompilation CreateFromDirectory(string directoryRoot, string generatedFolderPrefix, CancellationToken cancellationToken)
         {
-            var parseOption = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None, SourceCodeKind.Regular, CleanPreprocessorSymbols(preprocessorSymbols));
+            var parseOption = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None, SourceCodeKind.Regular);
 
             var syntaxTrees = new List<SyntaxTree>();
-            foreach (var file in IterateCsFileWithoutBinObj(directoryRoot))
+            foreach (var file in IterateCsFileWithoutBinObjIgnoringFolder(directoryRoot, generatedFolderPrefix))
             {
-                var normalizedFile = Path.GetFullPath(file);
-                if (outputFile == normalizedFile)
-                    continue;
-
-                var text = File.ReadAllText(normalizedFile, Encoding.UTF8);
-                var syntax = CSharpSyntaxTree.ParseText(text, parseOption);
+                var text = File.ReadAllText(file, Encoding.UTF8);
+                var syntax = CSharpSyntaxTree.ParseText(text, parseOption, path: file, cancellationToken: cancellationToken);
                 syntaxTrees.Add(syntax);
             }
 
@@ -104,7 +100,7 @@ namespace Kari.Generator
             return preprocessorSymbols?.Where(x => !string.IsNullOrWhiteSpace(x));
         }
 
-        private static IEnumerable<string> IterateCsFileWithoutBinObj(string root)
+        private static IEnumerable<string> IterateCsFileWithoutBinObjIgnoringFolder(string root, string ingoredFolderName)
         {
             foreach (var item in Directory.EnumerateFiles(root, "*.cs", SearchOption.TopDirectoryOnly))
             {
@@ -118,17 +114,14 @@ namespace Kari.Generator
                 {
                     continue;
                 }
-
-                foreach (var item in IterateCsFileWithoutBinObj(dir))
+                if (!dir.EndsWith(ingoredFolderName))
                 {
-                    yield return item;
+                    foreach (var item in IterateCsFileWithoutBinObjIgnoringFolder(dir, ingoredFolderName))
+                    {
+                        yield return item;
+                    }
                 }
             }
-        }
-
-        private static string NormalizeDirectorySeparators(string path)
-        {
-            return path.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
         }
     }
 }
