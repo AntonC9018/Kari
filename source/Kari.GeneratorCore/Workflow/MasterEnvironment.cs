@@ -88,7 +88,7 @@ namespace Kari.GeneratorCore.Workflow
                 var asmdefJson = JObject.Parse(File.ReadAllText(asmdef));
 
                 string namespaceName;
-                if (asmdefJson.TryGetValue("name", out JToken nameToken))
+                if (asmdefJson.TryGetValue("rootNamespace", out JToken nameToken))
                 {
                     namespaceName = nameToken.Value<string>();
                     if (namespaceName is null)
@@ -105,15 +105,6 @@ namespace Kari.GeneratorCore.Workflow
 
                 // Even the editor project will have this namespace, because of the convention.
                 INamespaceSymbol projectNamespace = Compilation.TryGetNamespace(namespaceName);
-                
-                if (!namespaceName.StartsWith(RootNamespaceName) && projectNamespace is null)
-                {
-                    // We do not require asmdef's to prefix the name with the project namespace
-                    // TODO: Maybe do that.
-                    var prefixedName = RootNamespaceName.Combine(namespaceName);
-                    Logger.LogWarning($"The namespace {namespaceName} was not found. Trying {prefixedName}.");
-                    projectNamespace = Compilation.TryGetNamespace(prefixedName);
-                }
                 
                 if (projectNamespace is null)
                 {
