@@ -4,6 +4,8 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Xml;
+using Humanizer;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -359,6 +361,37 @@ namespace Kari.GeneratorCore.Workflow
             if (locations.Length == 0) return "Unknown location";
             var span = locations[0].GetLineSpan();
             return $"{locations[0].SourceTree.FilePath}:{span.StartLinePosition.Line + 1}:{span.StartLinePosition.Character + 1}";
+        }
+
+        public static string GetDocumentationAsHelp(this ISymbol symbol)
+        {
+            var comment = symbol.GetDocumentationCommentXml();
+            if (string.IsNullOrEmpty(comment)) return "";
+            var xml = new XmlDocument();
+            xml.LoadXml(comment);
+
+            var root = xml.FirstChild;
+            var nodes = root.ChildNodes;
+
+            var sb = new StringBuilder();
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                if (i > 0) sb.AppendLine("\n");
+                sb.Append(nodes[i].Name.Humanize(LetterCasing.Title));
+                sb.Append(":");
+                sb.Append(nodes[i].InnerText.TrimEnd());
+            }
+            return sb.ToString();
+        }
+
+        public static string EscapeVerbatim(this string text)
+        {
+            return text.Replace("\"", "\"\"");
+        }
+
+        public static string AsVerbatimSyntax(this string text)
+        {
+            return $"@\"{text.EscapeVerbatim()}\"";
         }
     }
 }

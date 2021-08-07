@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
@@ -75,7 +76,7 @@ namespace Kari.Plugins.Terminal
             builder.AppendLine($"public class {className} : CommandBase");
             builder.StartBlock();
             builder.AppendLine($"public override void Execute(CommandContext context) => {info.Symbol.GetFullyQualifiedName()}(context);");
-            builder.AppendLine($"public {className}() : base({info.Attribute.MinimumNumberOfArguments}, {info.Attribute.MaximumNumberOfArguments}, \"{info.Attribute.Help}\") {{}}");
+            builder.AppendLine($"public {className}() : base({info.Attribute.MinimumNumberOfArguments}, {info.Attribute.MaximumNumberOfArguments}, {info.Attribute.Help.AsVerbatimSyntax()}) {{}}");
             builder.EndBlock();
 
             return builder.ToString();
@@ -284,10 +285,10 @@ namespace Kari.Plugins.Terminal
 
             executeBuilder.EndBlock();
             
-            classBuilder.AppendLine($"public {className}() : base(_MinimumNumberOfArguments, _MaximumNumberOfArguments, \"{info.Attribute.Help}\", _HelpMessage) {{}}");
+            classBuilder.AppendLine($"public {className}() : base(_MinimumNumberOfArguments, _MaximumNumberOfArguments, {info.Attribute.Help.AsVerbatimSyntax()}, _HelpMessage) {{}}");
             classBuilder.Indent();
             classBuilder.Append("public const string _HelpMessage = @\"");
-            classBuilder.Append(helpMessageBuilder.ToString().Replace("\"", "\"\""));
+            classBuilder.Append(helpMessageBuilder.ToString().EscapeVerbatim());
             classBuilder.Append("\";");
             classBuilder.AppendLine();
             // TODO: Allow default values for arguments
@@ -322,6 +323,8 @@ namespace Kari.Plugins.Terminal
         public FrontCommandMethodInfoBase(IMethodSymbol method, ICommandAttribute attribute, string generatedNamespace)
         {
             attribute.Name ??= method.Name;
+            attribute.Help ??= method.GetDocumentationAsHelp();
+            
             if (attribute.Name.Contains('.'))
             {
                 IsEscapedClassName = true;

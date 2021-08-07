@@ -17,7 +17,7 @@ namespace Kari.Generator
     {
         internal static CSharpCompilation CreateFromDirectory(string directoryRoot, string generatedFolderPrefix, CancellationToken cancellationToken)
         {
-            var parseOption = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None, SourceCodeKind.Regular);
+            var parseOption = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None, SourceCodeKind.Regular).WithDocumentationMode(DocumentationMode.Parse);
 
             var syntaxTrees = new List<SyntaxTree>();
             foreach (var file in IterateCsFileWithoutBinObjIgnoringFolder(directoryRoot, generatedFolderPrefix))
