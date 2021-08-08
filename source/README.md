@@ -71,3 +71,22 @@ if (symbol.TryGetAttribute(Symbols.MyAttribute, logger, out MyAttribute attribut
 ```
 
 Currently, it does not support arrays other than string arrays, but I have not yet had a use case for that.
+
+
+## Default plugins
+
+None of the plugins are included by default by `Kari`, however, there are some useful ones already defined in this repo.
+
+### Flags
+
+Generates useful functions for flag enums.
+
+### Terminal
+
+Generates backend code for terminal commands. See a complete example repo [here](https://github.com/AntonC9018/command_terminal).
+
+### UnityHelpers
+
+Generates boilerplate helper functions related to unity. Currently, makes helper functions for changing individual coordinates of `Vector`'s.
+
+The idea comes from [here](https://github.com/TobiasWehrum/unity-utilities/blob/c78da2928b1f7b73046a697185271e7effeddd1f/UnityHelper/UnityHelper.cs#L199), but results in no runtime penalty of checking nullable types.
