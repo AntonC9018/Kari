@@ -1,0 +1,10 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Kari.Plugins.UnityHelpers</AssemblyName>
+  </PropertyGroup>
+
+  <ImportGroup>
+    <Import Project="$(PLUGIN_PROPS)" />
+  </ImportGroup>
+</Project>

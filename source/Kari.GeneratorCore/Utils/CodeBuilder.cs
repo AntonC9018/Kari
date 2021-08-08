@@ -120,6 +120,11 @@ namespace Kari.GeneratorCore
             }
             return _stringBuilder.ToString(0, _stringBuilder.Length - _separator.Length);
         }
+
+        public void Clear()
+        {
+            _stringBuilder.Clear();
+        }
     }
 
     /// <summary>

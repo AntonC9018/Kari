@@ -1,0 +1,37 @@
+<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeGenerator<UnityHelpersAdministrator>" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="Kari.GeneratorCore" #>
+<#@ import namespace="Kari.Plugins.UnityHelpers" #>
+namespace EngineCommon
+{
+    using UnityEngine;
+
+    public static partial class UnityHelpers
+    {
+<#  foreach (var type in new string[] { "float", "int" })
+    {
+        foreach (var i in "xyzw") 
+        { 
+            var classname = type + i; #>
+        public struct <#= classname #>
+        {
+            public readonly <#= type #> value;
+            public <#= classname #>(<#= type #> value) => this.value = value;
+            public static implicit operator <#= classname #>(<#= type #> value) => new <#= classname #>(value);
+            public static implicit operator <#= type #>(<#= classname #> t) => t.value;
+        }
+
+<#      }
+    } #>
+
+<#= DoVector("Vector2", "float",  new string[] { "x", "y" })           #>
+
+<#= DoVector("Vector3", "float",  new string[] { "x", "y", "z" })      #>
+
+<#= DoVector("Vector4", "float",  new string[] { "x", "y", "z", "w" }) #>
+
+<#= DoVector("Vector2Int", "int", new string[] { "x", "y" })           #>
+
+<#= DoVector("Vector3Int", "int", new string[] { "x", "y", "z" })      #>
+    }
+}

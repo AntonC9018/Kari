@@ -1,6 +1,7 @@
 ﻿namespace Kari.Generator
 {
     using System;
+    using System.Diagnostics;
     using System.IO;
     using System.Linq;
     using System.Runtime.Loader;
@@ -38,6 +39,9 @@
 
         private Logger _logger;
 
+
+        // TODO: Pass arguments to plugins
+        // TODO: Remove dependency on ConsoleAppFramework
         public async Task<int> RunAsync(
             [Option("Input path to MSBuild project file or to the directory containing source files.")] 
             string input,
@@ -60,6 +64,7 @@
             [Option("The common project namespace name (appended to rootNamespace). This is the project where all the attributes and other things common to all projects will end up. Ignored when `monolithicProject` is set to true. Default: \"RootNamespace.Common\"")]
             string? commonNamespace = null)
         {
+            var sw = Stopwatch.StartNew();
             Workspace? workspace = null;
             try
             {
@@ -171,6 +176,7 @@
                 }
                 await _logger.MeasureAsync("Output Generation", startGenerateTask());
                 if (Logger.AnyLoggerHasErrors) return 1;
+                _logger.LogInfo("Generation complete. It took " + sw.Elapsed.ToString());
             }
             catch (OperationCanceledException)
             {
