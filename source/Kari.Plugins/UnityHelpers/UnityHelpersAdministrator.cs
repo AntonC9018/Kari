@@ -56,11 +56,12 @@ namespace Kari.Plugins.UnityHelpers
                 }
                 var callArgs = string.Join(", ", args);
 
-                codeBuilder.AppendLine($"public static void Set(this ref {vectorName} v, {otherParams})");
-                codeBuilder.StartBlock();
-                codeBuilder.AppendLine($"v = new {vectorName}({callArgs});");
-                codeBuilder.EndBlock();
-                codeBuilder.AppendLine();
+                // Does not make sense. You can just set these directly
+                // codeBuilder.AppendLine($"public static void Set(this ref {vectorName} v, {otherParams})");
+                // codeBuilder.StartBlock();
+                // codeBuilder.AppendLine($"v = new {vectorName}({callArgs});");
+                // codeBuilder.EndBlock();
+                // codeBuilder.AppendLine();
 
                 codeBuilder.AppendLine($"public static {vectorName} With(this in {vectorName} v, {otherParams})");
                 codeBuilder.StartBlock();

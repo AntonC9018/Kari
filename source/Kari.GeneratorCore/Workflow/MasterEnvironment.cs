@@ -138,6 +138,10 @@ namespace Kari.GeneratorCore.Workflow
                 // We take the convention that the namespace would be the same as that of asmdef, but with and appended .Editor.
                 // So any namespace within project A, like A.B, would have a corresponding editor namespace of A.Editor.B
                 // rather than A.B.Editor. 
+                // TODO: 
+                // This feels kinda weird and so far irrelevant. Think about this more when this becomes relevant.
+                // Probably we should ideally ignore the A.B.Editor namespace within the A.B project when
+                // processing it as editor code.
 
                 var editorProjectNamespace = projectNamespace.GetNamespaceMembers().FirstOrDefault(n => n.Name == "Editor");
                 if (editorProjectNamespace is null)
