@@ -1,10 +1,12 @@
 ﻿namespace Kari.Generator
 {
     using System;
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
     using System.Runtime.Loader;
+    using System.Text.RegularExpressions;
     using System.Threading;
     using System.Threading.Tasks;
     using ConsoleAppFramework;
@@ -12,6 +14,7 @@
     using Microsoft.Build.Locator;
     using Microsoft.Build.Logging;
     using Microsoft.CodeAnalysis;
+    using Microsoft.CodeAnalysis.CSharp;
     using Microsoft.CodeAnalysis.MSBuild;
     using Microsoft.Extensions.Hosting;
 
@@ -62,7 +65,11 @@
             [Option("Whether to not scan for subprojects and always treat the entire codebase as a single root project. This implies the files will be generated in a single folder. With `singleFileOutput` set to true implies generating all code for the entire project in the single file.")]
             bool monolithicProject = false,
             [Option("The common project namespace name (appended to rootNamespace). This is the project where all the attributes and other things common to all projects will end up. Ignored when `monolithicProject` is set to true. Default: \"RootNamespace.Common\"")]
-            string? commonNamespace = null)
+            string? commonNamespace = null,
+            [Option("The subnamespaces ignored for the particular project, but which are treated as a separate project, even if they sit in the same root namespace. The default is 'Editor' and 'Tests'. Split names with ','.")]
+            string? independentNamespacePart = null,
+            [Option("Whether to treat 'Editor' folders as separate subprojects, even if they contain no asmdef. Only the editor folder that is at root of a folder with asmdef is regarded this way, nested Editor folders are ignored.")]
+            bool treatEditorAsSubproject = true)
         {
             var sw = Stopwatch.StartNew();
             Workspace? workspace = null;
@@ -76,6 +83,27 @@
                 if (generatedName == "" && clearOutput)
                 {
                     _logger.LogNoLock($"Setting the `generatedName` to an empty string and `clearOutputFolder` to true will wipe all top-level source files in your project. (In principle! I WON'T do that.) Specify a different folder or file.", LogType.Error);
+                }
+
+                HashSet<string> independentNamespacePartsSet;
+                // Validate the independent namespaces + initialize.
+                {
+                    if (independentNamespacePart is null)
+                    {
+                        independentNamespacePartsSet = new HashSet<string> { "Editor", "Tests" };
+                    }
+                    else
+                    {
+                        var parts = independentNamespacePart.Split(',');
+                        for (int i = 0; i < parts.Length; i++)
+                        {
+                            if (!SyntaxFacts.IsValidIdentifier(parts[i]))
+                            {
+                                _logger.LogError($"Independent namespace part {parts[i]} at position {i} does not represent a valid identifier.");
+                            }
+                        }
+                        independentNamespacePartsSet = parts.ToHashSet();
+                    }
                 }
 
                 Task compileTask;
@@ -102,7 +130,10 @@
                     return 1;
                 }
 
-                var master = new MasterEnvironment(rootNamespace, projectDirectory, token, _logger);
+                if (Logger.AnyLoggerHasErrors) return 1;
+
+
+                var master = new MasterEnvironment(rootNamespace, projectDirectory, token, _logger, independentNamespacePartsSet);
                 // Set the master instance globally
                 MasterEnvironment.InitializeSingleton(master);
                 master.GeneratedPath = generatedName;
@@ -155,7 +186,7 @@
 
                 _logger.MeasureSync("Environment Initialization", () => {
                     master.InitializeCompilation(ref compilation);
-                    if (!monolithicProject) master.FindProjects();
+                    if (!monolithicProject) master.FindProjects(treatEditorAsSubproject);
                     master.InitializePseudoProjects();
                     master.InitializeAdministrators();
                 });

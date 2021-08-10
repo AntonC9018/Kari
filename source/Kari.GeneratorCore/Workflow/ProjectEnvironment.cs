@@ -77,19 +77,39 @@ namespace Kari.GeneratorCore.Workflow
         public Task Collect()
         {
             return Task.Run(() => {
-                foreach (var type in RootNamespace.GetNotNestedTypes())
+                foreach (var symbol in RootNamespace.GetMembers())
                 {
-                    Types.Add(type);
-                    
-                    if (type.GetAttributes().Length > 0)
-                        TypesWithAttributes.Add(type);
-                    
-                    foreach (var method in type.GetMethods())
+                    void AddType(INamedTypeSymbol type)
                     {
-                        if (method.GetAttributes().Length > 0)
-                            MethodsWithAttributes.Add(method);
+                        Types.Add(type);
+                        
+                        if (type.GetAttributes().Length > 0)
+                            TypesWithAttributes.Add(type);
+                        
+                        foreach (var method in type.GetMethods())
+                        {
+                            if (method.GetAttributes().Length > 0)
+                                MethodsWithAttributes.Add(method);
+                        }
+                    }
+
+                    if (symbol is INamedTypeSymbol type)
+                    {
+                        AddType(type);
+                    }
+                    else if (symbol is INamespaceSymbol nspace)
+                    {
+                        if (MasterEnvironment.Instance.IndependentNamespaces.Contains(nspace.Name))
+                        {
+                            continue;
+                        }
+                        foreach (var topType in nspace.GetNotNestedTypes())
+                        {
+                            AddType(topType);
+                        }
                     }
                 }
+
                 Logger.Log($"Collected {Types.Count} types, {TypesWithAttributes.Count} annotated types, {MethodsWithAttributes.Count} annotated methods.");
             });
         }
