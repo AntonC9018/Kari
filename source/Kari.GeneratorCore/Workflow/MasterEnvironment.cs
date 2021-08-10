@@ -29,16 +29,18 @@ namespace Kari.GeneratorCore.Workflow
         public readonly string ProjectRootDirectory;
         public readonly List<ProjectEnvironment> Projects = new List<ProjectEnvironment>();
         public readonly List<IAdministrator> Administrators = new List<IAdministrator>(5);
+        public readonly HashSet<string> IndependentNamespaces;
 
         /// <summary>
         /// Initializes the MasterEnvironment and replaces the global singleton instance.
         /// </summary>
-        public MasterEnvironment(string rootNamespace, string rootDirectory, CancellationToken cancellationToken, Logger logger)
+        public MasterEnvironment(string rootNamespace, string rootDirectory, CancellationToken cancellationToken, Logger logger, HashSet<string> independentNamespaces)
         {
             CancellationToken = cancellationToken;
             RootNamespaceName = rootNamespace;
             ProjectRootDirectory = rootDirectory;
             Logger = logger;
+            IndependentNamespaces = independentNamespaces;
         }
 
         public void InitializeCompilation(ref Compilation compilation)
@@ -65,9 +67,8 @@ namespace Kari.GeneratorCore.Workflow
             }
         }
 
-        public void FindProjects()
+        public void FindProjects(bool treatEditorAsSubproject)
         {
-            // TODO: log instead?
             if (RootWriter is null) 
             {
                 Logger.LogError("The file writer must have been set by now.");
@@ -126,39 +127,36 @@ namespace Kari.GeneratorCore.Workflow
                     AddProject(environment);
                 }
 
+                // !!! 
+                // Actually, it does not work like I supposed it works
+                // You have to have a separate asmdef for all editor projects, which is fair, I guess.
+
                 // Check if "Editor" is in the array of included platforms.
                 // TODO: I'm not sure if not-editor-only projects need this string here.
-                if (!asmdefJson.TryGetValue("includePlatforms", out JToken platformsToken)
-                    || !platformsToken.Children().Any(token => token.Value<string>() == "Editor"))
-                {
-                    continue;
-                }
+                // if (!asmdefJson.TryGetValue("includePlatforms", out JToken platformsToken)
+                //     || !platformsToken.Children().Any(token => token.Value<string>() == "Editor"))
+                // {
+                //     continue;
+                // }
 
-                // Also, add the editor project as a separate project.
-                // We take the convention that the namespace would be the same as that of asmdef, but with and appended .Editor.
-                // So any namespace within project A, like A.B, would have a corresponding editor namespace of A.Editor.B
-                // rather than A.B.Editor. 
-                // TODO: 
-                // This feels kinda weird and so far irrelevant. Think about this more when this becomes relevant.
-                // Probably we should ideally ignore the A.B.Editor namespace within the A.B project when
-                // processing it as editor code.
-
-                var editorProjectNamespace = projectNamespace.GetNamespaceMembers().FirstOrDefault(n => n.Name == "Editor");
-                if (editorProjectNamespace is null)
-                    continue;
-                var editorDirectory = Path.Combine(projectDirectory, "Editor");
-                if (!Directory.Exists(editorDirectory))
-                {
-                    Logger.LogWarning($"Found an editor project {namespaceName}, but no `Editor` folder.");
-                    continue;
-                }
-                var editorEnvironment = new ProjectEnvironment(
-                    directory:      editorDirectory,
-                    namespaceName:  namespaceName.Combine("Editor"),
-                    rootNamespace:  editorProjectNamespace,
-                    fileWriter:     RootWriter.GetWriter(Path.Combine(editorDirectory, GeneratedPath)));
+                // if (!treatEditorAsSubproject) 
+                //     continue;
+                // var editorProjectNamespace = projectNamespace.GetNamespaceMembers().FirstOrDefault(n => n.Name == "Editor");
+                // if (editorProjectNamespace is null)
+                //     continue;
+                // var editorDirectory = Path.Combine(projectDirectory, "Editor");
+                // if (!Directory.Exists(editorDirectory))
+                // {
+                //     Logger.LogWarning($"Found an editor project {namespaceName}, but no `Editor` folder.");
+                //     continue;
+                // }
+                // var editorEnvironment = new ProjectEnvironment(
+                //     directory:      editorDirectory,
+                //     namespaceName:  namespaceName.Combine("Editor"),
+                //     rootNamespace:  editorProjectNamespace,
+                //     fileWriter:     RootWriter.GetWriter(Path.Combine(editorDirectory, GeneratedPath)));
                     
-                AddProject(editorEnvironment);
+                // AddProject(editorEnvironment);
             }
         }
 
