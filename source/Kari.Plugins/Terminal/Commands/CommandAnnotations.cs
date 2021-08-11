@@ -7,6 +7,7 @@ namespace Kari.Plugins.Terminal
     {
         string Name { get; set; } 
         string Help { get; set; } 
+        string ShortHelp { get; set; } 
     }
 
     [AttributeUsage(AttributeTargets.Method)]
@@ -24,7 +25,13 @@ namespace Kari.Plugins.Terminal
         }
 
         public string Name { get; set; } 
-        public string Help { get; set; } 
+        private string _help;
+        public string Help 
+        { 
+            get => _help; 
+            set { ShortHelp ??= value; _help = value; } 
+        } 
+        public string ShortHelp { get; set; } 
     }
 
 
@@ -43,7 +50,13 @@ namespace Kari.Plugins.Terminal
         }
 
         public string Name { get; set; } 
-        public string Help { get; set; } 
+        private string _help;
+        public string Help 
+        { 
+            get => _help; 
+            set { ShortHelp ??= value; _help = value; } 
+        } 
+        public string ShortHelp { get; set; } 
         public int MinimumNumberOfArguments { get; set; } = 0;
         public int MaximumNumberOfArguments { get; set; } = -1;
         public int NumberOfArguments {
