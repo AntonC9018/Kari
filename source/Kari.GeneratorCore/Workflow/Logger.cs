@@ -29,7 +29,7 @@ namespace Kari.GeneratorCore.Workflow
         public static bool AnyLoggerHasErrors => _HasErrors;
         private readonly string _name;
         private readonly LogType _defaultLogType;
-        public static readonly Logger Debug = new Logger("DEBUG");
+        public static readonly Logger Debug = new Logger("DEBUG", LogType.Debug);
 
         public Logger(string name, LogType defaultLogType = LogType.Message)
         {
