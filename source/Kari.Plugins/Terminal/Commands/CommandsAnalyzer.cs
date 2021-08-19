@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Humanizer;
 using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
 using Microsoft.CodeAnalysis;
@@ -76,7 +78,7 @@ namespace Kari.Plugins.Terminal
             builder.AppendLine($"public class {className} : CommandBase");
             builder.StartBlock();
             builder.AppendLine($"public override void Execute(CommandContext context) => {info.Symbol.GetFullyQualifiedName()}(context);");
-            builder.AppendLine($"public {className}() : base({info.Attribute.MinimumNumberOfArguments}, {info.Attribute.MaximumNumberOfArguments}, {info.Attribute.Help.AsVerbatimSyntax()}) {{}}");
+            builder.AppendLine($"public {className}() : base({info.Attribute.MinimumNumberOfArguments}, {info.Attribute.MaximumNumberOfArguments}, {info.Attribute.ShortHelp.AsVerbatimSyntax()}, {info.Attribute.Help.AsVerbatimSyntax()}) {{}}");
             builder.EndBlock();
 
             return builder.ToString();
@@ -285,7 +287,7 @@ namespace Kari.Plugins.Terminal
 
             executeBuilder.EndBlock();
             
-            classBuilder.AppendLine($"public {className}() : base(_MinimumNumberOfArguments, _MaximumNumberOfArguments, {info.Attribute.Help.AsVerbatimSyntax()}, _HelpMessage) {{}}");
+            classBuilder.AppendLine($"public {className}() : base(_MinimumNumberOfArguments, _MaximumNumberOfArguments, {info.Attribute.ShortHelp.AsVerbatimSyntax()}, _HelpMessage) {{}}");
             classBuilder.Indent();
             classBuilder.Append("public const string _HelpMessage = @\"");
             classBuilder.Append(helpMessageBuilder.ToString().EscapeVerbatim());
@@ -322,9 +324,9 @@ namespace Kari.Plugins.Terminal
 
         public FrontCommandMethodInfoBase(IMethodSymbol method, ICommandAttribute attribute, string generatedNamespace)
         {
+            UpdateAttributeHelp(method, attribute);
+
             attribute.Name ??= method.Name;
-            attribute.Help ??= method.GetDocumentationAsHelp();
-            
             if (attribute.Name.Contains('.'))
             {
                 IsEscapedClassName = true;
@@ -336,6 +338,55 @@ namespace Kari.Plugins.Terminal
                 ClassName = attribute.Name + "Command";
             }
             FullClassName = generatedNamespace.Combine(ClassName);
+        }
+
+        private static void UpdateAttributeHelp(IMethodSymbol method, ICommandAttribute attribute)
+        {
+            if (!(attribute.Help is null))
+            {
+                return;
+            }
+
+            var xml = method.GetDocumentationXml();
+            if (xml is null)
+            {
+                attribute.Help = "";
+                return;
+            }
+
+            var root = xml.FirstChild;
+            var nodes = root.ChildNodes;
+
+            var sb = new StringBuilder();
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                if (i > 0) sb.AppendLine("\n");
+                sb.Append(nodes[i].Name.Humanize(LetterCasing.Title));
+                sb.Append(":");
+                sb.Append(nodes[i].InnerText.TrimEnd());
+
+                if (nodes[i].Name == "summary")
+                {
+                    attribute.ShortHelp = SummryToShortHelp(nodes[i].InnerText, maxLength: 64);
+                }
+            }
+
+            attribute.ShortHelp ??= "";
+            attribute.Help = sb.ToString();
+        }
+
+        private static string SummryToShortHelp(string text, int maxLength, string more = "...")
+        {
+            text = text.TrimStart();
+            var newLineIndex = text.IndexOf("\r\n");
+            if (newLineIndex == -1)
+                newLineIndex = text.Length;
+
+            if (newLineIndex > maxLength)
+            {
+                return text.Substring(0, maxLength - more.Length) + more;
+            }
+            return text.Substring(0, newLineIndex);
         }
     }
     

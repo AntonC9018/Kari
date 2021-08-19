@@ -78,9 +78,9 @@ namespace Kari.Plugins.Terminal
             _builtinParsers.Add(Symbols.Short,   new BuiltinParser(parsersFullyQualifiedClassName, "Short")    );
             _builtinParsers.Add(Symbols.Long,    new BuiltinParser(parsersFullyQualifiedClassName, "Long")     );
             _builtinParsers.Add(Symbols.Sbyte,   new BuiltinParser(parsersFullyQualifiedClassName, "Sbyte")    );
-            _builtinParsers.Add(Symbols.Ushort,  new BuiltinParser(parsersFullyQualifiedClassName, "Ushort")   );
-            _builtinParsers.Add(Symbols.Uint,    new BuiltinParser(parsersFullyQualifiedClassName, "Uint")     );
-            _builtinParsers.Add(Symbols.Ulong,   new BuiltinParser(parsersFullyQualifiedClassName, "Ulong")    );
+            _builtinParsers.Add(Symbols.Ushort,  new BuiltinParser(parsersFullyQualifiedClassName, "UShort")   );
+            _builtinParsers.Add(Symbols.Uint,    new BuiltinParser(parsersFullyQualifiedClassName, "UInt")     );
+            _builtinParsers.Add(Symbols.Ulong,   new BuiltinParser(parsersFullyQualifiedClassName, "ULong")    );
             _builtinParsers.Add(Symbols.Byte,    new BuiltinParser(parsersFullyQualifiedClassName, "Byte")     );
             _builtinParsers.Add(Symbols.Float,   new BuiltinParser(parsersFullyQualifiedClassName, "Float")    );
             _builtinParsers.Add(Symbols.Double,  new BuiltinParser(parsersFullyQualifiedClassName, "Double")   );

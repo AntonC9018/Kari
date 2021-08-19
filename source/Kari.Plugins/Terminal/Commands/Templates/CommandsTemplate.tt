@@ -7,6 +7,9 @@
 
 namespace <#= Project.GeneratedNamespace #>
 {
+    using <#= TerminalAdministrator.TerminalProject.NamespaceName #>;
+    using <#= TerminalAdministrator.TerminalProject.GeneratedNamespace #>;
+    
 <#  foreach (var info in m._infos) 
     { 
         Write(m.TransformCommand(info, "    "));

@@ -10,7 +10,7 @@ namespace Kari.GeneratorCore
     public struct CodeBuilder
     {
         private readonly StringBuilder _stringBuilder;
-        private string _currentIndentation;
+        public string CurrentIndentation;
 
         /// <summary>
         /// The string used for indentation.
@@ -24,7 +24,7 @@ namespace Kari.GeneratorCore
         public CodeBuilder(string indentation, string initialIndentation = "")
         {
             _stringBuilder = new StringBuilder();
-            _currentIndentation = initialIndentation;
+            CurrentIndentation = initialIndentation;
             Indentation = indentation;
         }
 
@@ -34,19 +34,19 @@ namespace Kari.GeneratorCore
         /// </summary>
         public CodeBuilder NewWithPreservedIndentation()
         {
-            return new CodeBuilder(Indentation, _currentIndentation);
+            return new CodeBuilder(Indentation, CurrentIndentation);
         }
 
         public override string ToString() => _stringBuilder.ToString();
-        public void IncreaseIndent() => _currentIndentation = _currentIndentation + "    ";
-        public void DecreaseIndent() => _currentIndentation = _currentIndentation.Substring(0, _currentIndentation.Length - Indentation.Length);
+        public void IncreaseIndent() => CurrentIndentation = CurrentIndentation + "    ";
+        public void DecreaseIndent() => CurrentIndentation = CurrentIndentation.Substring(0, CurrentIndentation.Length - Indentation.Length);
 
         /// <summary>
         /// Appends the indentation string to the output.
         /// </summary>
         public void Indent()
         {
-            _stringBuilder.Append(_currentIndentation);
+            _stringBuilder.Append(CurrentIndentation);
         }
 
         /// <summary>
@@ -54,7 +54,7 @@ namespace Kari.GeneratorCore
         /// </summary>
         public void AppendLine(string text = "")
         {
-            _stringBuilder.Append(_currentIndentation);
+            _stringBuilder.Append(CurrentIndentation);
             _stringBuilder.AppendLine(text);
         }
 
@@ -71,7 +71,7 @@ namespace Kari.GeneratorCore
         /// </summary>
         public void StartBlock()
         {
-            _stringBuilder.AppendLine(_currentIndentation + "{");
+            _stringBuilder.AppendLine(CurrentIndentation + "{");
             IncreaseIndent();
         }
 
@@ -81,7 +81,7 @@ namespace Kari.GeneratorCore
         public void EndBlock()
         {
             DecreaseIndent();
-            _stringBuilder.AppendLine(_currentIndentation + "}");
+            _stringBuilder.AppendLine(CurrentIndentation + "}");
         }
     }
 

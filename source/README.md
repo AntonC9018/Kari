@@ -35,11 +35,15 @@ Administrators must be public classes implementing `IAdministrator`. They must i
 
 ### How to make a plugin
 
-The easiest way is to copy e.g. the Flags plugin folder, rename the project. The key part is to import the Plugin properties in the csproj file:
+The easiest way to get started is to use a starter template. 
+To generate a starter boilerplate for your plugin and add it to the solution, use `baton kari new_plugin -name NAME_OF_PLUGIN`.
+This generates 5 files: the csproj file, *Administrator* class, *Analyzer* class, a file with *Annotations* and a T4 template for code generation.
+Out of these parts, only an *Administrator* (and a csproj file obviously) is absolutely required from a plugin, but the other parts are also common.
+
+The key part is to import the Plugin properties in the csproj file:
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <!-- Must match the namespace -->
     <AssemblyName>Kari.Plugins.Flags</AssemblyName>

@@ -363,25 +363,13 @@ namespace Kari.GeneratorCore.Workflow
             return $"{locations[0].SourceTree.FilePath}:{span.StartLinePosition.Line + 1}:{span.StartLinePosition.Character + 1}";
         }
 
-        public static string GetDocumentationAsHelp(this ISymbol symbol)
+        public static XmlDocument GetDocumentationXml(this ISymbol symbol)
         {
             var comment = symbol.GetDocumentationCommentXml();
-            if (string.IsNullOrEmpty(comment)) return "";
+            if (string.IsNullOrEmpty(comment)) return null;
             var xml = new XmlDocument();
             xml.LoadXml(comment);
-
-            var root = xml.FirstChild;
-            var nodes = root.ChildNodes;
-
-            var sb = new StringBuilder();
-            for (int i = 0; i < nodes.Count; i++)
-            {
-                if (i > 0) sb.AppendLine("\n");
-                sb.Append(nodes[i].Name.Humanize(LetterCasing.Title));
-                sb.Append(":");
-                sb.Append(nodes[i].InnerText.TrimEnd());
-            }
-            return sb.ToString();
+            return xml;
         }
 
         public static string EscapeVerbatim(this string text)
