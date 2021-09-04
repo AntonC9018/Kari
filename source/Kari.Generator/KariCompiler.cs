@@ -57,7 +57,7 @@
 
             var compiler = new KariCompiler();
 
-            if (parser.Options.Count == 0)
+            if (parser.IsEmpty)
             {
                 System.Console.WriteLine(parser.GetHelpFor(compiler));
                 return 0;
@@ -67,7 +67,7 @@
             {
                 System.Environment.ExitCode = await compiler.RunAsync(parser, token);
             }
-            catch (OperationCanceledException e)
+            catch (OperationCanceledException)
             {
                 return (int) ExitCode.OperationCanceled;
             }

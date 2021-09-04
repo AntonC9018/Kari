@@ -7,6 +7,9 @@ using System.Text;
 
 namespace Kari.GeneratorCore
 {
+    /// <summary>
+    /// Mark a field with this attibute for it to be detected and filled in by ArgumentParser.
+    /// </summary>
     public class OptionAttribute : System.Attribute
     {
         public string Help;
@@ -19,9 +22,13 @@ namespace Kari.GeneratorCore
         }
     }
 
+    /// <summary>
+    /// Parses command-line arguments.
+    /// Fills in objects with the appropriate data gathered from the arguments via reflection.
+    /// </summary>
     public class ArgumentParser
     {
-        public class ArgumentOrOptionValue
+        private class ArgumentOrOptionValue
         {
             public readonly string StringValue;
             // Indicates whether this value has been recognized as a valid option.
@@ -29,37 +36,37 @@ namespace Kari.GeneratorCore
             public ArgumentOrOptionValue(string stringValue) => StringValue = stringValue;
         }
 
-        public readonly Dictionary<string, ArgumentOrOptionValue> Options = new Dictionary<string, ArgumentOrOptionValue>();
+        private readonly Dictionary<string, ArgumentOrOptionValue> Options = new Dictionary<string, ArgumentOrOptionValue>();
 
+        public bool IsEmpty => Options.Count == 0;
+
+        /// <summary>
+        /// Wraps a string error.
+        /// </summary>
         public struct ParsingResult
         {
             public readonly string Error;
             public bool IsError => !(Error is null);
-            public ParsingResult(string error) => Error = error;
+            internal ParsingResult(string error) => Error = error;
 
-            public static readonly ParsingResult Ok = new ParsingResult(null);
-            public static ParsingResult DoubleDash(string argument) 
+            internal static readonly ParsingResult Ok = new ParsingResult(null);
+            internal static ParsingResult DoubleDash(string argument) 
                 => new ParsingResult($"Double dash is not allowed (in `{argument}`). Use single dash instead.");
-            public static ParsingResult InvalidOptionFormat(string argument) 
+            internal static ParsingResult InvalidOptionFormat(string argument) 
                 => new ParsingResult($"The option `{argument}` must start with a single dash `-`.");
-
-            public static ParsingResult DuplicateOption(string option)
+            internal static ParsingResult DuplicateOption(string option)
                 => new ParsingResult($"Duplicate option `{option}`.");
         }
 
+        /// <summary>
+        /// Goes through the given command-line arguments.
+        /// Correctly fills in the internal data structure with the provided options.
+        /// The wrapped error indicates the syntax error.
+        /// It does not support positional arguments and double-dash options. 
+        /// </summary>
         public ParsingResult ParseArguments(string[] arguments)
         {
             int i = 0;
-
-            // I decided I don't want to allow posiitonal arguments
-            // Process positional arguments first
-            // for (;i < arguments.Length; i++)
-            // {
-            //     if (arguments[i][0] == '-')
-            //         break;
-                
-            //     PositionalArguments.Add(new ArgumentOrOptionValue(arguments[i]));
-            // }
 
             while (i < arguments.Length)
             {
@@ -98,7 +105,12 @@ namespace Kari.GeneratorCore
             return ParsingResult.Ok;
         }
 
-        public struct MappingResult
+        /// <summary>
+        /// Wraps an object-error pair.
+        /// If the mapping went without type conversion errors 
+        /// and without any unsupplied required arguments, IsError will be false.
+        /// </summary>
+        public readonly struct MappingResult
         {
             public readonly List<string> Errors;
             public bool IsError => Errors.Count > 0;
@@ -111,86 +123,86 @@ namespace Kari.GeneratorCore
             }
         }
 
-        // public static class MappingResult
-        // {
-        //     public static MappingResult<T> Ok<T>(T result) => new MappingResult<T>(null, result);
-        //     public static MappingResult<T> Error<T>(string error) 
-        //         => new MappingResult<T>(error);
-        // }
-
+        /// <summary>
+        /// Fills in the given object fields via reflection with the parsed options.
+        /// Fields take their value from the option with exactly the same name as that field.
+        /// Shortened options like `-i` are not supported.
         /// Only field types supported: string, int, bool, string[], List<string>, int[] 
+        /// </summary>
         public MappingResult FillObjectWithOptionValues(object t)
         {
-            // We must box the struct in order to set values for the fields.
+            // If the type of t is a struct, we need to box it, which is why we take an object here.
             MappingResult result = new MappingResult(t);
 
             var type = t.GetType();
-            var memberInfos = type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
 
-            foreach (var fieldInfo in memberInfos)
+            foreach (var fieldInfo in GetFieldInfos(type))
             foreach (var attr in fieldInfo.GetCustomAttributes(inherit: false))
             {
                 if (!(attr is OptionAttribute optionAttribute))
-                {
                     continue;
-                }
 
-                var name = fieldInfo.Name;
+                string name = fieldInfo.Name;
                 bool hasOption = Options.TryGetValue(name, out var option);
-                
+
                 void SetValue(object value)
                 {
                     fieldInfo.SetValue(t, value);
                 }
 
                 Debug.Assert(!optionAttribute.IsRequired || !optionAttribute.IsFlag,
-                    $"{name} in type {type.FullName} cannot be both flag and required");
+                    $"`{name}` cannot be both flag and required");
 
                 // Make sure it's one of the supported types.
-                Debug.Assert(fieldInfo.FieldType == typeof(bool) ||
-                    fieldInfo.FieldType == typeof(int) ||
-                    fieldInfo.FieldType == typeof(string) ||
-                    fieldInfo.FieldType == typeof(string[]) ||
-                    fieldInfo.FieldType == typeof(List<string>) ||
-                    fieldInfo.FieldType == typeof(int[]));
+                Debug.Assert(fieldInfo.FieldType == typeof(bool) 
+                    || fieldInfo.FieldType == typeof(int) 
+                    || fieldInfo.FieldType == typeof(string) 
+                    || fieldInfo.FieldType == typeof(string[]) 
+                    || fieldInfo.FieldType == typeof(List<string>) 
+                    || fieldInfo.FieldType == typeof(int[]));
 
-                if (optionAttribute.IsRequired && !hasOption)
+                bool Validate()
                 {
-                    result.Errors.Add($"Missing required option: {name}");
-                    break;
-                }
-                else if (!optionAttribute.IsFlag && hasOption && option.StringValue is null)
-                {
-                    result.Errors.Add($"Option {name} cannot be used like a flag");
-                    break;
-                }
-                else if (optionAttribute.IsFlag)
-                {
-                    Debug.Assert(fieldInfo.FieldType == typeof(bool),
-                        $"{name}, indicated as flag, must be bool type");
-
-                    Debug.Assert(((bool) fieldInfo.GetValue(t)) == false,
-                        "The default value for {name} flag must be true");
-
-                    if (hasOption)
+                    if (optionAttribute.IsRequired && !hasOption)
                     {
-                        option.IsMarked = true;
-                        if (option.StringValue is null)
-                        {
-                            SetValue(true);
-                        }
-                        else
-                        {
-                            result.Errors.Add($"Option {name} is a flag, you cannot pass it a value");
-                        }
+                        result.Errors.Add($"Missing required option: {name}");
+                        return false;
                     }
-                    // If it's not set it's already false
-                    break;
+
+                    if (!optionAttribute.IsFlag && hasOption && option.StringValue is null)
+                    {
+                        result.Errors.Add($"Option {name} cannot be used like a flag");
+                        return false;
+                    }
+
+                    if (optionAttribute.IsFlag)
+                    {
+                        Debug.Assert(fieldInfo.FieldType == typeof(bool),
+                            $"{name}, indicated as flag, must be bool type");
+
+                        Debug.Assert(((bool)fieldInfo.GetValue(t)) == false,
+                            "The default value for {name} flag must be true");
+
+                        if (hasOption)
+                        {
+                            option.IsMarked = true;
+                            if (option.StringValue is null)
+                            {
+                                SetValue(true);
+                            }
+                            else
+                            {
+                                result.Errors.Add($"Option {name} is a flag, you cannot pass it a value");
+                            }
+                        }
+                        // If it's not set it's already false
+                        return false;
+                    }
+
+                    return hasOption;
                 }
-                else if (!hasOption)
-                {
-                    break;
-                }
+
+                if (!Validate()) break;
 
                 void AddErrorUnknownValue()
                 {
@@ -260,20 +272,30 @@ namespace Kari.GeneratorCore
 
             return result;
         }
-    
+
+        private static FieldInfo[] GetFieldInfos(Type type)
+        {
+            return type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+        }
+
         private static readonly string[] _Header = new string[] { "Option", "Type", "Description" };  
+
+        /// <summary>
+        /// Returns an even table willed with the information about options a given object takes.
+        /// </summary>
         public string GetHelpFor(object t)
         {
             var type = t.GetType();
             var sb = new EvenTableBuilder(_Header);
 
-            foreach (var fieldInfo in type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance))
+            foreach (var fieldInfo in GetFieldInfos(type))
             foreach (var attr in fieldInfo.GetCustomAttributes(inherit: false))
             {
                 if (!(attr is OptionAttribute optionAttribute))
                     continue;
                 
-                Debug.Assert(!string.IsNullOrEmpty(optionAttribute.Help));
+                Debug.Assert(!string.IsNullOrEmpty(optionAttribute.Help),
+                    "If it's super obvious what the option does, set the help to \" \"");
 
                 // Split the help in manageable pieces that all could sort of wrap in the third column,
                 // but we're emulating wrapping by appending spaces.
@@ -340,7 +362,11 @@ namespace Kari.GeneratorCore
 
             return sb.ToString();
         }
-    
+
+        /// <summary>
+        /// Returns the options that have not been assigned to fields of any objects
+        /// by previous calls to `FillObjectWithOptionValues()`.
+        /// </summary>
         public IEnumerable<string> GetUnrecognizedOptions()
         {
             foreach (var option in Options)

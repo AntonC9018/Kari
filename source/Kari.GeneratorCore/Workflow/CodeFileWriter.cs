@@ -83,7 +83,7 @@ namespace Kari.GeneratorCore.Workflow
     public class OneFilePerProjectFileWriter : IFileWriter, IDisposable
     {
         private readonly string _filePath;
-        private StreamWriter? _file;
+        private StreamWriter _file;
 
         public OneFilePerProjectFileWriter(string generatedFilePath)
         {
