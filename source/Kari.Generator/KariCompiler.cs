@@ -21,6 +21,7 @@
     {
         public enum ExitCode
         {
+            Ok = 0,
             OptionSyntaxError = 1,
             BadOptionValue = 2,
             UnmatchedArguments = 3,
@@ -171,9 +172,20 @@
 
         public async Task<int> RunAsync(ArgumentParser parser, CancellationToken token)
         {
+            Workspace workspace = null;
+            try // I hate that I have to do the stupid try-catch with awaits, 
+                // but at least I don't necessarily need to indent it.
+            {
+
             bool ShouldExit()
             {
                 return Logger.AnyLoggerHasErrors || token.IsCancellationRequested;
+            }
+
+            int Exit(ExitCode code)
+            {
+                workspace?.Dispose();
+                return (int) code;
             }
 
             var sw = Stopwatch.StartNew();
@@ -183,13 +195,6 @@
             
             Task compileTask;
             Compilation compilation = null;
-
-            Workspace workspace = null;
-            int Exit(int code)
-            {
-                workspace?.Dispose();
-                return code;
-            }
 
             string projectDirectory;
             if (Directory.Exists(input))
@@ -209,7 +214,7 @@
                 _logger.LogError($"No such input file or directory {input}.");
                 return 1;
             }
-            if (ShouldExit()) return Exit(1);
+            if (ShouldExit()) return Exit(ExitCode.BadOptionValue);
 
             var master = new MasterEnvironment(rootNamespace, projectDirectory, token, _logger, _independentNamespacePartsSet);
             // Set the master instance globally
@@ -258,7 +263,7 @@
 
             // Now that plugins have loaded, we can actually use the rest of the arguments.
             master.TakeCommandLineArguments(parser);
-            if (ShouldExit()) return Exit(7);
+            if (ShouldExit()) return Exit(ExitCode.BadOptionValue);
 
             var unrecognizedOptions = parser.GetUnrecognizedOptions();
             if (unrecognizedOptions.Any())
@@ -267,11 +272,11 @@
                 {
                     _logger.LogError($"Unrecognized option: `{arg}`");
                 }
-                Exit(7);
+                Exit(ExitCode.Other);
             }
 
             await compileTask;
-            if (ShouldExit()) return Exit(7);
+            if (ShouldExit()) return Exit(ExitCode.Other);
 
             _logger.MeasureSync("Environment Initialization", () => {
                 master.InitializeCompilation(ref compilation);
@@ -279,14 +284,14 @@
                 master.InitializePseudoProjects();
                 master.InitializeAdministrators();
             });
-            if (ShouldExit()) return Exit(7);
+            if (ShouldExit()) return Exit(ExitCode.Other);
 
             async Task startCollectTask() {
                 await master.Collect();
                 master.RunCallbacks();
             }
-            await _logger.MeasureAsync("Method Collect", startCollectTask());
-            if (ShouldExit()) return Exit(7);
+            await _logger.MeasureAsync("Symbol Collect", startCollectTask());
+            if (ShouldExit()) return Exit(ExitCode.Other);
 
             async Task startGenerateTask()
             {
@@ -295,10 +300,21 @@
                 master.CloseWriters();
             }
             await _logger.MeasureAsync("Output Generation", startGenerateTask());
-            if (ShouldExit()) return Exit(7);
+            if (ShouldExit()) return Exit(ExitCode.Other);
+            
             _logger.LogInfo("Generation complete. It took " + sw.Elapsed.ToString());
+            return Exit(ExitCode.Ok);
 
-            return Exit(0);
+
+            } // try
+            catch (OperationCanceledException)
+            {
+                return (int) ExitCode.OperationCanceled;
+            }
+            finally
+            {
+                workspace?.Dispose();
+            }
         }
 
         private void LoadPlugins(MasterEnvironment master, CancellationToken cancellationToken)
@@ -325,7 +341,7 @@
                         continue;
                     }
                     Handle("The specified plugin folder or file does not exist.");
-                    cancellationToken.ThrowIfCancellationRequested();
+                    if (cancellationToken.IsCancellationRequested) return;
                 }
                 catch (FileLoadException exception)
                 {
