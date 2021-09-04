@@ -15,10 +15,51 @@
     using Microsoft.CodeAnalysis;
     using Microsoft.CodeAnalysis.CSharp;
     using Microsoft.CodeAnalysis.MSBuild;
-    using Microsoft.Extensions.Hosting;
 
     public class KariCompiler
     {
+        [Option("Input path to MSBuild project file or to the directory containing source files.", 
+            IsRequired = true)] 
+        string input;
+
+        [Option("Plugins folder or full paths to individual plugin dlls.",
+            IsRequired = true)]
+        string[] pluginsLocations;
+
+        [Option("The suffix added to each subproject (or the root project) indicating the output folder.")] 
+        string generatedName = "Generated";
+
+        [Option("Conditional compiler symbols. Ignored if a project file is specified for input.")] 
+        string[] conditionalSymbols;
+
+        [Option("Set input namespace root name.")]
+        string rootNamespace = "";
+
+        [Option("Delete all cs files in the output folder.", 
+            IsFlag = true)]
+        bool clearOutput = false;
+
+        [Option("Plugin names to be used for code analysis and generation. All plugins are used by default.")]
+        string[] pluginNames = null;
+
+        [Option("Whether to output all code into a single file.",
+            IsFlag = true)]
+        bool singleFileOutput = false;
+
+        [Option("Whether to not scan for subprojects and always treat the entire codebase as a single root project. This implies the files will be generated in a single folder. With `singleFileOutput` set to true implies generating all code for the entire project in the single file.",
+            IsFlag = true)]
+        bool monolithicProject = false;
+
+        [Option("The common project namespace name (appended to rootNamespace). This is the project where all the attributes and other things common to all projects will end up. Ignored when `monolithicProject` is set to true. Default: \"RootNamespace.Common\"")]
+        string commonNamespace = null;
+
+        [Option("The subnamespaces ignored for the particular project, but which are treated as a separate project, even if they sit in the same root namespace.")]
+        string[] independentNamespaceParts = new string[] { "Editor", "Tests" };
+
+        [Option("Whether to treat 'Editor' folders as separate subprojects, even if they contain no asmdef. Only the editor folder that is at root of a folder with asmdef is regarded this way, nested Editor folders are ignored.")]
+        bool treatEditorAsSubproject = true;
+
+
         public enum ExitCode
         {
             Ok = 0,
@@ -28,7 +69,7 @@
             Other = 4,
             OperationCanceled = 5
         }
-
+        
         private static async Task<int> Main(string[] args)
         {
             var instance = MSBuildLocator.RegisterDefaults();
@@ -80,52 +121,9 @@
             return 0;
         }
 
-        private Logger _logger;
-
-        [Option("Input path to MSBuild project file or to the directory containing source files.", 
-            IsRequired = true)] 
-        string input;
-
-        [Option("Plugins folder or full paths to individual plugin dlls.",
-            IsRequired = true)]
-        string[] pluginsLocations;
-
-        [Option("The suffix added to each subproject (or the root project) indicating the output folder.")] 
-        string generatedName = "Generated";
-
-        [Option("Conditional compiler symbols. Ignored if a project file is specified for input.")] 
-        string[] conditionalSymbols;
-
-        [Option("Set input namespace root name.")]
-        string rootNamespace = "";
-
-        [Option("Delete all cs files in the output folder.", 
-            IsFlag = true)]
-        bool clearOutput = false;
-
-        [Option("Plugin names to be used for code analysis and generation. All plugins are used by default.")]
-        string[] pluginNames = null;
-
-        [Option("Whether to output all code into a single file.",
-            IsFlag = true)]
-        bool singleFileOutput = false;
-
-        [Option("Whether to not scan for subprojects and always treat the entire codebase as a single root project. This implies the files will be generated in a single folder. With `singleFileOutput` set to true implies generating all code for the entire project in the single file.",
-            IsFlag = true)]
-        bool monolithicProject = false;
-
-        [Option("The common project namespace name (appended to rootNamespace). This is the project where all the attributes and other things common to all projects will end up. Ignored when `monolithicProject` is set to true. Default: \"RootNamespace.Common\"")]
-        string commonNamespace = null;
-
-        [Option("The subnamespaces ignored for the particular project, but which are treated as a separate project, even if they sit in the same root namespace.")]
-        string[] independentNamespaceParts = new string[] { "Editor", "Tests" };
-
-        [Option("Whether to treat 'Editor' folders as separate subprojects, even if they contain no asmdef. Only the editor folder that is at root of a folder with asmdef is regarded this way, nested Editor folders are ignored.")]
-        bool treatEditorAsSubproject = true;
 
         private HashSet<string> _independentNamespacePartsSet;
-
-
+        private Logger _logger;
 
         private void PreprocessOptions(ArgumentParser parser)
         {
@@ -170,7 +168,7 @@
             }
         }
 
-        public async Task<int> RunAsync(ArgumentParser parser, CancellationToken token)
+        private async Task<int> RunAsync(ArgumentParser parser, CancellationToken token)
         {
             Workspace workspace = null;
             try // I hate that I have to do the stupid try-catch with awaits, 
