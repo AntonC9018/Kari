@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
@@ -12,6 +13,9 @@ namespace Kari.GeneratorCore.Workflow
 {
     public class MasterEnvironment : Singleton<MasterEnvironment>
     {
+        // TODO: 
+        // We could use [Option] here and fill these in directly, but then we will also 
+        // have to bring the validation logic here. Do I want that?
         public string CommonProjectName { get; set; } = "Common"; 
         public string GeneratedPath { get; set; } = "Generated";
         public string GeneratedNamespaceSuffix { get; set; } = "Generated";
@@ -43,6 +47,30 @@ namespace Kari.GeneratorCore.Workflow
             IndependentNamespaces = independentNamespaces;
         }
 
+        public void TakeCommandLineArguments(ArgumentParser parser)
+        {
+            foreach (var admin in Administrators)
+            {
+                var result = parser.FillObjectWithOptionValues(admin.GetArgumentObject());
+                if (result.IsError)
+                {
+                    foreach (var err in result.Errors)
+                    {
+                        Logger.LogError(err);
+                    }
+                }
+            }
+        }
+
+        public void LogHelpForEachAdministrator(ArgumentParser parser)
+        {
+            foreach (var admin in Administrators)
+            {
+                Logger.LogPlain($"\nShowing help for `{admin}`.");
+                Logger.LogPlain(parser.GetHelpFor(admin.GetArgumentObject()));
+            }
+        }
+
         public void InitializeCompilation(ref Compilation compilation)
         {
             Compilation = compilation.AddSyntaxTrees(
@@ -52,8 +80,7 @@ namespace Kari.GeneratorCore.Workflow
             Compilation = Compilation;
             RootNamespace = Compilation.TryGetNamespace(RootNamespaceName);
 
-            // TODO: log instead?
-            if (RootNamespace is null) Logger.LogError($"No such namespace {RootNamespaceName}");
+            if (RootNamespace is null)  Logger.LogError($"No such namespace {RootNamespaceName}");
         }
 
         private void AddProject(ProjectEnvironment project)

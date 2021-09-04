@@ -1,76 +1,44 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace Test
 {
-    using System.Reflection;
-    using Kari.GeneratorCore;
-    using Kari.GeneratorCore.Workflow;
-
-    
     class Program
     {
-        private static IEnumerable<MetadataReference> DistinctReference(IEnumerable<MetadataReference> metadataReferences)
+        public readonly struct A
         {
-            var set = new HashSet<string>();
-            foreach (var item in metadataReferences)
+            public int s { get; }
+            public A(int s)
             {
-                if (item.Display is object && set.Add(Path.GetFileName(item.Display)))
-                {
-                    yield return item;
-                }
+                this.s = s;
             }
-        }
-        
+        } 
         static void Main(string[] args)
         {
-            string source = @"
-namespace Test 
-{ 
-    [Hello(123)]
-    public class World{}
-}";
-            string attribute = @"
-public class HelloAttribute : System.Attribute
-{
-    public int i;
-    public HelloAttribute() {}
-    public HelloAttribute(int num) { i = num; }
-}";
-            Type[] ts = { typeof(object), typeof(Attribute) };
+            int k = 9;
+            int add(int x, int y) => x + y + k;
+            int num_times = 100000000;
+            var s = Stopwatch.StartNew();
+            int sum = 0;
+            for (int i = 0, j = 0; i < num_times; i++, j++)
+            {
+                k = i;
+                sum = add(i, j);
+            } 
+            s.Stop();
+            System.Console.WriteLine(s.Elapsed);
 
-            var metadata = ts
-               .Select(x => x.Assembly.Location)
-               .Distinct()
-               .ToList();
-
-            var distinct = DistinctReference(metadata.Select(x => MetadataReference.CreateFromFile(x)).ToArray());
-
-            var sourceSyntaxTree = CSharpSyntaxTree.ParseText(source);
-            var attributeSyntaxTree = CSharpSyntaxTree.ParseText(attribute);
-            var syntaxTrees = new List<SyntaxTree> { 
-                sourceSyntaxTree,
-                // attributeSyntaxTree,
-            };
-
-            var compilation = CSharpCompilation.Create(
-                "CodeGenTemp",
-                syntaxTrees,
-                distinct,
-                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
-
-            compilation = compilation.AddSyntaxTrees(attributeSyntaxTree);
-
-            var world = compilation.GetSymbolsWithName("World").Single();
-            var attrClass = compilation.GetSymbolsWithName("HelloAttribute").Single();
-
-            var dll = Assembly.LoadFrom(@"E:\Coding\C#\some_project\Build\bin\Kari.OtherTest\Debug\netcoreapp3.1\Kari.OtherTest.dll");
-            var runClass = dll.GetExportedTypes().Single(type => type.Name == "Run");
-            ((MethodInfo) runClass.GetMember("RunThing").Single()).Invoke(null, new object[] { world });
+            s.Reset();
+            s.Start();
+            int g = 0;
+            for (int i = 0, j = 0; i < num_times; i++, j++)
+            {
+                k = i;
+                g = i + j + k;
+            }
+            s.Stop();
+            System.Console.WriteLine(s.Elapsed);  
+            System.Console.WriteLine(sum + g);      
         }
     }
 }

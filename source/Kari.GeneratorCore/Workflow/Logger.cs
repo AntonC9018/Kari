@@ -99,12 +99,17 @@ namespace Kari.GeneratorCore.Workflow
             LogNoLock(message, LogType.Error);
         }
 
-
         public void LogNoLock(string message, LogType type = LogType.Message)
         {
             Console.ForegroundColor = (ConsoleColor) type;
             Console.WriteLine($"[{_name}]: {message}");
             _HasErrors = _HasErrors || (type == LogType.Error);
+        }
+
+        public static void LogPlain(string message)
+        {
+            Console.ForegroundColor = (ConsoleColor) LogType.Message;
+            Console.WriteLine(message);
         }
 
         public void LogError(string message)

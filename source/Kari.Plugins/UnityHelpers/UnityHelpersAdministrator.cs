@@ -6,18 +6,22 @@ namespace Kari.Plugins.UnityHelpers
 {
     /// <summary>
     /// This is a analyzer-less plugin, that is, it generates the same output independent of the input project.
-    /// TODO: Get EngineCommon project name parameter as an argument.
-    /// TODO: Make a special analyzer-less type of administrators??
     /// </summary>
     public class UnityHelpersAdministrator : IAdministrator
     {
+        [Option("The namespace of the engine-dependent common project")]
+        string engineCommon = "EngineCommon";
+
         public ProjectEnvironmentData _engineCommon;
+        private Logger _logger = new Logger("UnityHelpers admin");
+
         public void Initialize() 
         {
-            _engineCommon = MasterEnvironment.Instance.Projects.Find(
-                p => p.NamespaceName == "EngineCommon");
-            _engineCommon ??= MasterEnvironment.Instance.RootPseudoProject;
+            _engineCommon = MasterEnvironment.Instance.Projects.Find(p => p.NamespaceName == engineCommon);
+            if (_engineCommon is null) 
+                _logger.LogError($"The engine common project `{engineCommon}` could not be found");
         }
+        
         public string GetAnnotations() => "";
         public Task Collect() => Task.CompletedTask;
         public Task Generate()

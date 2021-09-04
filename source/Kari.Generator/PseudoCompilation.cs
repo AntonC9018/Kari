@@ -95,9 +95,9 @@ namespace Kari.Generator
             return metadata;
         }
 
-        private static IEnumerable<string>? CleanPreprocessorSymbols(IEnumerable<string>? preprocessorSymbols)
+        private static IEnumerable<string> CleanPreprocessorSymbols(IEnumerable<string> preprocessorSymbols)
         {
-            return preprocessorSymbols?.Where(x => !string.IsNullOrWhiteSpace(x));
+            return preprocessorSymbols.Where(x => !string.IsNullOrWhiteSpace(x));
         }
 
         private static IEnumerable<string> IterateCsFileWithoutBinObjIgnoringFolder(string root, string ingoredFolderName)
