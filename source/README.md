@@ -2,7 +2,7 @@
 
 ## How to use?
 
-Kari is designed for use in this particular project, and is has not been tested anywhere else (yet).
+Kari is designed for use in this particular project, and has not been tested anywhere else (yet).
 
 You can call `baton kari unity` to run the code generator on the subproject, but the code generator can be used directly, without `baton`.
 You can use e.g. `dotnet run -p Kari.Generator/Kari.Generator.csproj` to compile and run Kari.
