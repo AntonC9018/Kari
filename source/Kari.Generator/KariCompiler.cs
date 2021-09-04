@@ -18,6 +18,10 @@
 
     public class KariCompiler
     {
+        [Option("Show help for Kari and all specified plugins. Call with no arguments to show help just for Kari",
+            IsFlag = true)]
+        bool help;
+
         [Option("Input path to MSBuild project file or to the directory containing source files.", 
             IsRequired = true)] 
         string input;
@@ -30,7 +34,7 @@
         string generatedName = "Generated";
 
         [Option("Conditional compiler symbols. Ignored if a project file is specified for input.")] 
-        string[] conditionalSymbols;
+        string[] conditionalSymbols = null;
 
         [Option("Set input namespace root name.")]
         string rootNamespace = "";
@@ -50,7 +54,7 @@
             IsFlag = true)]
         bool monolithicProject = false;
 
-        [Option("The common project namespace name (appended to rootNamespace). This is the project where all the attributes and other things common to all projects will end up. Ignored when `monolithicProject` is set to true.")]
+        [Option("The common project namespace name (use $Root to mean the root namespace). This is the project where all the attributes and other things common to all projects will end up. Ignored when `monolithicProject` is set to true.")]
         string commonNamespace = "$Root.Common";
 
         [Option("The subnamespaces ignored for the particular project, but which are treated as a separate project, even if they sit in the same root namespace.")]
@@ -133,6 +137,7 @@
                 {
                     _logger.LogError(e);
                 }
+                return;
             }
 
             input            = Path.GetFullPath(NormalizeDirectorySeparators(input));
@@ -177,26 +182,24 @@
                 return (int) code;
             }
 
-            var sw = Stopwatch.StartNew();
+            var entireFunctionTimer = Stopwatch.StartNew();
             _logger = new Logger("Master");
+
             PreprocessOptions(parser);
             if (ShouldExit())  return (int) ExitCode.BadOptionValue;
-            
-            Task compileTask;
-            Compilation compilation = null;
 
+            // Input must be either a directory of source files or an msbuild project
             string projectDirectory;
+            bool isProjectADirectory;
             if (Directory.Exists(input))
             {
                 projectDirectory = input;
-                compileTask = _logger.MeasureAsync("Pseudo Compilation", () =>
-                    compilation = PseudoCompilation.CreateFromDirectory(input, generatedName, token));
+                isProjectADirectory = true;
             }
             else if (File.Exists(input))
             {
-                projectDirectory = Path.GetDirectoryName(input)!;
-                compileTask = _logger.MeasureAsync("MSBuild Compilation", () =>
-                    (workspace, compilation) = OpenMSBuildProjectAsync(input, token).Result);
+                projectDirectory = Path.GetDirectoryName(input);
+                isProjectADirectory = false;
             }
             else
             {
@@ -205,11 +208,15 @@
             }
             if (ShouldExit()) return Exit(ExitCode.BadOptionValue);
 
+            // We need to initialize this in order to create Administrators.
+            // Even if help is set, we need to new them up in order to retrieve the help messages,
+            // so creating this is a prerequisite.
             var master = new MasterEnvironment(rootNamespace, projectDirectory, token, _logger, independentNamespaceParts);
             // Set the master instance globally
             MasterEnvironment.InitializeSingleton(master);
             master.GeneratedPath = generatedName;
 
+            // This means no subprojects
             if (monolithicProject)
             {
                 master.CommonProjectName = null;
@@ -223,7 +230,33 @@
                 master.CommonProjectName = commonNamespace;
             }
 
-            var pluginsTask = _logger.MeasureAsync("Load Plugins", () => LoadPlugins(master, token));
+
+            Task pluginsTask = _logger.MeasureAsync("Load Plugins", () => LoadPlugins(master, token));
+
+            if (help)
+            {
+                // Wait until the dll's have loaded and the Administrator have been set
+                await pluginsTask;
+
+                Logger.LogPlain("Use Kari to generate code for a C# project.\nMain Options:");
+                Logger.LogPlain(parser.GetHelpFor(this));
+                master.LogHelpForEachAdministrator(parser);
+                return Exit(ExitCode.Ok);
+            }
+
+            // Now finally create the compilation
+            Task compileTask;
+            Compilation compilation = null;
+            if (isProjectADirectory)
+            {
+                compileTask = _logger.MeasureAsync("Pseudo Compilation", () =>
+                    compilation = PseudoCompilation.CreateFromDirectory(input, generatedName, token));
+            }
+            else
+            {
+                compileTask = _logger.MeasureAsync("MSBuild Compilation", () =>
+                    (workspace, compilation) = OpenMSBuildProjectAsync(input, token).Result);
+            }
             
             var outputPath = generatedName;
             if (!Path.IsPathFullyQualified(generatedName))
@@ -267,6 +300,8 @@
             await compileTask;
             if (ShouldExit()) return Exit(ExitCode.Other);
 
+            // TODO: This code looks ugly af actually. But manual Start() End() Print() are even uglier.
+            // TODO: Is this profiling thing even useful? I mean, we already get the stats for the whole function. 
             _logger.MeasureSync("Environment Initialization", () => {
                 master.InitializeCompilation(ref compilation);
                 if (!monolithicProject) master.FindProjects(treatEditorAsSubproject);
@@ -291,7 +326,7 @@
             await _logger.MeasureAsync("Output Generation", startGenerateTask());
             if (ShouldExit()) return Exit(ExitCode.Other);
             
-            _logger.LogInfo("Generation complete. It took " + sw.Elapsed.ToString());
+            _logger.LogInfo("Generation complete. It took " + entireFunctionTimer.Elapsed.ToString());
             return Exit(ExitCode.Ok);
 
 
@@ -319,6 +354,7 @@
 
                 try
                 {
+                    pluginsLocations[i] = Path.GetFullPath(pluginsLocations[i]);
                     if (Directory.Exists(pluginsLocations[i]))
                     {
                         finder.LoadPluginsDirectory(pluginsLocations[i]);
