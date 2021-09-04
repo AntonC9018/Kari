@@ -50,11 +50,11 @@
             IsFlag = true)]
         bool monolithicProject = false;
 
-        [Option("The common project namespace name (appended to rootNamespace). This is the project where all the attributes and other things common to all projects will end up. Ignored when `monolithicProject` is set to true. Default: \"RootNamespace.Common\"")]
-        string commonNamespace = null;
+        [Option("The common project namespace name (appended to rootNamespace). This is the project where all the attributes and other things common to all projects will end up. Ignored when `monolithicProject` is set to true.")]
+        string commonNamespace = "$Root.Common";
 
         [Option("The subnamespaces ignored for the particular project, but which are treated as a separate project, even if they sit in the same root namespace.")]
-        string[] independentNamespaceParts = new string[] { "Editor", "Tests" };
+        HashSet<string> independentNamespaceParts = new HashSet<string> { "Editor", "Tests" };
 
         [Option("Whether to treat 'Editor' folders as separate subprojects, even if they contain no asmdef. Only the editor folder that is at root of a folder with asmdef is regarded this way, nested Editor folders are ignored.")]
         bool treatEditorAsSubproject = true;
@@ -122,7 +122,6 @@
         }
 
 
-        private HashSet<string> _independentNamespacePartsSet;
         private Logger _logger;
 
         private void PreprocessOptions(ArgumentParser parser)
@@ -146,26 +145,18 @@
             }
 
             // Validate the independent namespaces + initialize.
-            if (independentNamespaceParts is null)
+            foreach (var part in independentNamespaceParts)
             {
-                _independentNamespacePartsSet = new HashSet<string> { "Editor", "Tests" };
-            }
-            else
-            {
-                for (int i = 0; i < independentNamespaceParts.Length; i++)
+                if (!SyntaxFacts.IsValidIdentifier(part))
                 {
-                    if (!SyntaxFacts.IsValidIdentifier(independentNamespaceParts[i]))
-                    {
-                        _logger.LogError($"Independent namespace part {independentNamespaceParts[i]} at position {i} does not represent a valid identifier.");
-                    }
+                    _logger.LogError($"Independent namespace part {part} does not represent a valid identifier.");
                 }
-                _independentNamespacePartsSet = independentNamespaceParts.ToHashSet();
             }
 
-            if (commonNamespace is null)
-            {
-                commonNamespace = rootNamespace.Combine("Common");
-            }
+            var namespacePrefixRoot = string.IsNullOrEmpty(rootNamespace) 
+                ? "" : rootNamespace + '.';
+
+            commonNamespace = commonNamespace.Replace("$Root.", namespacePrefixRoot);
         }
 
         private async Task<int> RunAsync(ArgumentParser parser, CancellationToken token)
@@ -214,7 +205,7 @@
             }
             if (ShouldExit()) return Exit(ExitCode.BadOptionValue);
 
-            var master = new MasterEnvironment(rootNamespace, projectDirectory, token, _logger, _independentNamespacePartsSet);
+            var master = new MasterEnvironment(rootNamespace, projectDirectory, token, _logger, independentNamespaceParts);
             // Set the master instance globally
             MasterEnvironment.InitializeSingleton(master);
             master.GeneratedPath = generatedName;

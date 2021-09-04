@@ -127,7 +127,7 @@ namespace Kari.GeneratorCore
         /// Fills in the given object fields via reflection with the parsed options.
         /// Fields take their value from the option with exactly the same name as that field.
         /// Shortened options like `-i` are not supported.
-        /// Only field types supported: string, int, bool, string[], List<string>, int[] 
+        /// Only field types supported: string, int, bool, string[], List<string>, int[], HashSet<string>
         /// </summary>
         public MappingResult FillObjectWithOptionValues(object t)
         {
@@ -159,7 +159,8 @@ namespace Kari.GeneratorCore
                     || fieldInfo.FieldType == typeof(string) 
                     || fieldInfo.FieldType == typeof(string[]) 
                     || fieldInfo.FieldType == typeof(List<string>) 
-                    || fieldInfo.FieldType == typeof(int[]));
+                    || fieldInfo.FieldType == typeof(int[])
+                    || fieldInfo.FieldType == typeof(HashSet<string>));
 
                 bool Validate()
                 {
@@ -258,6 +259,10 @@ namespace Kari.GeneratorCore
                 {
                     SetValue(ParseAsStringArray().ToList());
                 }
+                else if (fieldInfo.FieldType == typeof(HashSet<string>))
+                {
+                    SetValue(ParseAsStringArray().ToHashSet());
+                }
                 else if (fieldInfo.FieldType == typeof(int[]))
                 {
                     var arr = ParseAsStringArray();
@@ -328,6 +333,14 @@ namespace Kari.GeneratorCore
                             {
                                 var b = new StringBuilder(" = [");
                                 b.Append(String.Join(",", arr));
+                                b.Append("]");
+
+                                toAppend = b.ToString();
+                            }
+                            else if (value is HashSet<string> set)
+                            {
+                                var b = new StringBuilder(" = [");
+                                b.Append(String.Join(",", set));
                                 b.Append("]");
 
                                 toAppend = b.ToString();
