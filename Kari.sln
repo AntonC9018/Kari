@@ -3,23 +3,23 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26124.0
 MinimumVisualStudioVersion = 15.0.26124.0
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Test", "Kari.Test\Kari.Test.csproj", "{9057EB86-59DD-43AA-9137-4D272A27BA52}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Test", "source\Kari.Test\Kari.Test.csproj", "{9057EB86-59DD-43AA-9137-4D272A27BA52}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Generator", "Kari.Generator\Kari.Generator.csproj", "{1248AE24-87D8-43CB-9A24-AF0FDADFF999}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Generator", "source\Kari.Generator\Kari.Generator.csproj", "{1248AE24-87D8-43CB-9A24-AF0FDADFF999}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.GeneratorCore", "Kari.GeneratorCore\Kari.GeneratorCore.csproj", "{9FD2251F-CCD8-4127-BAD1-A31ED38AD253}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.GeneratorCore", "source\Kari.GeneratorCore\Kari.GeneratorCore.csproj", "{9FD2251F-CCD8-4127-BAD1-A31ED38AD253}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Kari.Plugins", "Kari.Plugins", "{E2A5F3F7-D455-41F2-892A-F5626490E4B8}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Kari.Plugins", "source\Kari.Plugins", "{E2A5F3F7-D455-41F2-892A-F5626490E4B8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Terminal", "Kari.Plugins\Terminal\Terminal.csproj", "{722D0588-A9E8-4000-880E-B555D68CAB2D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Terminal", "source\Kari.Plugins\Terminal\Terminal.csproj", "{722D0588-A9E8-4000-880E-B555D68CAB2D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Flags", "Kari.Plugins\Flags\Flags.csproj", "{BC2F7699-734B-4CA5-A8CE-DCF0C016C53E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Flags", "source\Kari.Plugins\Flags\Flags.csproj", "{BC2F7699-734B-4CA5-A8CE-DCF0C016C53E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.OtherTest", "Kari.OtherTest\Kari.OtherTest.csproj", "{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.OtherTest", "source\Kari.OtherTest\Kari.OtherTest.csproj", "{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnityHelpers", "Kari.Plugins\UnityHelpers\UnityHelpers.csproj", "{CC0A9FB8-942F-4FD4-BD79-29B71A0DEFE5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnityHelpers", "source\Kari.Plugins\UnityHelpers\UnityHelpers.csproj", "{CC0A9FB8-942F-4FD4-BD79-29B71A0DEFE5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataObject", "Kari.Plugins\DataObject\DataObject.csproj", "{6761B5DC-F801-4A79-B9B8-9C0A878B976B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataObject", "source\Kari.Plugins\DataObject\DataObject.csproj", "{6761B5DC-F801-4A79-B9B8-9C0A878B976B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
