@@ -43,6 +43,18 @@ namespace Kari.GeneratorCore.Workflow
             IndependentNamespaces = independentNamespaces;
         }
 
+        public void TakeCommandLineArguments(ArgumentParser parser)
+        {
+            foreach (var admin in Administrators)
+            {
+                var result = parser.FillObjectWithOptionValues(admin.GetArgumentObject());
+                foreach (var err in result.Errors)
+                {
+                    Logger.LogError(err);
+                }
+            }
+        }
+
         public void InitializeCompilation(ref Compilation compilation)
         {
             Compilation = compilation.AddSyntaxTrees(

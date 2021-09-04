@@ -5,6 +5,9 @@ namespace Kari.Plugins.Terminal
 {
     public class TerminalAdministrator : IAdministrator
     {
+        [Kari.GeneratorCore.Option("Namespace of the Terminal project.")]
+        string terminalProject = "Terminal";
+
         public ParsersAnalyzer[] _parserAnalyzers;
         public CommandsAnalyzer[] _commandAnalyzers;
         public static ProjectEnvironmentData TerminalProject { get; private set; }
@@ -12,13 +15,16 @@ namespace Kari.Plugins.Terminal
 
         public void Initialize()
         {
-            // For now, let's just say we output to the project with "Terminal" in its name
-            TerminalProject = MasterEnvironment.Instance.Projects.Find(
-                project => project.RootNamespace.Name.Contains("Terminal"));
-            // We default to the root project otherwise
-            TerminalProject ??= MasterEnvironment.Instance.RootPseudoProject;
-
             _logger = new Logger("TerminalPlugin");
+
+            TerminalProject = MasterEnvironment.Instance.Projects.Find(
+                project => project.RootNamespace.Name == terminalProject);
+            
+            if (TerminalProject is null)
+            {
+                _logger.LogError($"Terminal project `{terminalProject}` could not be found");
+                return;
+            }
 
             ParserSymbols.Initialize(_logger);
             CommandSymbols.Initialize(_logger);

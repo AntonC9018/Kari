@@ -12,6 +12,13 @@ namespace Kari.GeneratorCore.Workflow
         string GetAnnotations();
 
         /// <summary>
+        /// Returns the object to take arguments from the command line.
+        /// It is called before initialization.
+        /// You should do validation of received values in the `Initialize()` method.
+        /// </summary>
+        object GetArgumentObject() => this;
+
+        /// <summary>
         /// Method called after a reference to MasterEnvironment has been set.
         /// The MasterEnvironment already contains the projects at this point.
         /// </summary>
