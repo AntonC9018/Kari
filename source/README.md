@@ -77,6 +77,13 @@ if (symbol.TryGetAttribute(Symbols.MyAttribute, logger, out MyAttribute attribut
 Currently, it does not support arrays other than string arrays, but I have not yet had a use case for that.
 
 
+### Getting command line options
+
+You can mark any fields in your administrator with `[Option]` to associate options passed via command line with exactly the same name to them.
+You can make them required, by setting `IsRequired` to true in the constructor.
+See the file `ArgumentParsing.cs` for an API overview, and override `IAdministrator.GetArgumentObject()` if you want to define the options somewhere else than directly in the administrator class.
+
+
 ## Default plugins
 
 None of the plugins are included by default by `Kari`, however, there are some useful ones already defined in this repo.
@@ -94,3 +101,7 @@ Generates backend code for terminal commands. See a complete example repo [here]
 Generates boilerplate helper functions related to unity. Currently, makes helper functions for changing individual coordinates of `Vector`'s.
 
 The idea comes from [here](https://github.com/TobiasWehrum/unity-utilities/blob/c78da2928b1f7b73046a697185271e7effeddd1f/UnityHelper/UnityHelper.cs#L199), but results in no runtime penalty of checking nullable types.
+
+### DataObject
+
+Automatically defines `==`, `!=`, `Equals()` and some others for conceptually data-only objects. 
