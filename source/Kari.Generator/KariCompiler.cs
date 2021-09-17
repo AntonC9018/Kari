@@ -302,9 +302,13 @@
 
             // TODO: This code looks ugly af actually. But manual Start() End() Print() are even uglier.
             // TODO: Is this profiling thing even useful? I mean, we already get the stats for the whole function. 
-            _logger.MeasureSync("Environment Initialization", () => {
+            _logger.MeasureSync("Environment Initialization", () => 
+            {
                 master.InitializeCompilation(ref compilation);
-                if (!monolithicProject) master.FindProjects(treatEditorAsSubproject);
+                if (Logger.AnyLoggerHasErrors)  
+                    return;
+                if (!monolithicProject) 
+                    master.FindProjects(treatEditorAsSubproject);
                 master.InitializePseudoProjects();
                 master.InitializeAdministrators();
             });

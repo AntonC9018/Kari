@@ -7,4 +7,5 @@
   <ImportGroup>
     <Import Project="$(PLUGIN_PROPS)" />
   </ImportGroup>
+  
 </Project>

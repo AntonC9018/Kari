@@ -7,4 +7,5 @@
     <!-- See the plugin properties at `../Plugin.props` for more details -->
     <Import Project="$(PLUGIN_PROPS)" />
   </ImportGroup>
+  
 </Project>

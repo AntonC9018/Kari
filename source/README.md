@@ -2,22 +2,24 @@
 
 ## How to use?
 
-Kari is designed for use in this particular project, and has not been tested anywhere else (yet).
+Kari has been designed for use in [this particular project](https://github.com/PunkyIANG/a-particular-project), and has not been tested anywhere else (yet).
 
-You can call `baton kari unity` to run the code generator on the subproject, but the code generator can be used directly, without `baton`.
+The further steps (baton) assumes being in scope of that project.
+
+You can call `baton kari unity` to run the code generator on the subproject, but the code generator can be used directly, without Baton.
 You can use e.g. `dotnet run -p Kari.Generator/Kari.Generator.csproj` to compile and run Kari.
-For further help, call `Kari` without arguments to see the different options.
+For further help, call Kari without arguments to see the different options.
 
-`Baton` also provides commands for compiling Kari and the plugins: do `baton kari build --help` for more info
+Baton also provides commands for compiling Kari and the plugins: do `baton kari build --help` for more info
 
 
 ## Plugins
 
-Plugins are assemblies that get to analyze the user code provided by `Kari`, and generate the output code.
-`Kari` links to plugins dynamically, thus it's not coupled with any particular code generation logic.
+Plugins are assemblies that get to analyze the user code provided by Kari, and generate the output code.
+Kari links to plugins dynamically, thus it's not coupled with any particular code generation logic.
 
-`Kari` groups asmdef projects by their namespace, and generates its output in a subfolder next to each asmdef project ("Generated" by default). 
-`Kari` also generates root output, such as startup functions. This runner code may reference any of the other assemblies and no assembly can reference it back.
+Kari groups asmdef projects by their namespace, and generates its output in a subfolder next to each asmdef project ("Generated" by default). 
+Kari also generates root output, such as startup functions. This runner code may reference any of the other assemblies and no assembly can reference it back.
 
 ### Administrators
 
@@ -86,7 +88,7 @@ See the file `ArgumentParsing.cs` for an API overview, and override `IAdministra
 
 ## Default plugins
 
-None of the plugins are included by default by `Kari`, however, there are some useful ones already defined in this repo.
+None of the plugins are included by default by Kari, however, there are some useful ones already defined in this repo.
 
 ### Flags
 

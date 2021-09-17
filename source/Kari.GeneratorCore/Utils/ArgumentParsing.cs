@@ -92,7 +92,7 @@ namespace Kari.GeneratorCore
                 // If it's not followed by a value, or the value is an option,
                 // set the result to null.
                 i++;
-                if (i == arguments.Length || arguments[i][0] == '-')
+                if (i == arguments.Length || (arguments[i].Length > 0 && arguments[i][0] == '-'))
                 {
                     Options.Add(option, new ArgumentOrOptionValue(null));
                     continue;

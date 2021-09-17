@@ -36,12 +36,10 @@
   <Target Name="TextTemplateTransform" BeforeTargets="BeforeBuild">
 
     <!-- %(Whatever) does iteration over the given 'Glob', representing an individual element of the sequence. -->
-    <!-- The path to the file is %(TextTemplates.Filename).tt, because I've set the wd to the folder  it is contained. --> 
     <Exec Condition="@(TextTemplates) != ''" Command="dotnet t4 %(TextTemplates.Identity) -class $(AssemblyName).%(TextTemplates.Filename) -out %(TextTemplates.RecursiveDir)%(TextTemplates.Filename).Generated.cs" />
 
     <!-- There is no -class option, because this is a design time template, I think it is called. -->
-    <!-- TODO: Move into a targets and use from plugins. -->
-    <!-- The set thing is my hack of passing a variable to the template. -->
+    <!-- -p: passes variables to the template. -->
     <Exec Condition="@(Annotations) != ''" Command="dotnet t4 $(DummyAnnotationsTemplatePath) -out %(Annotations.RecursiveDir)%(Annotations.Filename).Generated.cs -p:AnnotationsPath=&quot;%(Annotations.Identity)&quot;" />
     
   </Target>
