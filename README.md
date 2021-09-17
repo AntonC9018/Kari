@@ -30,7 +30,18 @@ Kari is not designed for single-time use and is mostly for use in build scripts,
 - If you pass an unrecognized option, you ALWAYS get an error. Sure, this may break backwards compatibility, but I don't really care.
 
 The arguments are passed by *single-dashes*, double dashes are not supported! 
-Separate the arguments by commas if an argument is an array or a hash set.
+Separate the arguments by commas if an argument is an array or a hash set. For example:
+
+```
+# Valid syntax
+kari -option Value 
+
+# Double dash, not allowed
+kari --help
+
+# Passing a list
+kari -pluginsLocations "pluginsFolder,C:/absolute/path/plugins,Build/compiledPlugin.dll"
+```
 
 Calling Kari without any arguments gives the following help message:
 
