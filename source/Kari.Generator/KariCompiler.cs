@@ -196,13 +196,12 @@
             var entireGenerationMeasurer = new Measurer(_logger);
             entireGenerationMeasurer.Start("The entire generation process");
 
+            PreprocessOptions(parser);
             if (parser.IsHelpSet && pluginsLocations == null)
             {
                 Logger.LogPlain(parser.GetHelpFor(this));
                 return Exit(ExitCode.Ok);
             }
-
-            PreprocessOptions(parser);
             if (ShouldExit())  return (int) ExitCode.BadOptionValue;
 
             // Input must be either a directory of source files or an msbuild project
