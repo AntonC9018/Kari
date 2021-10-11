@@ -97,18 +97,20 @@
             var tokenSource = new CancellationTokenSource();
             CancellationToken token = tokenSource.Token;
 
+            Logger argumentLogger = new Logger("Arguments");
+
             ArgumentParser parser = new ArgumentParser();
             var result = parser.ParseArguments(args);
             if (result.IsError)
             {
-                System.Console.Error.WriteLine(result.Error);
+                argumentLogger.LogError(result.Error);
                 return (int) ExitCode.OptionSyntaxError;
             }
 
             result = parser.MaybeParseConfiguration("kari");
             if (result.IsError)
             {
-                System.Console.Error.WriteLine(result.Error);
+                argumentLogger.LogError(result.Error);
                 return (int) ExitCode.OptionSyntaxError;
             }
 
@@ -116,7 +118,7 @@
 
             if (parser.IsEmpty)
             {
-                System.Console.WriteLine(parser.GetHelpFor(compiler));
+                argumentLogger.Log(parser.GetHelpFor(compiler), LogType.Information);
                 return 0;
             }
 

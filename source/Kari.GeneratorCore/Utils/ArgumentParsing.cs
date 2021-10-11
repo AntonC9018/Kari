@@ -108,6 +108,10 @@ namespace Kari.GeneratorCore
                 => new ParsingResult($"Duplicate option `{option}`.");
             internal static ParsingResult InvalidConfigurationFile(string filename, string error)
                 => new ParsingResult($"Invalid configuration file {filename}: {error}");
+            internal static ParsingResult InvalidValueForConfigFile(string value)
+                => new ParsingResult($"Invalid value for cofiguration file(s): {value}");
+            internal static ParsingResult MissingValueForConfigFile()
+                => new ParsingResult($"Missing value for cofiguration file(s).");
         }
 
         /// <summary>
@@ -146,11 +150,25 @@ namespace Kari.GeneratorCore
                 // The help is considered set even if it is given a value
                 IsHelpSet = IsHelpSet || isHelp;
                 
-                // If it's not followed by a value, or the value is an option,
-                // set the result to null.
                 i++;
-                if (i == arguments.Length || (arguments[i].Length > 0 && arguments[i][0] == '-'))
+                // If it's not followed by a value, or the value is an option, it must be a flag.
+                bool isApparentlyFlag = i == arguments.Length || (arguments[i].Length > 0 && arguments[i][0] == '-');
+                
+                if (option == "configurationFile")
                 {
+                    if (isApparentlyFlag)
+                        return ParsingResult.MissingValueForConfigFile(); 
+                    var result = TryParseArgumentsJsons(arguments[i].Split(","));
+                    i++;
+                    if (result.IsError)
+                        return result;
+                    else
+                        continue;
+                }
+
+                if (isApparentlyFlag)
+                {
+                    // Set the result to null.
                     // Let's leave it among the options even if it's help.
                     Options.Add(option, new ArgumentOrOptionValue(null));
                     continue;
@@ -158,13 +176,6 @@ namespace Kari.GeneratorCore
 
                 // Record the value of help, in case the application finds it relevant.
                 Options.Add(option, new ArgumentOrOptionValue(arguments[i]));
-
-                if (option == "configurationFile")
-                {
-                    var result = TryParseArgumentsJsons(arguments[i].Split(","));
-                    if (result.IsError)
-                        return result;
-                }
                 i++;
             }
 
@@ -201,18 +212,25 @@ namespace Kari.GeneratorCore
         {
             for (int i = 0; i < jsonPaths.Length; i++)
             {
-                if (Path.GetExtension(jsonPaths[i]) == "")
-                    jsonPaths[i] += ".json";
-                if (Configurations.Any(conf => conf.Filename == jsonPaths[i]))
-                    continue;
-                if (!File.Exists(jsonPaths[i]))
-                    return new ParsingResult("Missing config file " + jsonPaths[i]);
-                var result = ParseArgumentsJson(jsonPaths[i]);
+                var result = TryParseArgumentsJson(jsonPaths[i]);
                 if (result.IsError)
                     return result;
             }
             return ParsingResult.Ok;
         }
+
+        private ParsingResult TryParseArgumentsJson(string jsonPath)
+        {
+            if (Path.GetExtension(jsonPath) == "")
+                jsonPath += ".json";
+            if (Configurations.Any(conf => conf.Filename == jsonPath))
+                return ParsingResult.Ok;
+            if (!File.Exists(jsonPath))
+                return new ParsingResult("Missing config file " + jsonPath);
+            var result = ParseArgumentsJson(jsonPath);
+            return result;
+        }
+
 
         /// <summary>
         /// <summary>
@@ -226,7 +244,22 @@ namespace Kari.GeneratorCore
                 
                 // Recurse.
                 if (obj.ContainsKey("configurationFile"))
-                    return TryParseArgumentsJsons(obj["configurationFile"].Values<string>().ToArray());
+                {
+                    try
+                    {
+                        var jsonPaths = obj["configurationFile"].Values<string>().ToArray();
+                        return TryParseArgumentsJsons(jsonPaths);
+                    }
+                    catch(Exception){}
+                    try
+                    {
+                        var oneJsonPath = obj["configurationFile"].ToObject<string>();
+                        return TryParseArgumentsJson(oneJsonPath);
+                    }
+                    catch(Exception){}
+
+                    return ParsingResult.InvalidValueForConfigFile(obj["configurationFile"].ToString());
+                }
             }
             catch (Exception exception)
             {
