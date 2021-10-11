@@ -45,7 +45,7 @@ kari -pluginsLocations "pluginsFolder,C:/absolute/path/plugins,Build/compiledPlu
 
 Options may be set via a json configuration file.
 Kari automatically searches for a `kari.json` file in the working directory and next to the executable.
-Additionally, paths any number of configuration files may be passed on the command line:
+Additionally, paths to any number of configuration files may be passed on the command line:
 ```
 kari -configurationFile "file1.json,C:/file2.json"
 ```
