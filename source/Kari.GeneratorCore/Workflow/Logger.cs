@@ -40,45 +40,12 @@ namespace Kari.GeneratorCore.Workflow
         /// <summary>
         /// Measures an operation.
         /// </summary>
-        public async Task MeasureAsync(string operationName, Task task)
-        {
-            Log(operationName + " Started.", LogType.Information);
-            var s = Stopwatch.StartNew();
-            await task;
-            Log(operationName + " Completed. Time elapsed: " + s.Elapsed.ToString(), LogType.Information);
-        }
-
-        /// <summary>
-        /// Measures an operation.
-        /// </summary>
-        public void MeasureSync(string operationName, System.Action operation)
-        {
-            Log(operationName + " Started.", LogType.Information);
-            var s = Stopwatch.StartNew();
-            operation();
-            Log(operationName + " Completed. Time elapsed: " + s.Elapsed.ToString(), LogType.Information);
-        }
-
-        /// <summary>
-        /// Measures an operation.
-        /// </summary>
         public async Task MeasureAsync(string operationName, System.Action operation)
         {
             Log(operationName + " Started.", LogType.Information);
             var s = Stopwatch.StartNew();
             await Task.Run(operation);
             Log(operationName + " Completed. Time elapsed: " + s.Elapsed.ToString(), LogType.Information);
-        }
-
-        /// <summary>
-        /// Measures an operation.
-        /// </summary>
-        public void MeasureNoLock(string operationName, System.Action operation)
-        {
-            LogNoLock(operationName + " Started.", LogType.Information);
-            var s = Stopwatch.StartNew();
-            operation();
-            LogNoLock(operationName + " Completed. Time elapsed: " + s.Elapsed.ToString(), LogType.Information);
         }
 
         public void Log(string message)
@@ -130,6 +97,34 @@ namespace Kari.GeneratorCore.Workflow
         public void LogDebug(string message)
         {
             Log(message, LogType.Debug);
+        }
+    }
+
+    public struct Measurer
+    {
+        string operationName;
+        Stopwatch stopwatch;
+        Logger logger;
+
+        public Measurer(Logger logger)
+        { 
+            this.stopwatch = Stopwatch.StartNew();
+            this.logger = logger;
+            this.operationName = "";
+        }
+
+        public void Start(string operationName)
+        {
+            this.stopwatch.Restart();
+            this.operationName = operationName;
+
+            logger.Log(operationName + " Started.", LogType.Information); 
+        }
+
+        public void Stop()
+        {
+            this.stopwatch.Stop();
+            logger.Log(operationName + " Completed. Time elapsed: " + stopwatch.Elapsed.ToString(), LogType.Information);
         }
     }
 }

@@ -3,3 +3,6 @@ destination
 bin
 obj
 *.Generated.cs
+
+Kari.OtherTest
+Kari.Test

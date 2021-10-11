@@ -1,20 +1,53 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Newtonsoft.Json.Linq;
 
 namespace Kari.GeneratorCore
 {
+    public enum OptionPropertyFlags
+    {
+        None = 0,
+        Flag = 1 << 0,
+        Required = 1 << 1,
+        // RequiredForHelp = 1 << 2
+    }
+
     /// <summary>
     /// Mark a field with this attibute for it to be detected and filled in by ArgumentParser.
     /// </summary>
     public class OptionAttribute : System.Attribute
     {
         public string Help;
-        public bool IsFlag { get; set; }
-        public bool IsRequired { get; set; }
+        public OptionPropertyFlags Flags;
+
+        private void SetFlag(OptionPropertyFlags flag, bool value)
+        {
+            if (value)
+                Flags |= flag; 
+            else 
+                Flags &= ~flag; 
+        }
+
+        public bool IsFlag 
+        { 
+            get => (Flags & OptionPropertyFlags.Flag) != 0; 
+            set => SetFlag(OptionPropertyFlags.Flag, value);
+        }
+        public bool IsRequired 
+        { 
+            get => (Flags & OptionPropertyFlags.Required) != 0; 
+            set => SetFlag(OptionPropertyFlags.Required, value);
+        }
+        // public bool IsRequiredForHelp 
+        // { 
+        //     get => (Flags & OptionPropertyFlags.RequiredForHelp) != 0; 
+        //     set => SetFlag(OptionPropertyFlags.RequiredForHelp, value);
+        // }
 
         public OptionAttribute(string help)
         {
@@ -33,12 +66,29 @@ namespace Kari.GeneratorCore
             public readonly string StringValue;
             // Indicates whether this value has been recognized as a valid option.
             public bool IsMarked { get; set; }
+            // public string ConfigurationFileOrigin { get; set; } 
             public ArgumentOrOptionValue(string stringValue) => StringValue = stringValue;
         }
-
         private readonly Dictionary<string, ArgumentOrOptionValue> Options = new Dictionary<string, ArgumentOrOptionValue>();
 
-        public bool IsEmpty => Options.Count == 0;
+        private readonly struct ConfigurationFile
+        {
+            public readonly string Filename;
+            public readonly JObject JsonRoot;
+
+            public ConfigurationFile(string filename, JObject jsonRoot)
+            {
+                Filename = filename;
+                JsonRoot = jsonRoot;
+            }
+        }
+        private readonly List<ConfigurationFile> Configurations = new List<ConfigurationFile>();
+        // I do not control the JObject type, neither do I control JToken.
+        // If I did, I would have added a corresponding flag into the JTokenType enum instead.
+        private readonly HashSet<string> TakenConfigurationOptions = new HashSet<string>();
+
+        public bool IsHelpSet { get; private set; }
+        public bool IsEmpty => Options.Count == 0 && Configurations.Count == 0;
 
         /// <summary>
         /// Wraps a string error.
@@ -56,6 +106,12 @@ namespace Kari.GeneratorCore
                 => new ParsingResult($"The option `{argument}` must start with a single dash `-`.");
             internal static ParsingResult DuplicateOption(string option)
                 => new ParsingResult($"Duplicate option `{option}`.");
+            internal static ParsingResult InvalidConfigurationFile(string filename, string error)
+                => new ParsingResult($"Invalid configuration file {filename}: {error}");
+            internal static ParsingResult InvalidValueForConfigFile(string value)
+                => new ParsingResult($"Invalid value for cofiguration file(s): {value}");
+            internal static ParsingResult MissingValueForConfigFile()
+                => new ParsingResult($"Missing value for cofiguration file(s).");
         }
 
         /// <summary>
@@ -63,6 +119,7 @@ namespace Kari.GeneratorCore
         /// Correctly fills in the internal data structure with the provided options.
         /// The wrapped error indicates the syntax error.
         /// It does not support positional arguments and double-dash options. 
+        /// If it finds a "configurationJson" option, it will try to read that file. 
         /// </summary>
         public ParsingResult ParseArguments(string[] arguments)
         {
@@ -88,20 +145,126 @@ namespace Kari.GeneratorCore
                 {
                     return ParsingResult.DuplicateOption(option);
                 }
+
+                bool isHelp = StringComparer.OrdinalIgnoreCase.Compare(option, "HELP") == 0;
+                // The help is considered set even if it is given a value
+                IsHelpSet = IsHelpSet || isHelp;
                 
-                // If it's not followed by a value, or the value is an option,
-                // set the result to null.
                 i++;
-                if (i == arguments.Length || (arguments[i].Length > 0 && arguments[i][0] == '-'))
+                // If it's not followed by a value, or the value is an option, it must be a flag.
+                bool isApparentlyFlag = i == arguments.Length || (arguments[i].Length > 0 && arguments[i][0] == '-');
+                
+                if (option == "configurationFile")
                 {
+                    if (isApparentlyFlag)
+                        return ParsingResult.MissingValueForConfigFile(); 
+                    var result = TryParseArgumentsJsons(arguments[i].Split(","));
+                    i++;
+                    if (result.IsError)
+                        return result;
+                    else
+                        continue;
+                }
+
+                if (isApparentlyFlag)
+                {
+                    // Set the result to null.
+                    // Let's leave it among the options even if it's help.
                     Options.Add(option, new ArgumentOrOptionValue(null));
                     continue;
                 }
 
+                // Record the value of help, in case the application finds it relevant.
                 Options.Add(option, new ArgumentOrOptionValue(arguments[i]));
                 i++;
             }
 
+            return ParsingResult.Ok;
+        }
+
+        /// <summary>
+        /// ditto.
+        /// Looks for a configuration file with the given name in cwd and next to the executable.
+        /// </summary>
+        public ParsingResult MaybeParseConfiguration(string configurationFilename)
+        {
+            var jsonName = configurationFilename += ".json";
+            if (Configurations.Any(conf => conf.Filename == jsonName))
+                return ParsingResult.Ok;
+            if (File.Exists(jsonName))
+                return ParseArgumentsJson(jsonName);
+
+            var exeDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            var jsonNextToExePath = Path.Combine(exeDirectory, jsonName);
+            if (Configurations.Any(conf => conf.Filename == jsonNextToExePath))
+                return ParsingResult.Ok;
+            if (File.Exists(jsonNextToExePath))
+                return ParseArgumentsJson(jsonNextToExePath);
+
+            return ParsingResult.Ok;
+        }
+
+        /// <summary>
+        /// Reads the specified json files.
+        /// The if the files do not exist.
+        /// <summary>
+        private ParsingResult TryParseArgumentsJsons(string[] jsonPaths)
+        {
+            for (int i = 0; i < jsonPaths.Length; i++)
+            {
+                var result = TryParseArgumentsJson(jsonPaths[i]);
+                if (result.IsError)
+                    return result;
+            }
+            return ParsingResult.Ok;
+        }
+
+        private ParsingResult TryParseArgumentsJson(string jsonPath)
+        {
+            if (Path.GetExtension(jsonPath) == "")
+                jsonPath += ".json";
+            if (Configurations.Any(conf => conf.Filename == jsonPath))
+                return ParsingResult.Ok;
+            if (!File.Exists(jsonPath))
+                return new ParsingResult("Missing config file " + jsonPath);
+            var result = ParseArgumentsJson(jsonPath);
+            return result;
+        }
+
+
+        /// <summary>
+        /// <summary>
+        private ParsingResult ParseArgumentsJson(string jsonPath)
+        {
+            Debug.Assert(File.Exists(jsonPath));
+            try
+            {
+                var obj = JObject.Parse(File.ReadAllText(jsonPath));
+                Configurations.Add(new ConfigurationFile(jsonPath, obj));
+                
+                // Recurse.
+                if (obj.ContainsKey("configurationFile"))
+                {
+                    try
+                    {
+                        var jsonPaths = obj["configurationFile"].Values<string>().ToArray();
+                        return TryParseArgumentsJsons(jsonPaths);
+                    }
+                    catch(Exception){}
+                    try
+                    {
+                        var oneJsonPath = obj["configurationFile"].ToObject<string>();
+                        return TryParseArgumentsJson(oneJsonPath);
+                    }
+                    catch(Exception){}
+
+                    return ParsingResult.InvalidValueForConfigFile(obj["configurationFile"].ToString());
+                }
+            }
+            catch (Exception exception)
+            {
+                return ParsingResult.InvalidConfigurationFile(jsonPath, exception.Message);
+            }
             return ParsingResult.Ok;
         }
 
@@ -144,10 +307,58 @@ namespace Kari.GeneratorCore
 
                 string name = fieldInfo.Name;
                 bool hasOption = Options.TryGetValue(name, out var option);
+                
+                if (!hasOption)
+                { 
+                    bool TryGetOptionFromConfiguration(string name, out JToken confOption)
+                    {
+                        for (int i = 0; i < Configurations.Count; i++)
+                        {
+                            if (Configurations[i].JsonRoot.ContainsKey(name))
+                            {
+                                confOption = Configurations[i].JsonRoot[name];
+                                return true;
+                            }
+                        }
+                        confOption = null;
+                        return false;
+                    }
+                    if (TryGetOptionFromConfiguration(name, out var optionFromConfiguration))
+                    {
+                        // God I hate exceptions
+                        try
+                        {
+                            fieldInfo.SetValue(t, optionFromConfiguration.ToObject(fieldInfo.FieldType));
+                            TakenConfigurationOptions.Add(name);
+                        }
+                        catch (Exception exception)
+                        {
+                            result.Errors.Add($"Cannot deserialize value for {name} into type {fieldInfo.FieldType.Name}: {exception.Message}");
+                        }
+                        break;
+                    }
+                }
 
                 void SetValue(object value)
                 {
                     fieldInfo.SetValue(t, value);
+                }
+
+                bool TrySetBoolValue()
+                {
+                    var comparer = StringComparer.OrdinalIgnoreCase;
+                    if (comparer.Equals(option.StringValue, "TRUE"))
+                    {
+                        SetValue(true);
+                        return true;
+                    }
+                    else if (comparer.Equals(option.StringValue, "FALSE"))
+                    {
+                        SetValue(false);
+                        return true;
+                    }
+                    AddErrorUnknownValue();
+                    return false;
                 }
 
                 Debug.Assert(!optionAttribute.IsRequired || !optionAttribute.IsFlag,
@@ -164,7 +375,8 @@ namespace Kari.GeneratorCore
 
                 bool Validate()
                 {
-                    if (optionAttribute.IsRequired && !hasOption)
+                    // Help has the special effect that it leaves the required params unfilled
+                    if (optionAttribute.IsRequired && !hasOption && !IsHelpSet)
                     {
                         result.Errors.Add($"Missing required option: {name}");
                         return false;
@@ -181,7 +393,7 @@ namespace Kari.GeneratorCore
                         Debug.Assert(fieldInfo.FieldType == typeof(bool),
                             $"{name}, indicated as flag, must be bool type");
 
-                        Debug.Assert(((bool)fieldInfo.GetValue(t)) == false,
+                        Debug.Assert(((bool) fieldInfo.GetValue(t)) == false,
                             "The default value for {name} flag must be true");
 
                         if (hasOption)
@@ -191,9 +403,9 @@ namespace Kari.GeneratorCore
                             {
                                 SetValue(true);
                             }
-                            else
+                            else if (!TrySetBoolValue())
                             {
-                                result.Errors.Add($"Option {name} is a flag, you cannot pass it a value");
+                                result.Errors.Add($"Option {name} is a flag, you can only pass it a bool value");
                             }
                         }
                         // If it's not set it's already false
@@ -229,19 +441,7 @@ namespace Kari.GeneratorCore
                 option.IsMarked = true;
                 if (fieldInfo.FieldType == typeof(bool))
                 {
-                    var comparer = StringComparer.OrdinalIgnoreCase;
-                    if (comparer.Equals(option.StringValue, "TRUE"))
-                    {
-                        SetValue(true);
-                    }
-                    else if (comparer.Equals(option.StringValue, "FALSE"))
-                    {
-                        SetValue(false);
-                    }
-                    else
-                    {
-                        AddErrorUnknownValue();
-                    }
+                    TrySetBoolValue();
                 }
                 else if (fieldInfo.FieldType == typeof(int))
                 {
@@ -311,55 +511,56 @@ namespace Kari.GeneratorCore
                     {
                         sb.Append(column: 0, fieldInfo.Name);
                         
-                        string typeName = fieldInfo.FieldType.Name;
-                        string toAppend;
+                        StringBuilder toAppend = new StringBuilder();
+
+                        void AppendProperty(string value)
+                        {
+                            if (toAppend.Length == 0)
+                                toAppend.Append(" (");
+                            else
+                                toAppend.Append(", ");
+                            toAppend.Append(value);
+                        }
+
                         if (optionAttribute.IsRequired)
-                        {
-                            toAppend = " (required)";
-                        }
-                        else if (optionAttribute.IsFlag)
-                        {
-                            toAppend = " (flag)";
-                        }
-                        else
+                            AppendProperty("required");
+                        // if (optionAttribute.IsRequiredForHelp)
+                        //     AppendProperty("required for help");
+                        if (optionAttribute.IsFlag)
+                            AppendProperty("flag");
+                        if (toAppend.Length != 0)
+                            toAppend.Append(")");
+
+                        // Required things cannot have default value.
+                        if (toAppend.Length == 0)
                         {
                             var value = fieldInfo.GetValue(t);
 
-                            if (value is null)
+                            if (value is string[] arr)
                             {
-                                toAppend = "";
-                            }
-                            else if (value is string[] arr)
-                            {
-                                var b = new StringBuilder(" = [");
-                                b.Append(String.Join(",", arr));
-                                b.Append("]");
-
-                                toAppend = b.ToString();
+                                toAppend.Append(" = [");
+                                toAppend.Append(String.Join(",", arr));
+                                toAppend.Append("]");
                             }
                             else if (value is HashSet<string> set)
                             {
-                                var b = new StringBuilder(" = [");
-                                b.Append(String.Join(",", set));
-                                b.Append("]");
-
-                                toAppend = b.ToString();
+                                toAppend.Append(" = [");
+                                toAppend.Append(String.Join(",", set));
+                                toAppend.Append("]");
                             }
                             else if (value is int[] intArr)
                             {
-                                var b = new StringBuilder(" = [");
-                                b.Append(String.Join(",", intArr));
-                                b.Append("]");
-
-                                toAppend = b.ToString();
+                                toAppend.Append(" = [");
+                                toAppend.Append(String.Join(",", intArr));
+                                toAppend.Append("]");
                             }
                             else
                             {
-                                toAppend = $" = {value}";
+                                toAppend.Append($" = {value}");
                             }
                         }
 
-                        sb.Append(column: 1, typeName + toAppend);
+                        sb.Append(column: 1, fieldInfo.FieldType.Name + toAppend.ToString());
                     }
                     else
                     {
@@ -373,7 +574,20 @@ namespace Kari.GeneratorCore
                 }
             }
 
-            return sb.ToString();
+            string GetObjectHelpMessage()
+            {
+                // No reason for it to be stored as a field.
+                var helpMessageProperty = type.GetProperty("HelpMessage", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
+                if (!(helpMessageProperty is null) && !(helpMessageProperty.GetMethod is null))
+                {
+                    var message = helpMessageProperty.GetMethod.Invoke(t, null);
+                    if (!(message is null) && message is string messageString)
+                        return messageString + "\n\n";
+                }
+                return "";
+            }
+
+            return GetObjectHelpMessage() + sb.ToString();
         }
 
         /// <summary>
@@ -388,7 +602,37 @@ namespace Kari.GeneratorCore
                 {
                     yield return option.Key;
                 }
-            } 
+            }
+        }
+
+        public readonly struct ConfigurationOption
+        {
+            public readonly string Filename;
+            public readonly JProperty Property;
+
+            public ConfigurationOption(string filename, JProperty property)
+            {
+                Filename = filename;
+                Property = property;
+            }
+
+            public string GetPropertyPath() => $"File {Filename}, at {Property.Path}";
+        }
+
+        public IEnumerable<ConfigurationOption> GetUnrecognizedOptionsFromConfigurations()
+        {
+            var configOptionsTemp = new HashSet<string>(TakenConfigurationOptions);
+
+            for (int i = 0; i < Configurations.Count; i++)
+            foreach (var property in Configurations[i].JsonRoot.Properties())
+            {
+                if (!configOptionsTemp.Contains(property.Name))
+                {
+                    yield return new ConfigurationOption(Configurations[i].Filename, property);
+                }
+                // It should only report the property in the first file it's found.
+                configOptionsTemp.Add(property.Name);
+            }
         }
     }
 }

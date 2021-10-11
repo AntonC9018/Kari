@@ -18,15 +18,16 @@
 
     public class KariCompiler
     {
-        [Option("Show help for Kari and all specified plugins. Call with no arguments to show help just for Kari",
-            IsFlag = true)]
-        bool help;
+        string HelpMessage => "Use Kari to generate code for a C# project.";
+        // [Option("Show help for Kari and all specified plugins. Call with no arguments to show help just for Kari",
+        //     IsFlag = true)]
+        // bool help;
 
         [Option("Input path to MSBuild project file or to the directory containing source files.", 
             IsRequired = true)] 
         string input;
 
-        [Option("Plugins folder or full paths to individual plugin dlls.",
+        [Option("Plugins folder or paths to individual plugin dlls.",
             IsRequired = true)]
         string[] pluginsLocations;
 
@@ -71,7 +72,11 @@
             BadOptionValue = 2,
             UnmatchedArguments = 3,
             Other = 4,
-            OperationCanceled = 5
+            OperationCanceled = 5,
+            UnknownOptions = 6,
+            FailedEnvironmentInitialization = 7,
+            FailedSymbolCollection = 8,
+            FailedOutputGeneration = 9,
         }
         
         private static async Task<int> Main(string[] args)
@@ -92,12 +97,20 @@
             var tokenSource = new CancellationTokenSource();
             CancellationToken token = tokenSource.Token;
 
+            Logger argumentLogger = new Logger("Arguments");
+
             ArgumentParser parser = new ArgumentParser();
             var result = parser.ParseArguments(args);
-
             if (result.IsError)
             {
-                System.Console.Error.WriteLine(result.Error);
+                argumentLogger.LogError(result.Error);
+                return (int) ExitCode.OptionSyntaxError;
+            }
+
+            result = parser.MaybeParseConfiguration("kari");
+            if (result.IsError)
+            {
+                argumentLogger.LogError(result.Error);
                 return (int) ExitCode.OptionSyntaxError;
             }
 
@@ -105,7 +118,7 @@
 
             if (parser.IsEmpty)
             {
-                System.Console.WriteLine(parser.GetHelpFor(compiler));
+                argumentLogger.Log(parser.GetHelpFor(compiler), LogType.Information);
                 return 0;
             }
 
@@ -140,9 +153,14 @@
                 return;
             }
 
-            input            = Path.GetFullPath(NormalizeDirectorySeparators(input));
             pluginsLocations = pluginsLocations?.Select(s => NormalizeDirectorySeparators(s)).ToArray();
-            generatedName    = NormalizeDirectorySeparators(generatedName);
+
+            // Hacky?
+            if (parser.IsHelpSet)
+                return;
+
+            input = Path.GetFullPath(NormalizeDirectorySeparators(input));
+            generatedName = NormalizeDirectorySeparators(generatedName);
 
             if (generatedName == "" && clearOutput)
             {
@@ -182,40 +200,62 @@
                 return (int) code;
             }
 
-            var entireFunctionTimer = Stopwatch.StartNew();
             _logger = new Logger("Master");
+            var entireGenerationMeasurer = new Measurer(_logger);
+            entireGenerationMeasurer.Start("The entire generation process");
 
             PreprocessOptions(parser);
+            if (parser.IsHelpSet && pluginsLocations == null)
+            {
+                Logger.LogPlain(parser.GetHelpFor(this));
+                return Exit(ExitCode.Ok);
+            }
             if (ShouldExit())  return (int) ExitCode.BadOptionValue;
 
             // Input must be either a directory of source files or an msbuild project
-            string projectDirectory;
-            bool isProjectADirectory;
-            if (Directory.Exists(input))
+            string projectDirectory = "";
+            bool isProjectADirectory = false;
+            if (!parser.IsHelpSet)
             {
-                projectDirectory = input;
-                isProjectADirectory = true;
+                if (Directory.Exists(input))
+                {
+                    projectDirectory = input;
+                    isProjectADirectory = true;
+                }
+                else if (File.Exists(input))
+                {
+                    projectDirectory = Path.GetDirectoryName(input);
+                    isProjectADirectory = false;
+                }
+                else
+                {
+                    _logger.LogError($"No such input file or directory {input}.");
+                    return 1;
+                }
+                if (ShouldExit()) return Exit(ExitCode.BadOptionValue);
             }
-            else if (File.Exists(input))
-            {
-                projectDirectory = Path.GetDirectoryName(input);
-                isProjectADirectory = false;
-            }
-            else
-            {
-                _logger.LogError($"No such input file or directory {input}.");
-                return 1;
-            }
-            if (ShouldExit()) return Exit(ExitCode.BadOptionValue);
 
             // We need to initialize this in order to create Administrators.
             // Even if help is set, we need to new them up in order to retrieve the help messages,
             // so creating this is a prerequisite.
             var master = new MasterEnvironment(rootNamespace, projectDirectory, token, _logger, independentNamespaceParts);
+            
+            // It is fine to not have master entirely globally initialized.
+            // The plugin loading only needs the administrator list.
+            Task pluginsTask = _logger.MeasureAsync("Load Plugins", () => LoadPlugins(master, token));
+            if (parser.IsHelpSet)
+            {
+                await pluginsTask;
+
+                Logger.LogPlain(parser.GetHelpFor(this));
+                master.LogHelpForEachAdministrator(parser);
+                return Exit(ExitCode.Ok);
+            }
+
             // Set the master instance globally
             MasterEnvironment.InitializeSingleton(master);
-            master.GeneratedPath = generatedName;
 
+            master.GeneratedPath = generatedName;
             // This means no subprojects
             if (monolithicProject)
             {
@@ -228,20 +268,6 @@
             else
             {
                 master.CommonProjectName = commonNamespace;
-            }
-
-
-            Task pluginsTask = _logger.MeasureAsync("Load Plugins", () => LoadPlugins(master, token));
-
-            if (help)
-            {
-                // Wait until the dll's have loaded and the Administrator have been set
-                await pluginsTask;
-
-                Logger.LogPlain("Use Kari to generate code for a C# project.\nMain Options:");
-                Logger.LogPlain(parser.GetHelpFor(this));
-                master.LogHelpForEachAdministrator(parser);
-                return Exit(ExitCode.Ok);
             }
 
             // Now finally create the compilation
@@ -288,49 +314,57 @@
             if (ShouldExit()) return Exit(ExitCode.BadOptionValue);
 
             var unrecognizedOptions = parser.GetUnrecognizedOptions();
-            if (unrecognizedOptions.Any())
+            var unrecognizedConfigOptions = parser.GetUnrecognizedOptionsFromConfigurations();
+            if (unrecognizedOptions.Any() || unrecognizedConfigOptions.Any())
             {
                 foreach (var arg in unrecognizedOptions)
                 {
                     _logger.LogError($"Unrecognized option: `{arg}`");
                 }
-                Exit(ExitCode.Other);
+                foreach (var arg in unrecognizedConfigOptions)
+                {
+                    // TODO: This can contain more info, like the line number.
+                    _logger.LogError($"Unrecognized option: `{arg.GetPropertyPath()}`");
+                }
+                return Exit(ExitCode.UnknownOptions);
             }
 
             await compileTask;
             if (ShouldExit()) return Exit(ExitCode.Other);
 
-            // TODO: This code looks ugly af actually. But manual Start() End() Print() are even uglier.
+            // The code is a bit less ugly now, but still pretty ugly.
             // TODO: Is this profiling thing even useful? I mean, we already get the stats for the whole function. 
-            _logger.MeasureSync("Environment Initialization", () => 
+            var measurer = new Measurer(_logger);
+
+            measurer.Start("Environment Initialization");
             {
                 master.InitializeCompilation(ref compilation);
-                if (Logger.AnyLoggerHasErrors)  
-                    return;
+                if (ShouldExit()) return Exit(ExitCode.FailedEnvironmentInitialization);
                 if (!monolithicProject) 
                     master.FindProjects(treatEditorAsSubproject);
                 master.InitializePseudoProjects();
                 master.InitializeAdministrators();
-            });
-            if (ShouldExit()) return Exit(ExitCode.Other);
+            }
+            if (ShouldExit()) return Exit(ExitCode.FailedEnvironmentInitialization);
+            measurer.Stop();
 
-            async Task startCollectTask() {
+            measurer.Start("Symbol Collect");
+            {
                 await master.Collect();
                 master.RunCallbacks();
             }
-            await _logger.MeasureAsync("Symbol Collect", startCollectTask());
-            if (ShouldExit()) return Exit(ExitCode.Other);
+            if (ShouldExit()) return Exit(ExitCode.FailedSymbolCollection);
+            measurer.Stop();
 
-            async Task startGenerateTask()
+            measurer.Start("Output Generation");
             {
                 if (clearOutput) master.ClearOutput();
                 await master.GenerateCode();
                 master.CloseWriters();
             }
-            await _logger.MeasureAsync("Output Generation", startGenerateTask());
-            if (ShouldExit()) return Exit(ExitCode.Other);
+            if (ShouldExit()) return Exit(ExitCode.FailedOutputGeneration);
             
-            _logger.LogInfo("Generation complete. It took " + entireFunctionTimer.Elapsed.ToString());
+            entireGenerationMeasurer.Stop();
             return Exit(ExitCode.Ok);
 
 

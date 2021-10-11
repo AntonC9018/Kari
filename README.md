@@ -43,24 +43,37 @@ kari --help
 kari -pluginsLocations "pluginsFolder,C:/absolute/path/plugins,Build/compiledPlugin.dll"
 ```
 
+Options may be set via a json configuration file.
+Kari automatically searches for a `kari.json` file in the working directory and next to the executable.
+Additionally, paths any number of configuration files may be passed on the command line:
+```
+kari -configurationFile "file1.json,C:/file2.json"
+```
+
+Arguments passed on the command line take precedence over ones imported from configuration files.
+Also, configuration files specified first have precedence over the ones specified after.
+Configuration files may include other configuration files, by specifying a property "configurationFile", which can either be an array of strings or a string of the relaive or absolute path to another configuration file.
+
+> Currently, the configuration file is searched for relative to the cwd.
+
 Calling Kari without any arguments gives the following help message:
 
 ```
 $ Build\bin\Kari.Generator\Debug\netcoreapp3.1\kari.exe
+Use Kari to generate code for a C# project.
+
 Option                       Type                          Description
 ---------------------------------------------------------------------------------------------------------------------------
-help                         Boolean (flag)                Show help for Kari and all specified plugins. Call with no argum
-                                                           ents to show help just for Kari
 input                        String (required)             Input path to MSBuild project file or to the directory containin
                                                            g source files.
-pluginsLocations             String[] (required)           Plugins folder or full paths to individual plugin dlls.
+pluginsLocations             String[] (required)           Plugins folder or paths to individual plugin dlls.
 generatedName                String = Generated            The suffix added to each subproject (or the root project) indica
                                                            ting the output folder.
-conditionalSymbols           String[]                      Conditional compiler symbols. Ignored if a project file is speci
+conditionalSymbols           String[] =                    Conditional compiler symbols. Ignored if a project file is speci
                                                            fied for input.
 rootNamespace                String =                      Set input namespace root name.
 clearOutput                  Boolean (flag)                Delete all cs files in the output folder.
-pluginNames                  String[]                      Plugin names to be used for code analysis and generation. All pl
+pluginNames                  String[] =                    Plugin names to be used for code analysis and generation. All pl
                                                            ugins are used by default.
 singleFileOutput             Boolean (flag)                Whether to output all code into a single file.
 monolithicProject            Boolean (flag)                Whether to not scan for subprojects and always treat the entire
@@ -81,7 +94,7 @@ treatEditorAsSubproject      Boolean = True                Whether to treat 'Edi
                                                            lders are ignored.
 ```
 
-To see help from plugins, a dummy parameter for the project input path is currently needed, and you also need to pass the location of the plugin (any path to it) as an argument.
+To see help from plugins, you need to pass the location of the plugin (any path to it) as an argument.
 
 ```
 $ Build\bin\Kari.Generator\Debug\netcoreapp3.1\kari.exe -input "." -pluginsLocations "Build\bin\Terminal\Debug\netcoreapp3.1\Kari.Plugins.Terminal.dll" -help
@@ -93,8 +106,6 @@ Option             Type                 Description
 --------------------------------------------------------------------------
 terminalProject    String = Terminal    Namespace of the Terminal project.
 ```
-
-Currently, the plugins themselves do not display a help message, only a table of options is displayed, but I will add that at some point.
 
 
 ## More info
