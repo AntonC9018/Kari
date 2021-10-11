@@ -7,14 +7,45 @@ using System.Text;
 
 namespace Kari.GeneratorCore
 {
+    public enum OptionPropertyFlags
+    {
+        None = 0,
+        Flag = 1 << 0,
+        Required = 1 << 1,
+        // RequiredForHelp = 1 << 2
+    }
+
     /// <summary>
     /// Mark a field with this attibute for it to be detected and filled in by ArgumentParser.
     /// </summary>
     public class OptionAttribute : System.Attribute
     {
         public string Help;
-        public bool IsFlag { get; set; }
-        public bool IsRequired { get; set; }
+        public OptionPropertyFlags Flags;
+
+        private void SetFlag(OptionPropertyFlags flag, bool value)
+        {
+            if (value)
+                Flags |= flag; 
+            else 
+                Flags &= ~flag; 
+        }
+
+        public bool IsFlag 
+        { 
+            get => (Flags & OptionPropertyFlags.Flag) != 0; 
+            set => SetFlag(OptionPropertyFlags.Flag, value);
+        }
+        public bool IsRequired 
+        { 
+            get => (Flags & OptionPropertyFlags.Required) != 0; 
+            set => SetFlag(OptionPropertyFlags.Required, value);
+        }
+        // public bool IsRequiredForHelp 
+        // { 
+        //     get => (Flags & OptionPropertyFlags.RequiredForHelp) != 0; 
+        //     set => SetFlag(OptionPropertyFlags.RequiredForHelp, value);
+        // }
 
         public OptionAttribute(string help)
         {
@@ -37,7 +68,7 @@ namespace Kari.GeneratorCore
         }
 
         private readonly Dictionary<string, ArgumentOrOptionValue> Options = new Dictionary<string, ArgumentOrOptionValue>();
-
+        public bool IsHelpSet { get; private set; }
         public bool IsEmpty => Options.Count == 0;
 
         /// <summary>
@@ -88,16 +119,22 @@ namespace Kari.GeneratorCore
                 {
                     return ParsingResult.DuplicateOption(option);
                 }
+
+                bool isHelp = StringComparer.OrdinalIgnoreCase.Compare(option, "HELP") == 0;
+                // The help is considered set even if it is given a value
+                IsHelpSet = IsHelpSet || isHelp;
                 
                 // If it's not followed by a value, or the value is an option,
                 // set the result to null.
                 i++;
                 if (i == arguments.Length || (arguments[i].Length > 0 && arguments[i][0] == '-'))
                 {
+                    // Let's leave it among the options even if it's help.
                     Options.Add(option, new ArgumentOrOptionValue(null));
                     continue;
                 }
 
+                // Record the value of help, in case the application finds it relevant.
                 Options.Add(option, new ArgumentOrOptionValue(arguments[i]));
                 i++;
             }
@@ -150,6 +187,23 @@ namespace Kari.GeneratorCore
                     fieldInfo.SetValue(t, value);
                 }
 
+                bool TrySetBoolValue()
+                {
+                    var comparer = StringComparer.OrdinalIgnoreCase;
+                    if (comparer.Equals(option.StringValue, "TRUE"))
+                    {
+                        SetValue(true);
+                        return true;
+                    }
+                    else if (comparer.Equals(option.StringValue, "FALSE"))
+                    {
+                        SetValue(false);
+                        return true;
+                    }
+                    AddErrorUnknownValue();
+                    return false;
+                }
+
                 Debug.Assert(!optionAttribute.IsRequired || !optionAttribute.IsFlag,
                     $"`{name}` cannot be both flag and required");
 
@@ -164,7 +218,8 @@ namespace Kari.GeneratorCore
 
                 bool Validate()
                 {
-                    if (optionAttribute.IsRequired && !hasOption)
+                    // Help has the special effect that it leaves the required params unfilled
+                    if (optionAttribute.IsRequired && !hasOption && !IsHelpSet)
                     {
                         result.Errors.Add($"Missing required option: {name}");
                         return false;
@@ -181,7 +236,7 @@ namespace Kari.GeneratorCore
                         Debug.Assert(fieldInfo.FieldType == typeof(bool),
                             $"{name}, indicated as flag, must be bool type");
 
-                        Debug.Assert(((bool)fieldInfo.GetValue(t)) == false,
+                        Debug.Assert(((bool) fieldInfo.GetValue(t)) == false,
                             "The default value for {name} flag must be true");
 
                         if (hasOption)
@@ -191,9 +246,9 @@ namespace Kari.GeneratorCore
                             {
                                 SetValue(true);
                             }
-                            else
+                            else if (!TrySetBoolValue())
                             {
-                                result.Errors.Add($"Option {name} is a flag, you cannot pass it a value");
+                                result.Errors.Add($"Option {name} is a flag, you can only pass it a bool value");
                             }
                         }
                         // If it's not set it's already false
@@ -229,19 +284,7 @@ namespace Kari.GeneratorCore
                 option.IsMarked = true;
                 if (fieldInfo.FieldType == typeof(bool))
                 {
-                    var comparer = StringComparer.OrdinalIgnoreCase;
-                    if (comparer.Equals(option.StringValue, "TRUE"))
-                    {
-                        SetValue(true);
-                    }
-                    else if (comparer.Equals(option.StringValue, "FALSE"))
-                    {
-                        SetValue(false);
-                    }
-                    else
-                    {
-                        AddErrorUnknownValue();
-                    }
+                    TrySetBoolValue();
                 }
                 else if (fieldInfo.FieldType == typeof(int))
                 {
@@ -311,55 +354,56 @@ namespace Kari.GeneratorCore
                     {
                         sb.Append(column: 0, fieldInfo.Name);
                         
-                        string typeName = fieldInfo.FieldType.Name;
-                        string toAppend;
+                        StringBuilder toAppend = new StringBuilder();
+
+                        void AppendProperty(string value)
+                        {
+                            if (toAppend.Length == 0)
+                                toAppend.Append(" (");
+                            else
+                                toAppend.Append(", ");
+                            toAppend.Append(value);
+                        }
+
                         if (optionAttribute.IsRequired)
-                        {
-                            toAppend = " (required)";
-                        }
-                        else if (optionAttribute.IsFlag)
-                        {
-                            toAppend = " (flag)";
-                        }
-                        else
+                            AppendProperty("required");
+                        // if (optionAttribute.IsRequiredForHelp)
+                        //     AppendProperty("required for help");
+                        if (optionAttribute.IsFlag)
+                            AppendProperty("flag");
+                        if (toAppend.Length != 0)
+                            toAppend.Append(")");
+
+                        // Required things cannot have default value.
+                        if (toAppend.Length == 0)
                         {
                             var value = fieldInfo.GetValue(t);
 
-                            if (value is null)
+                            if (value is string[] arr)
                             {
-                                toAppend = "";
-                            }
-                            else if (value is string[] arr)
-                            {
-                                var b = new StringBuilder(" = [");
-                                b.Append(String.Join(",", arr));
-                                b.Append("]");
-
-                                toAppend = b.ToString();
+                                toAppend.Append(" = [");
+                                toAppend.Append(String.Join(",", arr));
+                                toAppend.Append("]");
                             }
                             else if (value is HashSet<string> set)
                             {
-                                var b = new StringBuilder(" = [");
-                                b.Append(String.Join(",", set));
-                                b.Append("]");
-
-                                toAppend = b.ToString();
+                                toAppend.Append(" = [");
+                                toAppend.Append(String.Join(",", set));
+                                toAppend.Append("]");
                             }
                             else if (value is int[] intArr)
                             {
-                                var b = new StringBuilder(" = [");
-                                b.Append(String.Join(",", intArr));
-                                b.Append("]");
-
-                                toAppend = b.ToString();
+                                toAppend.Append(" = [");
+                                toAppend.Append(String.Join(",", intArr));
+                                toAppend.Append("]");
                             }
                             else
                             {
-                                toAppend = $" = {value}";
+                                toAppend.Append($" = {value}");
                             }
                         }
 
-                        sb.Append(column: 1, typeName + toAppend);
+                        sb.Append(column: 1, fieldInfo.FieldType.Name + toAppend.ToString());
                     }
                     else
                     {
@@ -373,7 +417,20 @@ namespace Kari.GeneratorCore
                 }
             }
 
-            return sb.ToString();
+            string GetObjectHelpMessage()
+            {
+                // No reason for it to be stored as a field.
+                var helpMessageProperty = type.GetProperty("HelpMessage", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
+                if (!(helpMessageProperty is null) && !(helpMessageProperty.GetMethod is null))
+                {
+                    var message = helpMessageProperty.GetMethod.Invoke(t, null);
+                    if (!(message is null) && message is string messageString)
+                        return messageString + "\n\n";
+                }
+                return "";
+            }
+
+            return GetObjectHelpMessage() + sb.ToString();
         }
 
         /// <summary>
