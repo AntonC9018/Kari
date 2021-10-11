@@ -85,6 +85,7 @@ You can mark any fields in your administrator with `[Option]` to associate optio
 You can make them required, by setting `IsRequired` to true in the constructor.
 See the file `ArgumentParsing.cs` for an API overview, and override `IAdministrator.GetArgumentObject()` if you want to define the options somewhere else than directly in the administrator class.
 
+You can define a `HelpMessage` static or instance getter property, which will be used when your plugin is prompted for help with the help flag.
 
 ## Default plugins
 
