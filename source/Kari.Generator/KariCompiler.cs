@@ -99,7 +99,13 @@
 
             ArgumentParser parser = new ArgumentParser();
             var result = parser.ParseArguments(args);
+            if (result.IsError)
+            {
+                System.Console.Error.WriteLine(result.Error);
+                return (int) ExitCode.OptionSyntaxError;
+            }
 
+            result = parser.MaybeParseConfiguration("kari");
             if (result.IsError)
             {
                 System.Console.Error.WriteLine(result.Error);
@@ -306,11 +312,17 @@
             if (ShouldExit()) return Exit(ExitCode.BadOptionValue);
 
             var unrecognizedOptions = parser.GetUnrecognizedOptions();
-            if (unrecognizedOptions.Any())
+            var unrecognizedConfigOptions = parser.GetUnrecognizedOptionsFromConfigurations();
+            if (unrecognizedOptions.Any() || unrecognizedConfigOptions.Any())
             {
                 foreach (var arg in unrecognizedOptions)
                 {
                     _logger.LogError($"Unrecognized option: `{arg}`");
+                }
+                foreach (var arg in unrecognizedConfigOptions)
+                {
+                    // TODO: This can contain more info, like the line number.
+                    _logger.LogError($"Unrecognized option: `{arg.GetPropertyPath()}`");
                 }
                 return Exit(ExitCode.UnknownOptions);
             }

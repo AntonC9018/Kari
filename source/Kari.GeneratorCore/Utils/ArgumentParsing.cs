@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Newtonsoft.Json.Linq;
 
 namespace Kari.GeneratorCore
 {
@@ -64,12 +66,29 @@ namespace Kari.GeneratorCore
             public readonly string StringValue;
             // Indicates whether this value has been recognized as a valid option.
             public bool IsMarked { get; set; }
+            // public string ConfigurationFileOrigin { get; set; } 
             public ArgumentOrOptionValue(string stringValue) => StringValue = stringValue;
         }
-
         private readonly Dictionary<string, ArgumentOrOptionValue> Options = new Dictionary<string, ArgumentOrOptionValue>();
+
+        private readonly struct ConfigurationFile
+        {
+            public readonly string Filename;
+            public readonly JObject JsonRoot;
+
+            public ConfigurationFile(string filename, JObject jsonRoot)
+            {
+                Filename = filename;
+                JsonRoot = jsonRoot;
+            }
+        }
+        private readonly List<ConfigurationFile> Configurations = new List<ConfigurationFile>();
+        // I do not control the JObject type, neither do I control JToken.
+        // If I did, I would have added a corresponding flag into the JTokenType enum instead.
+        private readonly HashSet<string> TakenConfigurationOptions = new HashSet<string>();
+
         public bool IsHelpSet { get; private set; }
-        public bool IsEmpty => Options.Count == 0;
+        public bool IsEmpty => Options.Count == 0 && Configurations.Count == 0;
 
         /// <summary>
         /// Wraps a string error.
@@ -87,6 +106,8 @@ namespace Kari.GeneratorCore
                 => new ParsingResult($"The option `{argument}` must start with a single dash `-`.");
             internal static ParsingResult DuplicateOption(string option)
                 => new ParsingResult($"Duplicate option `{option}`.");
+            internal static ParsingResult InvalidConfigurationFile(string filename, string error)
+                => new ParsingResult($"Invalid configuration file {filename}: {error}");
         }
 
         /// <summary>
@@ -94,6 +115,7 @@ namespace Kari.GeneratorCore
         /// Correctly fills in the internal data structure with the provided options.
         /// The wrapped error indicates the syntax error.
         /// It does not support positional arguments and double-dash options. 
+        /// If it finds a "configurationJson" option, it will try to read that file. 
         /// </summary>
         public ParsingResult ParseArguments(string[] arguments)
         {
@@ -136,9 +158,80 @@ namespace Kari.GeneratorCore
 
                 // Record the value of help, in case the application finds it relevant.
                 Options.Add(option, new ArgumentOrOptionValue(arguments[i]));
+
+                if (option == "configurationFile")
+                {
+                    var result = TryParseArgumentsJsons(arguments[i].Split(","));
+                    if (result.IsError)
+                        return result;
+                }
                 i++;
             }
 
+            return ParsingResult.Ok;
+        }
+
+        /// <summary>
+        /// ditto.
+        /// Looks for a configuration file with the given name in cwd and next to the executable.
+        /// </summary>
+        public ParsingResult MaybeParseConfiguration(string configurationFilename)
+        {
+            var jsonName = configurationFilename += ".json";
+            if (Configurations.Any(conf => conf.Filename == jsonName))
+                return ParsingResult.Ok;
+            if (File.Exists(jsonName))
+                return ParseArgumentsJson(jsonName);
+
+            var exeDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            var jsonNextToExePath = Path.Combine(exeDirectory, jsonName);
+            if (Configurations.Any(conf => conf.Filename == jsonNextToExePath))
+                return ParsingResult.Ok;
+            if (File.Exists(jsonNextToExePath))
+                return ParseArgumentsJson(jsonNextToExePath);
+
+            return ParsingResult.Ok;
+        }
+
+        /// <summary>
+        /// Reads the specified json files.
+        /// The if the files do not exist.
+        /// <summary>
+        private ParsingResult TryParseArgumentsJsons(string[] jsonPaths)
+        {
+            for (int i = 0; i < jsonPaths.Length; i++)
+            {
+                if (Path.GetExtension(jsonPaths[i]) == "")
+                    jsonPaths[i] += ".json";
+                if (Configurations.Any(conf => conf.Filename == jsonPaths[i]))
+                    continue;
+                if (!File.Exists(jsonPaths[i]))
+                    return new ParsingResult("Missing config file " + jsonPaths[i]);
+                var result = ParseArgumentsJson(jsonPaths[i]);
+                if (result.IsError)
+                    return result;
+            }
+            return ParsingResult.Ok;
+        }
+
+        /// <summary>
+        /// <summary>
+        private ParsingResult ParseArgumentsJson(string jsonPath)
+        {
+            Debug.Assert(File.Exists(jsonPath));
+            try
+            {
+                var obj = JObject.Parse(File.ReadAllText(jsonPath));
+                Configurations.Add(new ConfigurationFile(jsonPath, obj));
+                
+                // Recurse.
+                if (obj.ContainsKey("configurationFile"))
+                    return TryParseArgumentsJsons(obj["configurationFile"].Values<string>().ToArray());
+            }
+            catch (Exception exception)
+            {
+                return ParsingResult.InvalidConfigurationFile(jsonPath, exception.Message);
+            }
             return ParsingResult.Ok;
         }
 
@@ -181,6 +274,37 @@ namespace Kari.GeneratorCore
 
                 string name = fieldInfo.Name;
                 bool hasOption = Options.TryGetValue(name, out var option);
+                
+                if (!hasOption)
+                { 
+                    bool TryGetOptionFromConfiguration(string name, out JToken confOption)
+                    {
+                        for (int i = 0; i < Configurations.Count; i++)
+                        {
+                            if (Configurations[i].JsonRoot.ContainsKey(name))
+                            {
+                                confOption = Configurations[i].JsonRoot[name];
+                                return true;
+                            }
+                        }
+                        confOption = null;
+                        return false;
+                    }
+                    if (TryGetOptionFromConfiguration(name, out var optionFromConfiguration))
+                    {
+                        // God I hate exceptions
+                        try
+                        {
+                            fieldInfo.SetValue(t, optionFromConfiguration.ToObject(fieldInfo.FieldType));
+                            TakenConfigurationOptions.Add(name);
+                        }
+                        catch (Exception exception)
+                        {
+                            result.Errors.Add($"Cannot deserialize value for {name} into type {fieldInfo.FieldType.Name}: {exception.Message}");
+                        }
+                        break;
+                    }
+                }
 
                 void SetValue(object value)
                 {
@@ -445,7 +569,37 @@ namespace Kari.GeneratorCore
                 {
                     yield return option.Key;
                 }
-            } 
+            }
+        }
+
+        public readonly struct ConfigurationOption
+        {
+            public readonly string Filename;
+            public readonly JProperty Property;
+
+            public ConfigurationOption(string filename, JProperty property)
+            {
+                Filename = filename;
+                Property = property;
+            }
+
+            public string GetPropertyPath() => $"File {Filename}, at {Property.Path}";
+        }
+
+        public IEnumerable<ConfigurationOption> GetUnrecognizedOptionsFromConfigurations()
+        {
+            var configOptionsTemp = new HashSet<string>(TakenConfigurationOptions);
+
+            for (int i = 0; i < Configurations.Count; i++)
+            foreach (var property in Configurations[i].JsonRoot.Properties())
+            {
+                if (!configOptionsTemp.Contains(property.Name))
+                {
+                    yield return new ConfigurationOption(Configurations[i].Filename, property);
+                }
+                // It should only report the property in the first file it's found.
+                configOptionsTemp.Add(property.Name);
+            }
         }
     }
 }
