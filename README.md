@@ -52,7 +52,7 @@ kari -configurationFile "file1.json,C:/file2.json"
 
 Arguments passed on the command line take precedence over ones imported from configuration files.
 Also, configuration files specified first have precedence over the ones specified after.
-Configuration files may include other configuration files, by specifying a property "configurationFile", which can either be an array of strings or a string of the relaive or absolute path to another configuration file.
+Configuration files may include other configuration files, by specifying a property "configurationFile", which can either be an array of strings or a string with the relative or absolute path to another configuration file.
 
 > Currently, the configuration file is searched for relative to the cwd.
 
