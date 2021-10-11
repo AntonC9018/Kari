@@ -27,7 +27,7 @@
             IsRequired = true)] 
         string input;
 
-        [Option("Plugins folder or full paths to individual plugin dlls.",
+        [Option("Plugins folder or paths to individual plugin dlls.",
             IsRequired = true)]
         string[] pluginsLocations;
 
