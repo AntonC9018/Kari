@@ -259,7 +259,7 @@
             // This means no subprojects
             if (monolithicProject)
             {
-                master.CommonProjectName = null;
+                master.CommonProjectNamespaceName = null;
             }
             else if (commonNamespace == "")
             {
@@ -267,7 +267,7 @@
             }
             else
             {
-                master.CommonProjectName = commonNamespace;
+                master.CommonProjectNamespaceName = commonNamespace;
             }
 
             // Now finally create the compilation

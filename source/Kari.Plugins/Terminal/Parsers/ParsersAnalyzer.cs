@@ -5,9 +5,9 @@ namespace Kari.Plugins.Terminal
 {
     public partial class ParsersAnalyzer : IAnalyzer
     {
-        public string DefinitionsNamespace => TerminalAdministrator.TerminalProject.GeneratedNamespace;
-        public readonly List<CustomParserInfo> _customParserInfos = new List<CustomParserInfo>();
-        public readonly List<CustomParserInfo> _customParserFunctionInfos = new List<CustomParserInfo>();
+        public string DefinitionsNamespace => TerminalAdministrator.TerminalProject.GeneratedNamespaceName;
+        internal readonly List<CustomParserInfo> _customParserInfos = new List<CustomParserInfo>();
+        internal readonly List<CustomParserInfo> _customParserFunctionInfos = new List<CustomParserInfo>();
 
         public void Collect(ProjectEnvironment environment)
         {

@@ -3,7 +3,7 @@ namespace Kari.Plugins.Terminal
     using System;
     using System.Diagnostics;
 
-    public interface ICommandAttribute
+    internal interface ICommandAttribute
     {
         string Name { get; set; } 
         string Help { get; set; } 
@@ -12,7 +12,7 @@ namespace Kari.Plugins.Terminal
 
     [AttributeUsage(AttributeTargets.Method)]
     [Conditional("CodeGeneration")]
-    public class CommandAttribute : Attribute, ICommandAttribute
+    internal class CommandAttribute : Attribute, ICommandAttribute
     {
         public CommandAttribute()
         {
@@ -37,7 +37,7 @@ namespace Kari.Plugins.Terminal
 
     [AttributeUsage(AttributeTargets.Method)]
     [Conditional("CodeGeneration")]
-    public class FrontCommandAttribute : Attribute, ICommandAttribute
+    internal class FrontCommandAttribute : Attribute, ICommandAttribute
     {
         public FrontCommandAttribute()
         {
@@ -68,14 +68,14 @@ namespace Kari.Plugins.Terminal
         }
     }
 
-    public interface IArgument
+    internal interface IArgument
     {
         string Name { get; set; }
         string Parser { get; set; }
         string Help { get; set; }
     }
 
-    public static class Validators
+    internal static class Validators
     {
         public static string OptionName(string value)
         {
@@ -97,7 +97,7 @@ namespace Kari.Plugins.Terminal
 
     [AttributeUsage(AttributeTargets.Parameter)]
     [Conditional("CodeGeneration")]
-    public class OptionAttribute : Attribute, IArgument
+    internal class OptionAttribute : Attribute, IArgument
     {
         public string _name;
         public string Name 
@@ -118,7 +118,7 @@ namespace Kari.Plugins.Terminal
 
     [AttributeUsage(AttributeTargets.Parameter)]
     [Conditional("CodeGeneration")]
-    public class ArgumentAttribute : Attribute, IArgument
+    internal class ArgumentAttribute : Attribute, IArgument
     {
         public string _name;
         public string Name 

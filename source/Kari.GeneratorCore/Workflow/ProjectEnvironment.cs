@@ -7,21 +7,41 @@ using Microsoft.CodeAnalysis;
 
 namespace Kari.GeneratorCore.Workflow
 {
+    /// <summary>
+    /// aka a pseudoproject. 
+    /// Holds metadata about a project.
+    /// </summary>
     public class ProjectEnvironmentData
     {
         public readonly Logger Logger;
         public readonly IFileWriter FileWriter;
+
+        /// <summary>
+        /// Directory with the source files, including the source code and the project files.
+        /// </summary>
         public readonly string Directory;
+
+        /// <summary>
+        /// The fully qualified namespace name, as it is in the source code.
+        /// This has nothing to do with the generated namespace.
+        /// </summary>
         public readonly string NamespaceName;
-        public readonly string GeneratedNamespace;
         
+        /// <summary>
+        /// The name of the namespace that the generated code will end up in.
+        /// </summary>
+        public readonly string GeneratedNamespaceName;
+
+        /// <summary>
+        /// Shorthand for the MasterEnvironment singleton instance.
+        /// </summary>
         public MasterEnvironment Master => MasterEnvironment.Instance;
 
-        public ProjectEnvironmentData(string directory, string namespaceName, IFileWriter fileWriter, Logger logger)
+        internal ProjectEnvironmentData(string directory, string namespaceName, IFileWriter fileWriter, Logger logger)
         {
             Directory = directory;
             NamespaceName = namespaceName;
-            GeneratedNamespace = NamespaceName.Combine(Master.GeneratedNamespaceSuffix);
+            GeneratedNamespaceName = NamespaceName.Combine(Master.GeneratedNamespaceSuffix);
             FileWriter = fileWriter;
             Logger = logger;
         }
@@ -36,24 +56,28 @@ namespace Kari.GeneratorCore.Workflow
             FileWriter.WriteCodeFile(fileName, text);
         }
 
+        /// <inheritdoc cref="WriteFile"/>
         public Task WriteFileAsync(string fileName, string text)
         {
             return Task.Run(() => WriteFile(fileName, text));
         }
 
+        /// <inheritdoc cref="WriteFile"/>
         public Task WriteFileAsync(string fileName, ICodeTemplate template)
         {
             return Task.Run(() => WriteFile(fileName, template.TransformText()));
         }
 
-        public void ClearOutput()
+        internal void ClearOutput()
         {
             Logger.Log($"Clearing the generated output.");
             FileWriter.DeleteOutput();
         }
     }
 
-
+    /// <summary>
+    /// Caches symbols for a project.
+    /// </summary>
     public class ProjectEnvironment : ProjectEnvironmentData
     {
         // Any registered resources, like small pieces of data common to the project
@@ -65,7 +89,7 @@ namespace Kari.GeneratorCore.Workflow
         public readonly List<INamedTypeSymbol> TypesWithAttributes = new List<INamedTypeSymbol>();
         public readonly List<IMethodSymbol> MethodsWithAttributes = new List<IMethodSymbol>();
 
-        public ProjectEnvironment(string directory, string namespaceName, INamespaceSymbol rootNamespace, IFileWriter fileWriter) 
+        internal ProjectEnvironment(string directory, string namespaceName, INamespaceSymbol rootNamespace, IFileWriter fileWriter) 
             : base(directory, namespaceName, fileWriter, new Logger(rootNamespace.Name))
         {
             RootNamespace = rootNamespace;
@@ -74,7 +98,7 @@ namespace Kari.GeneratorCore.Workflow
         /// <summary>
         /// Asynchronously collects and caches relevant symbols.
         /// </summary>
-        public Task Collect()
+        internal Task Collect()
         {
             return Task.Run(() => {
                 foreach (var symbol in RootNamespace.GetMembers())

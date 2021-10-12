@@ -10,7 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Kari.Plugins.Terminal
 {
-    public partial class CommandsAnalyzer : IAnalyzer
+    internal partial class CommandsAnalyzer : IAnalyzer
     {
         private readonly HashSet<string> _names = new HashSet<string>();
         public readonly List<CommandMethodInfo> _infos = new List<CommandMethodInfo>();
@@ -35,7 +35,7 @@ namespace Kari.Plugins.Terminal
                 
                 if (method.TryGetAttribute(CommandSymbols.CommandAttribute, _logger, out var commandAttribute))
                 {
-                    var info = new CommandMethodInfo(method, commandAttribute, environment.GeneratedNamespace);
+                    var info = new CommandMethodInfo(method, commandAttribute, environment.GeneratedNamespaceName);
                     info.Collect(environment);
                     _infos.Add(info);
                     RegisterCommandName(info.Name);
@@ -43,7 +43,7 @@ namespace Kari.Plugins.Terminal
                 
                 if (method.TryGetAttribute(CommandSymbols.FrontCommandAttribute, _logger, out var frontCommandAttribute))
                 {
-                    var info = new FrontCommandMethodInfo(method, frontCommandAttribute, environment.GeneratedNamespace);
+                    var info = new FrontCommandMethodInfo(method, frontCommandAttribute, environment.GeneratedNamespaceName);
                     _frontInfos.Add(info);
                     RegisterCommandName(info.Name);
                 }
@@ -305,7 +305,7 @@ namespace Kari.Plugins.Terminal
         }
     }
 
-    public interface ICommandMethodInfo
+    internal interface ICommandMethodInfo
     {
         string Name { get; }
         bool IsEscapedClassName { get; }
@@ -314,7 +314,7 @@ namespace Kari.Plugins.Terminal
         ICommandAttribute GetAttribute();
     }
 
-    public abstract class FrontCommandMethodInfoBase : ICommandMethodInfo
+    internal abstract class FrontCommandMethodInfoBase : ICommandMethodInfo
     {
         public abstract ICommandAttribute GetAttribute();
         public string Name => GetAttribute().Name;
@@ -390,7 +390,7 @@ namespace Kari.Plugins.Terminal
         }
     }
     
-    public class FrontCommandMethodInfo : FrontCommandMethodInfoBase
+    internal class FrontCommandMethodInfo : FrontCommandMethodInfoBase
     {
         public readonly IMethodSymbol Symbol;
         public override ICommandAttribute GetAttribute() => Attribute;
@@ -404,7 +404,7 @@ namespace Kari.Plugins.Terminal
         }
     }
 
-    public class CommandMethodInfo : FrontCommandMethodInfoBase
+    internal class CommandMethodInfo : FrontCommandMethodInfoBase
     {
         public readonly IMethodSymbol Symbol;
         public readonly CommandAttribute Attribute;
@@ -489,14 +489,14 @@ namespace Kari.Plugins.Terminal
         }
     }
 
-    public interface IArgumentInfo
+    internal interface IArgumentInfo
     {
         IParameterSymbol Symbol { get; }
         IParserInfo Parser { get; }
         IArgument GetAttribute();
     }
 
-    public abstract class ArgumentBase : IArgumentInfo
+    internal abstract class ArgumentBase : IArgumentInfo
     {
         public IParameterSymbol Symbol { get; }
         public IParserInfo Parser { get; protected set; }
@@ -527,7 +527,7 @@ namespace Kari.Plugins.Terminal
         }
     }
 
-    public class ArgumentInfo : ArgumentBase, IArgumentInfo
+    internal class ArgumentInfo : ArgumentBase, IArgumentInfo
     {
         public ArgumentAttribute Attribute { get; }
         public override IArgument GetAttribute() => Attribute;
@@ -540,7 +540,7 @@ namespace Kari.Plugins.Terminal
         }
     }
 
-    public class OptionInfo : ArgumentBase, IArgumentInfo
+    internal class OptionInfo : ArgumentBase, IArgumentInfo
     {
         public OptionAttribute Attribute { get; }
         public override IArgument GetAttribute() => Attribute;

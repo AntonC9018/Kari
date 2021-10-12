@@ -66,6 +66,7 @@ namespace Kari.GeneratorCore.Workflow
                     // Assume they are strings, but the array that we get from this
                     // should actually be of type of the objects within it, be it strings or ints
                     // This is definitely possible with reflection, I just don't know how exactly. 
+                    // TODO
                     yield return arg.Values.Select(a => a.Value).OfType<string>().ToArray();
                 }
                 else
@@ -97,9 +98,9 @@ namespace Kari.GeneratorCore.Workflow
             // result null, message not null -> error
             public readonly T Result; 
             public readonly string Message;
-            public bool IsError => Message != null && Result is null;
-            public bool IsSuccess => Result != null && Message is null;
-            public bool IsFail => Result == null && Message is null;
+            public bool IsError => !(Message is null) && Result is null;
+            public bool IsSuccess => !(Result is null) && Message is null;
+            public bool IsFail => Result is null && Message is null;
 
             private AttributeConversionResult(string message)
             {

@@ -1,9 +1,9 @@
-<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeTemplateBase" #>
+<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeTemplateBase" visibility="internal" #>
 <#@ assembly name="System.Core" #>
 <#@ import namespace="Kari.GeneratorCore" #>
 <#@ import namespace="Kari.Plugins.Terminal" #>
 
-namespace <#= TerminalAdministrator.TerminalProject.GeneratedNamespace #>
+namespace <#= TerminalAdministrator.TerminalProject.GeneratedNamespaceName #>
 {
     /// <summary>
     /// The CommandContext class must implement the following duck interface.
