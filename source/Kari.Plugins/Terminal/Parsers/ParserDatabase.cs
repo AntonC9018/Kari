@@ -5,13 +5,13 @@ using Microsoft.CodeAnalysis;
 
 namespace Kari.Plugins.Terminal
 {
-    public interface IParserInfo
+    internal interface IParserInfo
     {
         string Name { get; }
         string FullName { get; }
     }
 
-    public class BuiltinParser : IParserInfo
+    internal class BuiltinParser : IParserInfo
     {
         public string Name { get; }
         public string FullName { get; }
@@ -22,7 +22,7 @@ namespace Kari.Plugins.Terminal
         }
     }
 
-    public class CustomParserInfo : IParserInfo
+    internal class CustomParserInfo : IParserInfo
     {
         public readonly ISymbol Symbol;
         public readonly ParserAttribute Attribute;
@@ -68,7 +68,7 @@ namespace Kari.Plugins.Terminal
 
         internal static string GetFullyQualifiedParsersClassNameForProject(ProjectEnvironmentData environment)
         {
-            return environment.GeneratedNamespace.Combine("Parsers");
+            return environment.GeneratedNamespaceName.Combine("Parsers");
         }
 
         public ParserDatabase(ProjectEnvironmentData terminalProject)

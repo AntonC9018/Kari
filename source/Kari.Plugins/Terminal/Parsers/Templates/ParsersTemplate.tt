@@ -1,8 +1,8 @@
-﻿<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeGenerator<ParsersAnalyzer>" #>
+﻿<#@ template debug="false" hostspecific="false" linePragmas="false" language="C#" inherits="CodeGenerator<ParsersAnalyzer>" visibility="internal" #>
 <#@ assembly name="System.Core" #>
 <#@ import namespace="Kari.GeneratorCore" #>
 <#  if (m._customParserFunctionInfos.Count == 0 && m._customParserInfos.Count == 0) return null;  #>
-namespace <#= Project.GeneratedNamespace #>
+namespace <#= Project.GeneratedNamespaceName #>
 {
     using <#= m.DefinitionsNamespace #>;
 

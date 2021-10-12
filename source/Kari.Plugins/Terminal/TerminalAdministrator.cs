@@ -8,9 +8,9 @@ namespace Kari.Plugins.Terminal
         [Kari.GeneratorCore.Option("Namespace of the Terminal project.")]
         string terminalProject = "Terminal";
 
-        public ParsersAnalyzer[] _parserAnalyzers;
-        public CommandsAnalyzer[] _commandAnalyzers;
-        public static ProjectEnvironmentData TerminalProject { get; private set; }
+        internal ParsersAnalyzer[] _parserAnalyzers;
+        internal CommandsAnalyzer[] _commandAnalyzers;
+        internal static ProjectEnvironmentData TerminalProject { get; private set; }
         private Logger _logger;
 
         public void Initialize()

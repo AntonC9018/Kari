@@ -5,7 +5,7 @@ namespace Kari.Plugins.Terminal
 
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method | AttributeTargets.Field)]
     [Conditional("CodeGeneration")]
-    public class ParserAttribute : Attribute
+    internal class ParserAttribute : Attribute
     {
         public string Name { get; set; }
 

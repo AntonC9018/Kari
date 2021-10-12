@@ -16,15 +16,38 @@ namespace Kari.GeneratorCore.Workflow
         // TODO: 
         // We could use [Option] here and fill these in directly, but then we will also 
         // have to bring the validation logic here. Do I want that?
-        public string CommonProjectName { get; set; } = "Common"; 
+        public string CommonProjectNamespaceName { get; set; } = "Common"; 
+
+        /// <summary>
+        /// Relative path to the generated folder or file (.cs will be appended in this case).
+        /// Applies to each of the writers.
+        /// </summary>
         public string GeneratedPath { get; set; } = "Generated";
         public string GeneratedNamespaceSuffix { get; set; } = "Generated";
+
+        /// <summary>
+        /// All writers for the subprojects are generated from this writer.
+        /// </summary>
         public IFileWriter RootWriter { get; set; }
 
+        /// <summary>
+        /// Holds the agnostic code, without dependencies.
+        /// You should output agnostic code into this project.
+        /// </summary>
         public ProjectEnvironmentData CommonPseudoProject { get; private set; }
+        
+        /// <summary>
+        /// Holds any "master" or "runner" code.
+        /// This is the only project that can reference all other projects.
+        /// Place functions that bring together all generated code here, 
+        /// like registering classes in a central registry, giving them id's etc.
+        /// </summary>
         public ProjectEnvironmentData RootPseudoProject { get; private set; }
-
         public INamespaceSymbol RootNamespace { get; private set; }
+        
+        /// <summary>
+        /// All symbols must come from this central compilation.
+        /// </summary>
         public Compilation Compilation { get; private set; }
 
         public readonly Logger Logger;
@@ -87,7 +110,7 @@ namespace Kari.GeneratorCore.Workflow
         {
             Logger.Log($"Adding project {project.NamespaceName}");
             Projects.Add(project);
-            if (project.NamespaceName == CommonProjectName)
+            if (project.NamespaceName == CommonProjectNamespaceName)
             {
                 Logger.Log($"Found the common project {project.NamespaceName}");
                 CommonPseudoProject = project;
@@ -142,7 +165,7 @@ namespace Kari.GeneratorCore.Workflow
 
                 // Check if any script files exist in the root
                 if (Directory.EnumerateFiles(projectDirectory, "*.cs", SearchOption.TopDirectoryOnly).Any()
-                    // Check if any folders exist besided Editor folder
+                    // Check if any folders exist besides the Editor folder
                     || Directory.EnumerateDirectories(projectDirectory).Any(path => !path.EndsWith("Editor")))
                 {
                     var environment = new ProjectEnvironment(
@@ -211,9 +234,9 @@ namespace Kari.GeneratorCore.Workflow
 
             if (CommonPseudoProject is null) 
             {
-                if (!(CommonProjectName is null))
+                if (!(CommonProjectNamespaceName is null))
                 {
-                    Logger.LogWarning($"No common project {CommonProjectName}. The common files will be generated into root.");
+                    Logger.LogWarning($"No common project {CommonProjectNamespaceName}. The common files will be generated into root.");
                 }
 
                 CommonPseudoProject = RootPseudoProject;

@@ -623,6 +623,11 @@ namespace Kari.GeneratorCore
         {
             var configOptionsTemp = new HashSet<string>(TakenConfigurationOptions);
 
+            foreach (var k in Options.Keys)
+            {
+                configOptionsTemp.Add(k);
+            }
+
             for (int i = 0; i < Configurations.Count; i++)
             foreach (var property in Configurations[i].JsonRoot.Properties())
             {
