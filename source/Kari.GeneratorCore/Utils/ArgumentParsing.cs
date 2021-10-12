@@ -87,6 +87,9 @@ namespace Kari.GeneratorCore
         // If I did, I would have added a corresponding flag into the JTokenType enum instead.
         private readonly HashSet<string> TakenConfigurationOptions = new HashSet<string>();
 
+        /// <summary>
+        /// Has the help flag been passed?
+        /// </summary>
         public bool IsHelpSet { get; private set; }
         public bool IsEmpty => Options.Count == 0 && Configurations.Count == 0;
 
