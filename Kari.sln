@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26124.0
 MinimumVisualStudioVersion = 15.0.26124.0
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Test", "source\Kari.Test\Kari.Test.csproj", "{9057EB86-59DD-43AA-9137-4D272A27BA52}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Generator", "source\Kari.Generator\Kari.Generator.csproj", "{1248AE24-87D8-43CB-9A24-AF0FDADFF999}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.GeneratorCore", "source\Kari.GeneratorCore\Kari.GeneratorCore.csproj", "{9FD2251F-CCD8-4127-BAD1-A31ED38AD253}"
@@ -14,8 +12,6 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Terminal", "source\Kari.Plugins\Terminal\Terminal.csproj", "{722D0588-A9E8-4000-880E-B555D68CAB2D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Flags", "source\Kari.Plugins\Flags\Flags.csproj", "{BC2F7699-734B-4CA5-A8CE-DCF0C016C53E}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.OtherTest", "source\Kari.OtherTest\Kari.OtherTest.csproj", "{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnityHelpers", "source\Kari.Plugins\UnityHelpers\UnityHelpers.csproj", "{CC0A9FB8-942F-4FD4-BD79-29B71A0DEFE5}"
 EndProject
@@ -34,18 +30,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Debug|x64.Build.0 = Debug|Any CPU
-		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Debug|x86.Build.0 = Debug|Any CPU
-		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Release|x64.ActiveCfg = Release|Any CPU
-		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Release|x64.Build.0 = Release|Any CPU
-		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Release|x86.ActiveCfg = Release|Any CPU
-		{9057EB86-59DD-43AA-9137-4D272A27BA52}.Release|x86.Build.0 = Release|Any CPU
 		{1248AE24-87D8-43CB-9A24-AF0FDADFF999}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1248AE24-87D8-43CB-9A24-AF0FDADFF999}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1248AE24-87D8-43CB-9A24-AF0FDADFF999}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -94,18 +78,6 @@ Global
 		{BC2F7699-734B-4CA5-A8CE-DCF0C016C53E}.Release|x64.Build.0 = Release|Any CPU
 		{BC2F7699-734B-4CA5-A8CE-DCF0C016C53E}.Release|x86.ActiveCfg = Release|Any CPU
 		{BC2F7699-734B-4CA5-A8CE-DCF0C016C53E}.Release|x86.Build.0 = Release|Any CPU
-		{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}.Debug|x64.Build.0 = Debug|Any CPU
-		{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}.Debug|x86.Build.0 = Debug|Any CPU
-		{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}.Release|x64.ActiveCfg = Release|Any CPU
-		{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}.Release|x64.Build.0 = Release|Any CPU
-		{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}.Release|x86.ActiveCfg = Release|Any CPU
-		{0CDCAACD-15DE-4C62-93D2-C4247C57CA90}.Release|x86.Build.0 = Release|Any CPU
 		{CC0A9FB8-942F-4FD4-BD79-29B71A0DEFE5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{CC0A9FB8-942F-4FD4-BD79-29B71A0DEFE5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CC0A9FB8-942F-4FD4-BD79-29B71A0DEFE5}.Debug|x64.ActiveCfg = Debug|Any CPU
