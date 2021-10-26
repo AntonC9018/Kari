@@ -1,0 +1,6 @@
+<Project>
+  <ImportGroup>
+    <Import Project="$(MSBuildThisFileDirectory)/source/Directory.Build.props" />
+    <Import Project="$(PLUGIN_PROPS)" />
+  </ImportGroup>
+</Project>
