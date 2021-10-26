@@ -195,7 +195,7 @@ namespace Kari.Plugins.{pluginName}
   <!-- Has to point to Kari's root Plugin.props --> 
   <Import Project=""../Plugin.props"" />
   <PropertyGroup>
-    <AssemblyName>Kari.Plugins.Bitfield</AssemblyName>
+    <AssemblyName>Kari.Plugins.{pluginName}</AssemblyName>
   </PropertyGroup>
 </Project>
 ";
