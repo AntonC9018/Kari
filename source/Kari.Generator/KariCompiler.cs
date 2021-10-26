@@ -23,6 +23,12 @@
         //     IsFlag = true)]
         // bool help;
 
+        // This is a hack, but like my argument parsing system is simple and cannot handle this case easily.
+        // I assume one would just make another project = whole another program for the different use cases.
+        // I'm doing a hack to accomodate this currently.
+        [Option("Specify path for a new plugin file. It will create all the default files.")]
+        string newPluginPath = null;
+
         [Option("Input path to MSBuild project file or to the directory containing source files.", 
             IsRequired = true)] 
         string input;
@@ -144,6 +150,14 @@
         private void PreprocessOptions(ArgumentParser parser)
         {
             var result = parser.FillObjectWithOptionValues(this);
+            
+            // FIXME: This is the horrible hack.
+            if (!(newPluginPath is null) && !parser.IsHelpSet)
+            {
+                newPluginPath = newPluginPath.WithNormalizedDirectorySeparators();
+                return;
+            }
+
             if (result.IsError)
             {
                 foreach (var e in result.Errors)
@@ -153,14 +167,14 @@
                 return;
             }
 
-            pluginsLocations = pluginsLocations?.Select(s => NormalizeDirectorySeparators(s)).ToArray();
+            pluginsLocations = pluginsLocations?.Select(Stuff.WithNormalizedDirectorySeparators).ToArray();
 
             // Hacky?
             if (parser.IsHelpSet)
                 return;
 
-            input = Path.GetFullPath(NormalizeDirectorySeparators(input));
-            generatedName = NormalizeDirectorySeparators(generatedName);
+            input = Path.GetFullPath(input.WithNormalizedDirectorySeparators());
+            generatedName = generatedName.WithNormalizedDirectorySeparators();
 
             if (generatedName == "" && clearOutput)
             {
@@ -205,6 +219,14 @@
             entireGenerationMeasurer.Start("The entire generation process");
 
             PreprocessOptions(parser);
+
+            // TODO: Redo this in a reasonable way
+            if (!(newPluginPath is null) && !parser.IsHelpSet)
+            {
+                new PluginFileTemplates().WriteNewPlugin(newPluginPath);
+                return Exit(ExitCode.Ok);
+            }
+
             if (parser.IsHelpSet && pluginsLocations == null)
             {
                 Logger.LogPlain(parser.GetHelpFor(this));
@@ -457,12 +479,6 @@
                 workspace.Dispose();
                 throw;
             }
-        }
-        
-
-        private static string NormalizeDirectorySeparators(string path)
-        {
-            return path.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
         }
     }
 }
