@@ -52,9 +52,9 @@ The key part is to import the Plugin properties in the csproj file:
   </PropertyGroup>
 
   <ImportGroup>
-    <!-- PLUGIN_PROPS gets the absolute path to Plugin.props -->
+    <!-- KariPluginPropsPath gets the absolute path to Plugin.props -->
     <!-- "..\Plugin.props" should also work -->
-    <Import Project="$(PLUGIN_PROPS)" />
+    <Import Project="$(KariPluginPropsPath)" />
   </ImportGroup>
 </Project>
 ```

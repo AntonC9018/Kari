@@ -5,7 +5,7 @@
 
   <ImportGroup>
     <!-- See the plugin properties at `../Plugin.props` for more details -->
-    <Import Project="$(PLUGIN_PROPS)" />
+    <Import Project="$(KariPluginPropsPath)" />
   </ImportGroup>
   
 </Project>

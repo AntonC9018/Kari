@@ -1,27 +1,4 @@
 <Project>
-  <PropertyGroup>
-    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
-    <!-- If not run by the python script, set these variables to a reasonable default -->
-    <MSBUILD_OUTPUT_PATH Condition="'$(MSBUILD_OUTPUT_PATH)' == ''">$(MSBuildThisFileDirectory)..\Build\bin</MSBUILD_OUTPUT_PATH>
-    <MSBUILD_INTERMEDIATE_OUTPUT_PATH Condition="'$(MSBUILD_INTERMEDIATE_OUTPUT_PATH)' == ''">$(MSBuildThisFileDirectory)..\Build\obj</MSBUILD_INTERMEDIATE_OUTPUT_PATH>
-    <MSBUILD_KARI_ROOT_PATH>$(MSBuildThisFileDirectory)</MSBUILD_KARI_ROOT_PATH>
-    <PLUGIN_PROPS>$(MSBuildThisFileDirectory)Kari.Plugins\Plugin.props</PLUGIN_PROPS>
-    
-    <BaseOutputPath>$(MSBUILD_OUTPUT_PATH)\$(MSBuildProjectName)\</BaseOutputPath>
-    <OutputPath>$(BaseOutputPath)$(Configuration)\</OutputPath>
-
-    <BaseIntermediateOutputPath>$(MSBUILD_INTERMEDIATE_OUTPUT_PATH)\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
-    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)\</IntermediateOutputPath>
-
-    <!-- Not actually used, since we call the tool just locally -->
-    <!-- <MSBUILD_PACKAGE_OUTPUT Condition="'$(MSBUILD_PACKAGE_OUTPUT)' == ''">$(MSBuildThisFileDirectory)\..\Build\.nupkg</MSBUILD_PACKAGE_OUTPUT>
-    <PackageOutputPath>$(MSBUILD_PACKAGE_OUTPUT)\$(MSBuildProjectName)\$(Configuration)\</PackageOutputPath> -->
-  </PropertyGroup>
-
-  <Target Name="WorkaroundConfigNotFound" BeforeTargets="GenerateBindingRedirects">
-    <Message Text="$(MSBUILD_OUTPUT_PATH)\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config" Importance="high" />
-    <PropertyGroup>
-      <_GenerateBindingRedirectsIntermediateAppConfig>$(MSBUILD_OUTPUT_PATH)\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config</_GenerateBindingRedirectsIntermediateAppConfig>
-    </PropertyGroup>
-  </Target>
+  <Import Project="KariPropsPaths.props" />
+  <Import Project="KariOutputDirectories.props" />
 </Project>

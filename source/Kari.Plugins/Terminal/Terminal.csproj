@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ImportGroup>
-    <Import Project="$(PLUGIN_PROPS)" />
+    <Import Project="$(KariPluginPropsPath)" />
   </ImportGroup>
   
 </Project>

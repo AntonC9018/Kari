@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <KariRootPath>$(MSBuildThisFileDirectory)</KariRootPath>
+    <KariPluginPropsPath>$(MSBuildThisFileDirectory)Kari.Plugins\Plugin.props</KariPluginPropsPath>
+    <KariOutputDirectoriesPropsPath>$(MSBuildThisFileDirectory)KariOutputDirectories.props</KariOutputDirectoriesPropsPath>
+  </PropertyGroup>
+</Project>

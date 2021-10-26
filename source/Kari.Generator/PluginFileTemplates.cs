@@ -150,7 +150,7 @@ namespace Kari.Plugins.{pluginName}
 <#  // Returing null implies no output should be generated for the given template
     // `m` here is the analyzer instance for the current project.
     if (m._infos.Count == 0) return null;  #>
-namespace <#= Project.GeneratedNamespace #>
+namespace <#= Project.GeneratedNamespaceName #>
 {{
 <#  // IMPORTANT: 
     // Put the usings inside the namespace, because Kari may do single-file output
@@ -191,17 +191,12 @@ namespace Kari.Plugins.{pluginName}
 }}
 ";
 
-        private static string CSPROJ_TEMPLATE(string pluginName) => $@"<!-- The order has to be plugin props, then sdk stuff. -->
-<!-- Otherwise, it creates a nested obj file. -->
-<!-- https://docs.microsoft.com/en-us/visualstudio/msbuild/how-to-use-project-sdk?view=vs-2019 -->
-<Project>
+        private static string CSPROJ_TEMPLATE(string pluginName) => $@"<Project Sdk=""Microsoft.NET.Sdk"">
   <!-- Has to point to Kari's root Plugin.props --> 
   <Import Project=""../Plugin.props"" />
-  <Import Project=""Sdk.props"" Sdk=""Microsoft.NET.Sdk"" />
   <PropertyGroup>
-    <AssemblyName>Kari.Plugins.{pluginName}</AssemblyName>
+    <AssemblyName>Kari.Plugins.Bitfield</AssemblyName>
   </PropertyGroup>
-  <Import Project=""Sdk.targets"" Sdk=""Microsoft.NET.Sdk"" />
 </Project>
 ";
     }
