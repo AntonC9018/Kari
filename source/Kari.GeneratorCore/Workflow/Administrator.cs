@@ -94,5 +94,21 @@ namespace Kari.GeneratorCore.Workflow
         {
             return Task.Run(() => Generate(slaves, fileName, generator));
         }
+
+        public static void Generate<T>(T[] slaves, string fileName)
+            where T : ISimpleGenerator
+        {
+            var projects = MasterEnvironment.Instance.Projects;
+            for (int i = 0; i < slaves.Length; i++)
+            {
+                projects[i].WriteFile(fileName, slaves[i].TransformText(projects[i]));
+            }
+        }
+
+        public static Task GenerateAsync<T>(T[] slaves, string fileName) 
+            where T : ISimpleGenerator
+        {
+            return Task.Run(() => Generate(slaves, fileName));
+        }
     }
 }

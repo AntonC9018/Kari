@@ -18,6 +18,25 @@ namespace Kari.GeneratorCore.Workflow
             return $"{GetFullQualification(symbol)}.{symbol.Name}";
         }
 
+        public static string GetFullyQualifiedName(this ITypeSymbol symbol) => symbol.SpecialType switch 
+        {
+            SpecialType.System_SByte    => "sbyte",
+            SpecialType.System_Int16    => "short",
+            SpecialType.System_Int32    => "int",
+            SpecialType.System_Int64    => "long",
+            SpecialType.System_Byte     => "byte",
+            SpecialType.System_UInt16   => "ushort",
+            SpecialType.System_UInt32   => "uint",
+            SpecialType.System_UInt64   => "ulong",
+            SpecialType.System_Object   => "object",
+            SpecialType.System_Boolean  => "bool",
+            SpecialType.System_String   => "string",
+            SpecialType.System_Single   => "float",
+            SpecialType.System_Double   => "double",
+            SpecialType.System_Char     => "char",
+            _ => GetFullyQualifiedName((ISymbol) symbol),
+        };
+
         public static string GetFullQualification(this ISymbol symbol)
         {
             Stack<string> names = new Stack<string>();

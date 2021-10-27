@@ -2,6 +2,9 @@
 
 This project started as the code generator tightly coupled with [the main project it was used in](https://github.com/PunkyIANG/a-particular-project), but eventually became pretty much a standalone tool, easily extensible via plugins and very flexible. 
 
+Kari is a Roslyn based tool. 
+It can read the source code of your C# project, analyze it, and generate new type-safe code based on it.
+This tool can often replace slow or annoying to write code based on reflection, boilerplate, or IL-emission; encourages declarative programming.
 
 **Currently done:**
 
@@ -120,3 +123,17 @@ See `source/README.md` for more info about the code generator.
 `kari.exe` can be run on its own. 
 It's located in `Build\bin\Kari.Generator\Debug\netcoreapp3.1\kari.exe`. 
 I'm going to add a more friendly way of calling it though.
+
+In order to install it as a tool, currently do:
+
+```
+dotnet pack --configuration Release
+dotnet tool update --global Kari.Generator --add-source Build\bin\Kari.Generator\Release
+```
+
+Which allows you to call kari like this:
+```
+kari
+```
+
+But I'm currently figuring out a simpler way of publishing and installing it.

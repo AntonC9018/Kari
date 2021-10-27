@@ -36,6 +36,7 @@
   <Target Name="TextTemplateTransform" BeforeTargets="BeforeBuild">
 
     <!-- %(Whatever) does iteration over the given 'Glob', representing an individual element of the sequence. -->
+    <!-- TODO: $(AssemblyName) thing is kind of annoying. Pull the name from the directory somehow -->
     <Exec Condition="@(TextTemplates) != ''" Command="dotnet t4 %(TextTemplates.Identity) -class $(AssemblyName).%(TextTemplates.Filename) -out %(TextTemplates.RecursiveDir)%(TextTemplates.Filename).Generated.cs" />
 
     <!-- There is no -class option, because this is a design time template, I think it is called. -->

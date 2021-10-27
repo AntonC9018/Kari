@@ -67,6 +67,14 @@ namespace Kari.GeneratorCore
         }
 
         /// <summary>
+        /// Appends only the text to the output.
+        /// </summary>
+        public void NewLine()
+        {
+            _stringBuilder.AppendLine();
+        }
+
+        /// <summary>
         /// Appends '{' and increases indentation.
         /// </summary>
         public void StartBlock()

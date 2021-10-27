@@ -3,15 +3,7 @@
 ## How to use?
 
 Kari has been designed for use in [this particular project](https://github.com/PunkyIANG/a-particular-project), and has not been tested anywhere else (yet).
-
-The further steps (baton) assumes being in scope of that project.
-
-You can call `baton kari unity` to run the code generator on the subproject, but the code generator can be used directly, without Baton.
-You can use e.g. `dotnet run -p Kari.Generator/Kari.Generator.csproj` to compile and run Kari.
-For further help, call Kari without arguments to see the different options.
-
-Baton also provides commands for compiling Kari and the plugins: do `baton kari build --help` for more info
-
+To get help, call Kari without arguments to see the different options.
 
 ## Plugins
 
@@ -38,7 +30,8 @@ Administrators must be public classes implementing `IAdministrator`. They must i
 ### How to make a plugin
 
 The easiest way to get started is to use a starter template. 
-To generate a starter boilerplate for your plugin and add it to the solution, use `baton kari new_plugin -name NAME_OF_PLUGIN`.
+To generate a starter boilerplate for your plugin and add it to the solution, use `kari -newPluginPath PATH_TO_PLUGIN`.
+
 This generates 5 files: the csproj file, *Administrator* class, *Analyzer* class, a file with *Annotations* and a T4 template for code generation.
 Out of these parts, only an *Administrator* (and a csproj file obviously) is absolutely required from a plugin, but the other parts are also common.
 

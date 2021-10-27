@@ -20,4 +20,9 @@ namespace Kari.GeneratorCore
         public Model m { get; set; }
         public ProjectEnvironmentData Project { get; set; }
     }
+
+    public interface ISimpleGenerator
+    {
+        string TransformText(ProjectEnvironmentData project);
+    }
 }

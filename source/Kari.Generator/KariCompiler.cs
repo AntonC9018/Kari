@@ -26,7 +26,7 @@
         // This is a hack, but like my argument parsing system is simple and cannot handle this case easily.
         // I assume one would just make another project = whole another program for the different use cases.
         // I'm doing a hack to accomodate this currently.
-        [Option("Specify path for a new plugin file. It will create all the default files.")]
+        [Option("Specify path for a new plugin folder. It will create all the default files.")]
         string newPluginPath = null;
 
         [Option("Input path to MSBuild project file or to the directory containing source files.", 
