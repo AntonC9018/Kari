@@ -3,7 +3,6 @@
   <PropertyGroup>
     <AssemblyName>kari</AssemblyName>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
     <LangVersion>8</LangVersion>
     <!-- Honestly, non-nullable sucks too much to be any useful -->
     <!-- <Nullable>enable</Nullable> -->
@@ -18,7 +17,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ConsoleAppFramework" Version="2.0.0" />
     <PackageReference Include="Microsoft.Build.Locator" Version="1.2.6" />
     <PackageReference Include="Microsoft.Build.Framework" Version="16.5.0" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.Build" Version="16.5.0" ExcludeAssets="runtime" />

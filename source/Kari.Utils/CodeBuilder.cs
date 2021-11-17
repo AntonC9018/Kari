@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 
-namespace Kari.GeneratorCore
+namespace Kari.Utils
 {
     /// <summary>
     /// A utility string builder with indentation support.

@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Kari.Utils;
 using Newtonsoft.Json.Linq;
 
 namespace Kari.GeneratorCore
@@ -161,7 +162,7 @@ namespace Kari.GeneratorCore
                 {
                     if (isApparentlyFlag)
                         return ParsingResult.MissingValueForConfigFile(); 
-                    var result = TryParseArgumentsJsons(arguments[i].Split(","));
+                    var result = TryParseArgumentsJsons(arguments[i].Split(','));
                     i++;
                     if (result.IsError)
                         return result;
@@ -313,13 +314,13 @@ namespace Kari.GeneratorCore
                 
                 if (!hasOption)
                 { 
-                    bool TryGetOptionFromConfiguration(string name, out JToken confOption)
+                    bool TryGetOptionFromConfiguration(string aname, out JToken confOption)
                     {
                         for (int i = 0; i < Configurations.Count; i++)
                         {
-                            if (Configurations[i].JsonRoot.ContainsKey(name))
+                            if (Configurations[i].JsonRoot.ContainsKey(aname))
                             {
-                                confOption = Configurations[i].JsonRoot[name];
+                                confOption = Configurations[i].JsonRoot[aname];
                                 return true;
                             }
                         }
@@ -464,7 +465,7 @@ namespace Kari.GeneratorCore
                 }
                 else if (fieldInfo.FieldType == typeof(HashSet<string>))
                 {
-                    SetValue(ParseAsStringArray().ToHashSet());
+                    SetValue(new HashSet<string>(ParseAsStringArray()));
                 }
                 else if (fieldInfo.FieldType == typeof(int[]))
                 {

@@ -1,13 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
     <AssemblyName>Kari.GeneratorCore</AssemblyName>
     <!-- <SignAssembly>True</SignAssembly>
     <AssemblyOriginatorKeyFile>..\..\opensource.snk</AssemblyOriginatorKeyFile> -->
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="$(KariRootPath)Kari.Arguments\Kari.Arguments.csproj"/>
+
     <PackageReference Include="Humanizer" Version="2.11.10" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
 

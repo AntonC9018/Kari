@@ -1,4 +1,8 @@
 <Project>
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+  </PropertyGroup>
+
   <Import Project="KariPropsPaths.props" />
   <Import Project="KariOutputDirectories.props" />
 </Project>

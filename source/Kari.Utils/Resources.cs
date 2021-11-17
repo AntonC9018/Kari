@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Kari.GeneratorCore
+namespace Kari.Utils
 {
     public readonly struct Resources<BaseType> where BaseType : class
     {

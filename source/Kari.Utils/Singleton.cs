@@ -1,4 +1,4 @@
-namespace Kari.GeneratorCore
+namespace Kari.Utils
 {
     public class Singleton<T> where T : Singleton<T>
     {

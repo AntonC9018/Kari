@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
+using Kari.Utils;
 using Microsoft.CodeAnalysis;
 
 namespace Kari.Plugins.Terminal

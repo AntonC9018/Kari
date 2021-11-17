@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
+using Kari.Utils;
 
 namespace Kari.Plugins.UnityHelpers
 {

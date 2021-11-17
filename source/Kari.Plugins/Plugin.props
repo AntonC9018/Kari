@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <DummyAnnotationsTemplatePath>$(KariRootPath)Kari.Plugins\DummyAnnotations.tt</DummyAnnotationsTemplatePath>
     <!-- RS1024 is Compare Symbols correctly, making me use `SymbolComparison.Default.Equals()` instead of `==` -->
     <NoWarn>$(NoWarn);RS1024</NoWarn>
