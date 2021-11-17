@@ -8,7 +8,7 @@ using System.Text;
 using Kari.Utils;
 using Newtonsoft.Json.Linq;
 
-namespace Kari.GeneratorCore
+namespace Kari.Arguments
 {
     public enum OptionPropertyFlags
     {

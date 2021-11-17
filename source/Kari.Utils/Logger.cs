@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace Kari.GeneratorCore.Workflow
+namespace Kari.Utils
 {
     public enum LogType
     {

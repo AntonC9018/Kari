@@ -47,6 +47,7 @@
 <#= namespaceDeclaration #> 
 {
 	using Kari.GeneratorCore.Workflow;
+	using Kari.Utils;
 
 	internal static class Dummy<#= classname #>
 	{

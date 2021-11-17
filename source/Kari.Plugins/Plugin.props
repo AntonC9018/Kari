@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
+    <OutputType>Library</OutputType>
     <DummyAnnotationsTemplatePath>$(KariRootPath)Kari.Plugins\DummyAnnotations.tt</DummyAnnotationsTemplatePath>
     <!-- RS1024 is Compare Symbols correctly, making me use `SymbolComparison.Default.Equals()` instead of `==` -->
     <NoWarn>$(NoWarn);RS1024</NoWarn>
@@ -24,12 +25,6 @@
 
     <!-- These just define VARIABLES, used below for the transform `target` -->
     <TextTemplates Include="**\*Template.tt" />
-
-    <Annotations Include="**\*Annotations.cs" />
-    <Annotations Include="**\Annotations.cs" />
-    <Annotations Include="$(MSBuildProjectDirectory)*Annotations.cs" />
-    <Annotations Include="$(MSBuildProjectDirectory)Annotations.cs" Condition="Exists('$(MSBuildProjectDirectory)Annotations.cs')" />
-
     <Generated Include="**\*.Generated.cs" />
   </ItemGroup>
 
@@ -41,7 +36,7 @@
 
     <!-- There is no -class option, because this is a design time template, I think it is called. -->
     <!-- -p: passes variables to the template. -->
-    <Exec Condition="@(Annotations) != ''" Command="dotnet t4 $(DummyAnnotationsTemplatePath) -out %(Annotations.RecursiveDir)%(Annotations.Filename).Generated.cs -p:AnnotationsPath=&quot;%(Annotations.Identity)&quot;" />
+    <Exec Command="dotnet run --project $(KariRootPath)Kari.Annotator\Kari.Annotator.csproj --no-restore"/>
     
   </Target>
 

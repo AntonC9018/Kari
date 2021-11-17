@@ -1,11 +1,12 @@
 using System.Threading.Tasks;
 using Kari.GeneratorCore.Workflow;
+using Kari.Utils;
 
 namespace Kari.Plugins.Terminal
 {
     public class TerminalAdministrator : IAdministrator
     {
-        [Kari.GeneratorCore.Option("Namespace of the Terminal project.")]
+        [Kari.Arguments.Option("Namespace of the Terminal project.")]
         string terminalProject = "Terminal";
 
         internal ParsersAnalyzer[] _parserAnalyzers;

@@ -2,6 +2,7 @@ using System.IO;
 using System.Linq;
 using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
+using Kari.Utils;
 using Microsoft.CodeAnalysis.CSharp;
 
 namespace Kari.Generator

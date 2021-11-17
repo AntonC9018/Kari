@@ -4,10 +4,19 @@ using System.Text;
 
 namespace Kari.Utils
 {
+    // public interface IAppendable
+    // {
+    //     void Append(string text);
+    // }
+    // public interface IIndentable
+    // {
+    //     void Indent();
+    // }
+
     /// <summary>
     /// A utility string builder with indentation support.
     /// </summary>
-    public struct CodeBuilder
+    public struct CodeBuilder // : IAppendable, IIndentable
     {
         private readonly StringBuilder _stringBuilder;
         public string CurrentIndentation;
@@ -58,6 +67,11 @@ namespace Kari.Utils
             _stringBuilder.AppendLine(text);
         }
 
+        public void Append(string source, int startIndex, int count)
+        {
+            _stringBuilder.Append(source, startIndex, count);
+        }
+
         /// <summary>
         /// Appends only the text to the output.
         /// </summary>
@@ -91,6 +105,12 @@ namespace Kari.Utils
             DecreaseIndent();
             _stringBuilder.AppendLine(CurrentIndentation + "}");
         }
+
+        public void Clear()
+        {
+            CurrentIndentation = "";
+            _stringBuilder.Clear();
+        }
     }
 
     /// <summary>
@@ -117,7 +137,8 @@ namespace Kari.Utils
         /// </summary>
         public void Append(string element)
         {
-            _stringBuilder.Append(element + _separator);
+            _stringBuilder.Append(element);
+            _stringBuilder.Append(_separator);
         }
 
         public override string ToString()
@@ -274,4 +295,6 @@ namespace Kari.Utils
             return builder.ToString();
         }
     }
+
+
 }

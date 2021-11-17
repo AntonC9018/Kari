@@ -8,8 +8,10 @@
     using System.Runtime.Loader;
     using System.Threading;
     using System.Threading.Tasks;
+    using Kari.Arguments;
     using Kari.GeneratorCore;
     using Kari.GeneratorCore.Workflow;
+    using Kari.Utils;
     using Microsoft.Build.Locator;
     using Microsoft.Build.Logging;
     using Microsoft.CodeAnalysis;
@@ -167,7 +169,7 @@
                 return;
             }
 
-            pluginsLocations = pluginsLocations?.Select(Stuff.WithNormalizedDirectorySeparators).ToArray();
+            pluginsLocations = pluginsLocations?.Select(FileSystem.WithNormalizedDirectorySeparators).ToArray();
 
             // Hacky?
             if (parser.IsHelpSet)

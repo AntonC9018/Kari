@@ -5,7 +5,7 @@
             "name": ".NET Core Launch (console)",
             "type": "coreclr",
             "request": "launch",
-            "preLaunchTask": "build",
+            "preLaunchTask": "build_kari_debug",
             "program": "${workspaceFolder}/Build/bin/Kari.Generator/Debug/net5.0/kari.dll",
             "args": [],
             "cwd": "${workspaceFolder}/../Bitfield/Bitfield.Tests",
@@ -16,6 +16,17 @@
             "name": ".NET Core Attach",
             "type": "coreclr",
             "request": "attach"
-        }
+        },
+        {
+            "name": "Debug Annotator",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build_annotator_debug",
+            "program": "${workspaceFolder}/Build/bin/Kari.Annotator/Debug/net5.0/Kari.Annotator.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/source/Kari.Plugins/DataObject",
+            "console": "internalConsole",
+            "stopAtEntry": false
+        },
     ]
 }
