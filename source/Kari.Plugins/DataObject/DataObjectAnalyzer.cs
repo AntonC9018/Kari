@@ -19,7 +19,7 @@ namespace Kari.Plugins.DataObject
             {
                 if (type.HasAttribute(DataObjectSymbols.DataObjectAttribute.symbol))
                 {
-                    var syntax = type.DeclaringSyntaxReferences[0].GetSyntax() as ClassDeclarationSyntax;
+                    var syntax = type.DeclaringSyntaxReferences[0].GetSyntax() as TypeDeclarationSyntax;
                     if (!syntax.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
                     {
                         environment.Logger.LogWarning($"The type '{type.Name}' defined at {type.GetLocationInfo()} marked as 'DataObject' must be partial.");
@@ -79,6 +79,7 @@ namespace Kari.Plugins.DataObject
                 cb.EndBlock();
             }
 
+            if (!info.Symbol.IsReadOnly)
             {
                 cb.AppendLine($"public void Sync({info.Name} other)");
                 cb.StartBlock();
