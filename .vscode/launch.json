@@ -8,7 +8,7 @@
             "preLaunchTask": "build_kari_debug",
             "program": "${workspaceFolder}/Build/bin/Kari.Generator/Debug/net5.0/kari.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/../Bitfield/Bitfield.Tests",
+            "cwd": "${workspaceFolder}/../Stuff",
             "console": "internalConsole",
             "stopAtEntry": false
         },

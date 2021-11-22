@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
 using Kari.Utils;
 using Microsoft.CodeAnalysis;
@@ -48,11 +47,11 @@ namespace Kari.Plugins.DataObject
         public string TransformSingle(DataObjectInfo info, string initialIndentation = "    ")
         {
             var cb = new CodeBuilder("    ", initialIndentation);
-            cb.AppendLine($"{info.AccessModifier} partial {info.TypeKeyword} {info.Name}");
+            cb.AppendLine($"{info.AccessModifier} partial {info.TypeKeyword} {info.NameTypeParameters}");
             cb.StartBlock();
 
             {
-                cb.AppendLine($"public static bool operator==({info.Name} a, {info.Name} b)");
+                cb.AppendLine($"public static bool operator==({info.NameTypeParameters} a, {info.NameTypeParameters} b)");
                 cb.StartBlock();
                 cb.Indent();
                 cb.Append("return ");
@@ -60,7 +59,10 @@ namespace Kari.Plugins.DataObject
                 var listBuilder = new ListBuilder($"\r\n{cb.CurrentIndentation + cb.Indentation}&& ");
                 foreach (var field in info.Fields)
                 {
-                    listBuilder.Append($"a.{field.Name} == b.{field.Name}");
+                    if (field.Type.HasEqualityOperatorAbleToCompareAgainstOwnType())
+                        listBuilder.Append($"a.{field.Name} == b.{field.Name}");
+                    else
+                        listBuilder.Append($"a.{field.Name}.Equals(b.{field.Name})");
                 }
 
                 cb.Append(listBuilder.ToString());
@@ -73,7 +75,7 @@ namespace Kari.Plugins.DataObject
                 cb.AppendLine();
                 cb.EndBlock();
 
-                cb.AppendLine($"public static bool operator!=({info.Name} a, {info.Name} b)");
+                cb.AppendLine($"public static bool operator!=({info.NameTypeParameters} a, {info.NameTypeParameters} b)");
                 cb.StartBlock();
                 cb.AppendLine("return !(a == b);");
                 cb.EndBlock();
@@ -81,7 +83,7 @@ namespace Kari.Plugins.DataObject
 
             if (!info.Symbol.IsReadOnly)
             {
-                cb.AppendLine($"public void Sync({info.Name} other)");
+                cb.AppendLine($"public void Sync({info.NameTypeParameters} other)");
                 cb.StartBlock();
 
                 foreach (var field in info.Fields)
@@ -111,13 +113,13 @@ namespace Kari.Plugins.DataObject
             {
                 cb.AppendLine($"public override bool Equals(object other)");
                 cb.StartBlock();
-                cb.AppendLine($"return other is {info.Name} a && this == a;");
+                cb.AppendLine($"return other is {info.NameTypeParameters} a && this == a;");
                 cb.EndBlock();
             }
 
             if (info.Symbol.IsReferenceType) 
             {
-                cb.AppendLine($"public {info.Name} Copy => ({info.Name}) this.MemberwiseClone();");
+                cb.AppendLine($"public {info.NameTypeParameters} Copy => ({info.NameTypeParameters}) this.MemberwiseClone();");
             }
 
             cb.EndBlock();
@@ -130,6 +132,7 @@ namespace Kari.Plugins.DataObject
         public readonly IFieldSymbol[] Fields;
         public readonly INamedTypeSymbol Symbol;
         public readonly string AccessModifier;
+        public readonly string NameTypeParameters;
         public string TypeKeyword => Symbol.IsValueType ? "struct" : "class";
         public string Name => Symbol.Name;
 
@@ -138,6 +141,11 @@ namespace Kari.Plugins.DataObject
             Symbol = symbol;
             AccessModifier = accessModifier;
             Fields = Symbol.GetMembers().OfType<IFieldSymbol>().ToArray();
+            
+            var syntax = Symbol.DeclaringSyntaxReferences[0].GetSyntax() as TypeDeclarationSyntax;
+            NameTypeParameters = symbol.Name;
+            if (!(syntax.TypeParameterList is null))
+                NameTypeParameters += syntax.TypeParameterList.WithoutTrivia().ToFullString();
         }
     }
 }
