@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+  <ImportGroup>
+    <Import Project="$(MSBuildThisFileDirectory)source\KariPropsPaths.props" />
+    <Import Project="$(MSBuildThisFileDirectory)source\KariOutputDirectories.props" />
+  </ImportGroup>
+</Project>

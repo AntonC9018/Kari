@@ -4,6 +4,8 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <AssemblyName>Kari.Annotator</AssemblyName>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>kari-annotator</ToolCommandName>
   </PropertyGroup>
 
   <ItemGroup>

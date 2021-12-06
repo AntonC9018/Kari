@@ -1,0 +1,6 @@
+<Project>
+  <ImportGroup>
+    <Import Project="$(KariNugetBuildFolderPath)Plugin.props" />
+    <Import Project="$(KariNugetBuildFolderPath)Plugin.targets" />
+  </ImportGroup>
+</Project>

@@ -1,0 +1,14 @@
+<Project>
+  <Target Name="RunAnnotator" BeforeTargets="BeforeBuild">
+    <Exec Command="dotnet kari-annotator" />
+    <ItemGroup>
+      <!-- https://stackoverflow.com/a/44829863/9731532 -->
+      <Compile Include="**/*$(DefaultLanguageSourceExtension)"
+               Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder);$(BaseIntermediateOutputPath)**;$(BaseOutputPath)**;@(Compile)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="TextTemplateClean" AfterTargets="Clean">
+    <Delete Files="@(Generated)" />
+  </Target>
+</Project>

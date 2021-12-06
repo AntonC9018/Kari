@@ -24,7 +24,7 @@
   </ItemGroup>
   
   <ItemGroup>
-    <ProjectReference Include="..\Kari.GeneratorCore\Kari.GeneratorCore.csproj" />
+    <ProjectReference Include="$(KariRootPath)Kari.GeneratorCore\Kari.GeneratorCore.csproj" />
   </ItemGroup>
 
 </Project>

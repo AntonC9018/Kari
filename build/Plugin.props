@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <!-- RS1024 is Compare Symbols correctly, making me use `SymbolComparison.Default.Equals()` instead of `==` -->
+    <NoWarn>$(NoWarn);RS1024</NoWarn>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <!-- Roslyn references. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.10.0" />
+    <PackageReference Include="Microsoft.Build" Version="16.5.0" />
+    <ProjectReference Include="$(KariRootPath)Kari.GeneratorCore\Kari.GeneratorCore.csproj" />
+    <DotNetCliToolReference Include="$(KariRootPath)Kari.Annotator\Kari.Annotator.csproj"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Generated Include="**\*.Generated.cs" />
+  </ItemGroup>
+</Project>

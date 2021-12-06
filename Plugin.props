@@ -1,6 +1,0 @@
-<Project>
-  <ImportGroup>
-    <Import Project="$(MSBuildThisFileDirectory)source\KariPropsPaths.props" />
-    <Import Project="$(KariPluginPropsPath)" />
-  </ImportGroup>
-</Project>

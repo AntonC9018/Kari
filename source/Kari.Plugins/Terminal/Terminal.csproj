@@ -1,11 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
     <AssemblyName>Kari.Plugins.Terminal</AssemblyName>
   </PropertyGroup>
 
-  <ImportGroup>
-    <Import Project="$(KariPluginPropsPath)" />
-  </ImportGroup>
-  
+  <Import Project="..\InternalPlugin.props" />
 </Project>
