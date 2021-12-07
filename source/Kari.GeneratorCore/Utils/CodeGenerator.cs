@@ -21,7 +21,7 @@ namespace Kari.GeneratorCore
         public ProjectEnvironmentData Project { get; set; }
     }
 
-    public interface ISimpleGenerator
+    public interface ITransformText
     {
         string TransformText(ProjectEnvironmentData project);
     }

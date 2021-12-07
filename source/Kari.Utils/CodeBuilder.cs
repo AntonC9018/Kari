@@ -1,23 +1,27 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
+using static System.Diagnostics.Debug;
 
 namespace Kari.Utils
 {
-    // public interface IAppendable
-    // {
-    //     void Append(string text);
-    // }
-    // public interface IIndentable
-    // {
-    //     void Indent();
-    // }
+    public interface IAppend
+    {
+        void Append(string text);
+    }
+    public interface IIndent
+    {
+        void Indent();
+    }
 
     /// <summary>
     /// A utility string builder with indentation support.
     /// </summary>
-    public struct CodeBuilder // : IAppendable, IIndentable
+    public struct CodeBuilder: IAppend, IIndent
     {
+        public static CodeBuilder Create() { return new CodeBuilder("    ", ""); }
+        
         private readonly StringBuilder _stringBuilder;
         public string CurrentIndentation;
 
@@ -296,5 +300,107 @@ namespace Kari.Utils
         }
     }
 
+    public static class TemplateFormatting
+    {
+        // TODO: Autogenerate these with a script
+        public static void AppendLine<T>(this ref T builder, string a, string b)
+            where T : struct, IAppend, IIndent
+        {
+            builder.Indent();
+            builder.Append(a);
+            builder.Append(b);
+            builder.Append("\n");
+        }
 
+        public static void AppendLine<T>(this ref T builder, string a, string b, string c)
+            where T : struct, IAppend, IIndent
+        {
+            builder.Indent();
+            builder.Append(a);
+            builder.Append(b);
+            builder.Append(c);
+            builder.Append("\n");
+        }
+
+        public static void AppendLine<T>(this ref T builder, string a, string b, string c, string d)
+            where T : struct, IAppend, IIndent
+        {
+            builder.Indent();
+            builder.Append(a);
+            builder.Append(b);
+            builder.Append(c);
+            builder.Append(d);
+            builder.Append("\n");
+        }
+
+        public static void AppendLine<T>(this ref T builder, string a, string b, string c, string d, string e)
+            where T : struct, IAppend, IIndent
+        {
+            builder.Indent();
+            builder.Append(a);
+            builder.Append(b);
+            builder.Append(c);
+            builder.Append(d);
+            builder.Append(e);
+            builder.Append("\n");
+        }
+
+        public static void AppendLine<T>(this ref T builder, string a, string b, string c, string d, string e, string f)
+            where T : struct, IAppend, IIndent
+        {
+            builder.Indent();
+            builder.Append(a);
+            builder.Append(b);
+            builder.Append(c);
+            builder.Append(d);
+            builder.Append(e);
+            builder.Append(f);
+            builder.Append("\n");
+        }
+
+         public static void AppendLine<T>(this ref T builder, string a, string b, string c, string d, string e, string f, string g)
+            where T : struct, IAppend, IIndent
+        {
+            builder.Indent();
+            builder.Append(a);
+            builder.Append(b);
+            builder.Append(c);
+            builder.Append(d);
+            builder.Append(e);
+            builder.Append(f);
+            builder.Append(g);
+            builder.Append("\n");
+        }
+        // // God the stack memory things are so cumbersome in this language
+        // public static unsafe void FormattedAppend<T>(
+        //     this ref T builder, ReadOnlySpan<char> format, 
+        //     ReadOnlySpan<string> names, 
+        //     ReadOnlySpan<string> values) 
+            
+        //     where T : struct, IAppendable
+        // {
+        //     // Temporary implementation
+        //     Assert(names.Length == values.Length);
+        //     for (int i = 0; i < names.Length; i++)
+        //     {
+        //         Span<char> name = stackalloc char[3 + names[i].Length];
+        //         name[0] = '$';
+        //         name[1] = '(';
+        //         names[i].AsSpan().CopyTo(name.Slice(2, names[i].Length));
+        //         name[^1] = ')';
+
+        //         format = format.Replace(name., values[i].AsSpan());
+        //     }
+        //     builder.Append(format);
+        // }
+
+        public static void FormattedAppend<T>(this ref T builder, string format, params string[] namesAndValues) 
+            where T : struct, IAppend
+        {
+            // Temporary implementation
+            for (int i = 0; i < namesAndValues.Length; i += 2)
+                format = format.Replace("$(" + namesAndValues[i] + ")", namesAndValues[i + 1]);
+            builder.Append(format);
+        }
+    }
 }

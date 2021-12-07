@@ -96,7 +96,7 @@ namespace Kari.GeneratorCore.Workflow
         }
 
         public static void Generate<T>(T[] slaves, string fileName)
-            where T : ISimpleGenerator
+            where T : ITransformText
         {
             var projects = MasterEnvironment.Instance.Projects;
             for (int i = 0; i < slaves.Length; i++)
@@ -106,7 +106,7 @@ namespace Kari.GeneratorCore.Workflow
         }
 
         public static Task GenerateAsync<T>(T[] slaves, string fileName) 
-            where T : ISimpleGenerator
+            where T : ITransformText
         {
             return Task.Run(() => Generate(slaves, fileName));
         }

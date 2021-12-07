@@ -28,18 +28,48 @@ namespace Kari.Plugins.UnityHelpers
         public Task Collect() => Task.CompletedTask;
         public Task Generate()
         {
-            return _engineCommon.WriteFileAsync("Helpers.cs", new HelpersTemplate());
+            return _engineCommon.WriteFileAsync("Helpers.cs", TransformText());
         }
-    }
 
-    public partial class HelpersTemplate
-    {
-        private string DoVector(string vectorName, string type, string[] vars, string initialIndentation = "        ")
+        internal string TransformText()
+        {
+            var builder = CodeBuilder.Create();
+            builder.AppendLine("namespace ", engineCommon);
+            builder.StartBlock();
+            builder.AppendLine("using UnityEngine;");
+            builder.AppendLine("public static partial class UnityHelpers");
+            builder.StartBlock();
+            
+            foreach (var type in new string[] { "float", "int" })
+            {
+                builder.StartBlock();
+                foreach (var i in "xyzw") 
+                { 
+                    var classname = type + i;
+                    builder.AppendLine("public struct ", classname);
+                    builder.StartBlock();
+                    builder.AppendLine("public readonly ", type, "value");
+                    builder.AppendLine("public ", classname, "(", type, " value) => this.value = value;");
+                    builder.AppendLine("public static implicit operator ", classname, "(", type, " value) => new ", classname, "(value);");
+                    builder.AppendLine("public static implicit operator ", type,"(", classname, "t) => t.value;");
+                    builder.EndBlock();
+                }
+            }
+
+            DoVector(ref builder, "Vector2", "float",  new string[] { "x", "y" });
+            DoVector(ref builder, "Vector3", "float",  new string[] { "x", "y", "z" });
+            DoVector(ref builder, "Vector4", "float",  new string[] { "x", "y", "z", "w" });
+            DoVector(ref builder, "Vector2Int", "int", new string[] { "x", "y" });
+            DoVector(ref builder, "Vector3Int", "int", new string[] { "x", "y", "z" });
+
+            return builder.ToString();
+        }
+
+        internal void DoVector(ref CodeBuilder builder, string vectorName, string type, string[] vars)
         { 
             string[] args = new string[vars.Length];
             var otherParams = new ListBuilder(", ");
             int bitEnd = 1 << vars.Length;
-            var codeBuilder = new CodeBuilder("    ", initialIndentation);
 
             for (int bitCombo = 1; bitCombo < bitEnd - 1; bitCombo++) 
             { 
@@ -69,14 +99,13 @@ namespace Kari.Plugins.UnityHelpers
                 // codeBuilder.EndBlock();
                 // codeBuilder.AppendLine();
 
-                codeBuilder.AppendLine($"public static {vectorName} With(this in {vectorName} v, {otherParams})");
-                codeBuilder.StartBlock();
-                codeBuilder.AppendLine($"return new {vectorName}({callArgs});");
-                codeBuilder.EndBlock();
-                codeBuilder.AppendLine();
+                builder.AppendLine($"public static {vectorName} With(this in {vectorName} v, {otherParams})");
+                builder.StartBlock();
+                builder.AppendLine($"return new {vectorName}({callArgs});");
+                builder.EndBlock();
+                builder.AppendLine();
             }
-
-            return codeBuilder.ToString();
-        } 
+            builder.AppendLine();
+        }
     }
 }

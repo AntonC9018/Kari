@@ -49,18 +49,14 @@ namespace Kari.Plugins.Terminal
 
         public Task Generate()
         {
-            var commandsInitializationTemplate = new CommandsInitializationTemplate 
-            { 
-                Project = MasterEnvironment.Instance.RootPseudoProject, 
-                m = _commandAnalyzers 
-            };
-
             return Task.WhenAll(
-                AnalyzerMaster.GenerateAsync(_parserAnalyzers, "Parsers.cs", new ParsersTemplate()),
-                AnalyzerMaster.GenerateAsync(_commandAnalyzers, "Commands.cs", new CommandsTemplate()),
-                TerminalProject.WriteFileAsync("ParsersBasics.cs", new ParsersMasterTemplate()),
-                TerminalProject.WriteFileAsync("CommandBasics.cs", new CommandsBasicsTemplate()),
-                MasterEnvironment.Instance.RootPseudoProject.WriteFileAsync("CommandsInitialization.cs", commandsInitializationTemplate),
+                AnalyzerMaster.GenerateAsync(_parserAnalyzers, "Parsers.cs"),
+                AnalyzerMaster.GenerateAsync(_commandAnalyzers, "Commands.cs"),
+                TerminalProject.WriteFileAsync("ParsersBasics.cs", ParsersAnalyzer.TransformMaster()),
+                TerminalProject.WriteFileAsync("CommandBasics.cs", CommandsAnalyzer.TransformBasics()),
+                MasterEnvironment.Instance.RootPseudoProject.WriteFileAsync(
+                    "CommandsInitialization.cs", CommandsAnalyzer.TransformBuiltin(
+                        MasterEnvironment.Instance.RootPseudoProject, _commandAnalyzers)),
                 TerminalProject.WriteFileAsync("TerminalAnnotations.cs", GetAnnotations())
             );
         }

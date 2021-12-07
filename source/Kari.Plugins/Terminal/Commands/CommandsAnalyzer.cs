@@ -5,13 +5,14 @@ using System.Text;
 using Humanizer;
 using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
+using Kari.Plugins.Terminal;
 using Kari.Utils;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Kari.Plugins.Terminal
 {
-    internal partial class CommandsAnalyzer : IAnalyzer
+    internal partial class CommandsAnalyzer : IAnalyzer, ITransformText
     {
         private readonly HashSet<string> _names = new HashSet<string>();
         public readonly List<CommandMethodInfo> _infos = new List<CommandMethodInfo>();
@@ -72,22 +73,18 @@ namespace Kari.Plugins.Terminal
             return info.ClassName;
         }
 
-        public string TransformFrontCommand(FrontCommandMethodInfo info, string initialIndentation = "")
+        public void TransformFrontCommand(ref CodeBuilder builder, FrontCommandMethodInfo info)
         {
-            var builder = new CodeBuilder(indentation: "    ", initialIndentation);
             var className = GetClassName(info);
             builder.AppendLine($"public class {className} : CommandBase");
             builder.StartBlock();
             builder.AppendLine($"public override void Execute(CommandContext context) => {info.Symbol.GetFullyQualifiedName()}(context);");
             builder.AppendLine($"public {className}() : base({info.Attribute.MinimumNumberOfArguments}, {info.Attribute.MaximumNumberOfArguments}, {info.Attribute.ShortHelp.AsVerbatimSyntax()}, {info.Attribute.Help.AsVerbatimSyntax()}) {{}}");
             builder.EndBlock();
-
-            return builder.ToString();
         }
 
-        public string TransformCommand(CommandMethodInfo info, string initialIndentation = "")
+        public void TransformCommand(ref CodeBuilder classBuilder, CommandMethodInfo info)
         {
-            var classBuilder = new CodeBuilder(indentation: "    ", initialIndentation);
             var className = GetClassName(info);
             classBuilder.AppendLine($"public class {className} : CommandBase");
             classBuilder.StartBlock();
@@ -301,8 +298,150 @@ namespace Kari.Plugins.Terminal
             classBuilder.Append(executeBuilder.ToString());
             classBuilder.AppendLine();
             classBuilder.EndBlock();
+        }
 
-            return classBuilder.ToString();
+        const string basics = @"/// <summary>
+    /// The CommandContext class must implement the following duck interface.
+    /// The generated commands will reference the actual CommandContext class instead, 
+    /// so the interface must only be used for reference.
+    /// </summary>
+    public interface IDuckCommandContext
+    {
+        bool HasErrors { get; }
+        T ParseArgument<T>(int index, string name, IValueParser<T> parser);
+        bool ParseFlag(string name, bool defaultValue = false, bool flagValue = true);
+        T ParseOption<T>(string name, IValueParser<T> parser);
+        T ParseOption<T>(string name, T defaultValue, IValueParser<T> parser);
+        void EndParsing();
+    }
+
+    /// <summary>
+    /// This struct is used in a sort of main function to set the builtin commands below.
+    /// </summary>
+    public readonly struct CommandInfo
+    {
+        public readonly string Name;
+        public readonly CommandBase Command;
+        public CommandInfo(string name, CommandBase command)
+        {
+            Name = name;
+            Command = command;
+        }
+    }
+
+    /// <summary>
+    /// Defines the data model of any reasonable command.
+    /// </summary>
+    public abstract class CommandBase
+    {
+        public abstract void Execute(CommandContext context);
+        public readonly int MinimumNumberOfArguments;
+        public readonly int MaximumNumberOfArguments; // TODO: Never used, should be removed?
+        public readonly string HelpMessage;
+        public readonly string ExtendedHelpMessage;
+
+        protected CommandBase(int minimumNumberOfArguments, int maximumNumberOfArguments, string helpMessage, string extendedHelpMessage)
+        {
+            MinimumNumberOfArguments = minimumNumberOfArguments;
+            MaximumNumberOfArguments = maximumNumberOfArguments;
+            HelpMessage = helpMessage;
+            ExtendedHelpMessage = extendedHelpMessage;
+        }
+
+        protected CommandBase(int minimumNumberOfArguments, int maximumNumberOfArguments, string helpMessage)
+        {
+            MinimumNumberOfArguments = minimumNumberOfArguments;
+            MaximumNumberOfArguments = maximumNumberOfArguments;
+            HelpMessage = helpMessage;
+            ExtendedHelpMessage = helpMessage;
+        }
+    }
+
+    /// <summary>
+    /// Contains the default commands.
+    /// Warning! This data must be set by an outside script prior to being used.
+    /// You must manually set this array to the correct value.
+    /// </summary>
+    public static class Commands
+    {
+        public static CommandInfo[] BuiltinCommands;
+    }
+";
+
+        public static string TransformBasics()
+        {
+            var builder = new CodeBuilder("    ", "");
+            builder.AppendLine("namespace ", TerminalAdministrator.TerminalProject.GeneratedNamespaceName);
+            builder.StartBlock();
+            builder.Append(basics);
+            builder.EndBlock();
+            return builder.ToString();
+        }
+
+        public string TransformText(ProjectEnvironmentData project)
+        {
+            if (_infos.Count == 0 && _frontInfos.Count == 0) 
+                return null;
+
+            var builder = new CodeBuilder("    ", "");
+            builder.AppendLine("namespace ", project.GeneratedNamespaceName);
+            builder.StartBlock();
+            builder.AppendLine("using ", TerminalAdministrator.TerminalProject.NamespaceName, ";");
+            builder.AppendLine("using ", TerminalAdministrator.TerminalProject.GeneratedNamespaceName, ";");
+
+            foreach (var info in _infos) 
+            { 
+                TransformCommand(ref builder, info);
+                builder.AppendLine();
+            }
+
+            foreach (var info in _frontInfos) 
+            {
+                TransformFrontCommand(ref builder, info);
+                builder.AppendLine();
+            }
+
+            builder.EndBlock();
+
+            return builder.ToString();
+        }
+
+        public static string TransformBuiltin(ProjectEnvironmentData project, CommandsAnalyzer[] analyzers)
+        {
+            var builder = CodeBuilder.Create();
+            builder.AppendLine("namespace ", project.GeneratedNamespaceName);
+            builder.StartBlock();
+            builder.AppendLine("public static class CommandsInitialization");
+            builder.StartBlock();
+            
+            builder.AppendLine("public static void InitializeBuiltinCommands()");
+            builder.StartBlock();
+            var ns = TerminalAdministrator.TerminalProject.GeneratedNamespaceName;
+            builder.AppendLine(ns, ".Commands.BuiltinCommands = new ", ns, ".CommandInfo[]");
+            builder.StartBlock();
+
+            void AppendInfo(CommandsAnalyzer a, string name, string fullClassName)
+            {
+                builder.AppendLine("new ", ns, ".CommandInfo(");
+                builder.IncreaseIndent();
+                builder.AppendLine("name: \"", name, "\",");
+                builder.AppendLine("command: new ", name, "()),");
+                builder.DecreaseIndent();
+            }
+
+            foreach (var a in analyzers)
+            {
+                foreach (var info in a._infos)
+                    AppendInfo(a, info.Name, info.FullClassName);
+                foreach (var info in a._frontInfos)
+                    AppendInfo(a, info.Name, info.FullClassName);
+            }
+            builder.EndBlock();
+            builder.EndBlock();
+            builder.EndBlock();
+            builder.EndBlock();
+
+            return builder.ToString();
         }
     }
 

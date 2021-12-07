@@ -18,7 +18,7 @@ namespace Kari.Plugins.Flags
         public Task Generate() 
         {
             return Task.WhenAll(
-                AnalyzerMaster.GenerateAsync(_slaves, "Flags.cs", new FlagsTemplate()),
+                AnalyzerMaster.GenerateAsync(_slaves, "Flags.cs"),
                 MasterEnvironment.Instance.CommonPseudoProject.WriteFileAsync("FlagsAnnotations.cs", DummyFlagsAnnotations.Text)
             );
         }

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
 using Kari.Utils;
 using Microsoft.CodeAnalysis;
@@ -8,7 +9,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Kari.Plugins.DataObject
 {
-    public class DataObjectAnalyzer : IAnalyzer
+    public class DataObjectAnalyzer : IAnalyzer, ITransformText
     {
         public readonly List<DataObjectInfo> _infos = new List<DataObjectInfo>();
 
@@ -44,9 +45,26 @@ namespace Kari.Plugins.DataObject
             }
         }
 
-        public string TransformSingle(DataObjectInfo info, string initialIndentation = "    ")
+        public string TransformText(ProjectEnvironmentData p)
         {
-            var cb = new CodeBuilder("    ", initialIndentation);
+            if (_infos.Count == 0) 
+                return null;
+                
+            var cb = new CodeBuilder("    ", "");
+
+            foreach (var info in _infos)
+            {
+                cb.AppendLine("namespace " + info.Symbol.GetFullQualification());
+                cb.StartBlock();
+                TransformSingle(ref cb, info);
+                cb.EndBlock();
+            }
+
+            return cb.ToString();
+        }
+
+        public void TransformSingle(ref CodeBuilder cb, DataObjectInfo info)
+        {
             cb.AppendLine($"{info.AccessModifier} partial {info.TypeKeyword} {info.NameTypeParameters}");
             cb.StartBlock();
 
@@ -123,7 +141,6 @@ namespace Kari.Plugins.DataObject
             }
 
             cb.EndBlock();
-            return cb.ToString();
         }
     }
 
