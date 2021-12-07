@@ -1,6 +1,9 @@
 <Project>
   <Target Name="RunAnnotator" BeforeTargets="BeforeBuild">
-    <Exec Command="dotnet kari-annotator" />
+    <Exec Command="dotnet tool run kari-annotator -- $(AnnotatorArguments)" 
+          Condition="'$(KariPluginIsInternal)' != 'true'"/>
+    <Exec Command="$(KariOutputPath)Kari.Annotator\$(Configuration)\net5.0\Kari.Annotator.exe $(AnnotatorArguments)" 
+          Condition="'$(KariPluginIsInternal)' == 'true'"/>
     <ItemGroup>
       <!-- https://stackoverflow.com/a/44829863/9731532 -->
       <Compile Include="**/*$(DefaultLanguageSourceExtension)"

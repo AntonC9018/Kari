@@ -11,7 +11,6 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.10.0" />
     <PackageReference Include="Microsoft.Build" Version="16.5.0" />
     <ProjectReference Include="$(KariRootPath)Kari.GeneratorCore\Kari.GeneratorCore.csproj" />
-    <DotNetCliToolReference Include="$(KariRootPath)Kari.Annotator\Kari.Annotator.csproj"/>
   </ItemGroup>
 
   <ItemGroup>

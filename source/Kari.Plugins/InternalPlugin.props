@@ -1,4 +1,7 @@
 <Project>
+  <PropertyGroup>
+    <KariPluginIsInternal>true</KariPluginIsInternal>
+  </PropertyGroup>
   <ImportGroup>
     <Import Project="$(KariNugetBuildFolderPath)Plugin.props" />
     <Import Project="$(KariNugetBuildFolderPath)Plugin.targets" />
