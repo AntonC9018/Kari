@@ -1,14 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
-using static System.Diagnostics.Debug;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Xml;
-using Humanizer;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
+using static System.Diagnostics.Debug;
 
 namespace Kari.GeneratorCore.Workflow
 {
@@ -111,7 +107,7 @@ namespace Kari.GeneratorCore.Workflow
 
                     foreach (var t in named_symbol.TypeArguments)
                     {
-                        sb_type.Append(ToFullyQualifiedText((INamedTypeSymbol)t));
+                        sb_type.Append(ToFullyQualifiedText((INamedTypeSymbol) t));
                         sb_type.Append(", ");
                     }
 
@@ -314,7 +310,8 @@ namespace Kari.GeneratorCore.Workflow
             for (int i = 0; i < paths.Length; i++)
             {
                 result = result.GetNamespaceMembers().Where(ns => ns.Name == paths[i]).FirstOrDefault();
-                if (result is null) return null;
+                if (result is null) 
+                    return null;
             }
 
             return result;
@@ -343,8 +340,10 @@ namespace Kari.GeneratorCore.Workflow
 
             if (parameter.Type.SpecialType == SpecialType.None)
             {
-                if (parameter.Type.IsReferenceType) return "null";
-                else return "default";
+                if (parameter.Type.IsReferenceType) 
+                    return "null";
+                else 
+                    return "default";
             }
 
             switch (parameter.Type.SpecialType)
@@ -436,6 +435,8 @@ namespace Kari.GeneratorCore.Workflow
             for (int i = 0; i < arr.Length; i++)
             {
                 var opMethod = arr[i] as IMethodSymbol;
+
+                // AFAIK it has to be a method.
                 Assert(!(opMethod is null));
 
                 if (opMethod.Parameters.Length == 2 &&

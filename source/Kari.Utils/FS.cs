@@ -7,9 +7,6 @@ namespace Kari.Utils
 {
     public static class FileSystem
     {
-        
-
-
         public static IEnumerable<string> EnumerateDirectoriesIgnoringSingleDirectory(
             string rootDirectory, string ignoredDirectoryFullPath, string searchPattern = "*")
         {

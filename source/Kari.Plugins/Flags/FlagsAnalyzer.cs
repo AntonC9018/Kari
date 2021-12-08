@@ -19,7 +19,7 @@ namespace Kari.Plugins.Flags
         public readonly string FullName;
     }
 
-    public partial class FlagsAnalyzer : IAnalyzer, ITransformText
+    public partial class FlagsAnalyzer : IAnalyzer, IGenerateCode
     {
         public readonly List<FlagsInfo> _infos = new List<FlagsInfo>();
 
@@ -36,6 +36,9 @@ namespace Kari.Plugins.Flags
             }
         }
 
+        // Doing FormattableString like here 
+        // https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/tokens/interpolated#implicit-conversions-and-how-to-specify-iformatprovider-implementation
+        // is annoying for code specifically, because all of the { will have to be escaped.
         const string template = @"public static class $(Name)FlagsExtensions
     {
         /// <summary>
@@ -148,14 +151,14 @@ namespace Kari.Plugins.Flags
     }
     ";
 
-        public void TransformSingle(FlagsInfo info, ref CodeBuilder builder)
+        public void AppendCodeForSingleInfo(FlagsInfo info, ref CodeBuilder builder)
         {
             builder.FormattedAppend(template, 
                 "Name", info.Name, 
                 "FullName", info.FullName);
         }
 
-        public string TransformText(ProjectEnvironmentData project)
+        public string GenerateCode(ProjectEnvironmentData project)
         {
             if (_infos.Count == 0)
                 return null;
@@ -165,7 +168,7 @@ namespace Kari.Plugins.Flags
             builder.StartBlock();
             builder.AppendLine("System.Collections.Generic;");
             foreach (var info in _infos) 
-                TransformSingle(info, ref builder);
+                AppendCodeForSingleInfo(info, ref builder);
             builder.EndBlock();
 
             return builder.ToString();

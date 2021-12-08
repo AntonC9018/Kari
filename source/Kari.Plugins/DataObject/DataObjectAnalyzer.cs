@@ -9,7 +9,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Kari.Plugins.DataObject
 {
-    public class DataObjectAnalyzer : IAnalyzer, ITransformText
+    public class DataObjectAnalyzer : IAnalyzer, IGenerateCode
     {
         public readonly List<DataObjectInfo> _infos = new List<DataObjectInfo>();
 
@@ -45,25 +45,25 @@ namespace Kari.Plugins.DataObject
             }
         }
 
-        public string TransformText(ProjectEnvironmentData p)
+        public string GenerateCode(ProjectEnvironmentData p)
         {
             if (_infos.Count == 0) 
                 return null;
                 
-            var cb = new CodeBuilder("    ", "");
+            var cb = CodeBuilder.Create();
 
             foreach (var info in _infos)
             {
                 cb.AppendLine("namespace " + info.Symbol.GetFullQualification());
                 cb.StartBlock();
-                TransformSingle(ref cb, info);
+                AppendCodeForSingleInfo(ref cb, info);
                 cb.EndBlock();
             }
 
             return cb.ToString();
         }
 
-        public void TransformSingle(ref CodeBuilder cb, DataObjectInfo info)
+        public void AppendCodeForSingleInfo(ref CodeBuilder cb, DataObjectInfo info)
         {
             cb.AppendLine($"{info.AccessModifier} partial {info.TypeKeyword} {info.NameTypeParameters}");
             cb.StartBlock();

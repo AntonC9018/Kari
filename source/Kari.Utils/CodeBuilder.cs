@@ -18,7 +18,7 @@ namespace Kari.Utils
     /// <summary>
     /// A utility string builder with indentation support.
     /// </summary>
-    public struct CodeBuilder: IAppend, IIndent
+    public struct CodeBuilder : IAppend //, IIndent
     {
         public static CodeBuilder Create() { return new CodeBuilder("    ", ""); }
         
@@ -303,38 +303,34 @@ namespace Kari.Utils
     public static class TemplateFormatting
     {
         // TODO: Autogenerate these with a script
-        public static void AppendLine<T>(this ref T builder, string a, string b)
-            where T : struct, IAppend, IIndent
+        public static void AppendLine(this ref CodeBuilder builder, string a, string b)
         {
             builder.Indent();
             builder.Append(a);
             builder.Append(b);
-            builder.Append("\n");
+            builder.NewLine();
         }
 
-        public static void AppendLine<T>(this ref T builder, string a, string b, string c)
-            where T : struct, IAppend, IIndent
+        public static void AppendLine(this ref CodeBuilder builder, string a, string b, string c)
         {
             builder.Indent();
             builder.Append(a);
             builder.Append(b);
             builder.Append(c);
-            builder.Append("\n");
+            builder.NewLine();
         }
 
-        public static void AppendLine<T>(this ref T builder, string a, string b, string c, string d)
-            where T : struct, IAppend, IIndent
+        public static void AppendLine(this ref CodeBuilder builder, string a, string b, string c, string d)
         {
             builder.Indent();
             builder.Append(a);
             builder.Append(b);
             builder.Append(c);
             builder.Append(d);
-            builder.Append("\n");
+            builder.NewLine();
         }
 
-        public static void AppendLine<T>(this ref T builder, string a, string b, string c, string d, string e)
-            where T : struct, IAppend, IIndent
+        public static void AppendLine(this ref CodeBuilder builder, string a, string b, string c, string d, string e)
         {
             builder.Indent();
             builder.Append(a);
@@ -342,11 +338,10 @@ namespace Kari.Utils
             builder.Append(c);
             builder.Append(d);
             builder.Append(e);
-            builder.Append("\n");
+            builder.NewLine();
         }
 
-        public static void AppendLine<T>(this ref T builder, string a, string b, string c, string d, string e, string f)
-            where T : struct, IAppend, IIndent
+        public static void AppendLine(this ref CodeBuilder builder, string a, string b, string c, string d, string e, string f)
         {
             builder.Indent();
             builder.Append(a);
@@ -355,11 +350,10 @@ namespace Kari.Utils
             builder.Append(d);
             builder.Append(e);
             builder.Append(f);
-            builder.Append("\n");
+            builder.NewLine();
         }
 
-         public static void AppendLine<T>(this ref T builder, string a, string b, string c, string d, string e, string f, string g)
-            where T : struct, IAppend, IIndent
+         public static void AppendLine(this ref CodeBuilder builder, string a, string b, string c, string d, string e, string f, string g)
         {
             builder.Indent();
             builder.Append(a);
@@ -369,7 +363,7 @@ namespace Kari.Utils
             builder.Append(e);
             builder.Append(f);
             builder.Append(g);
-            builder.Append("\n");
+            builder.NewLine();
         }
         // // God the stack memory things are so cumbersome in this language
         // public static unsafe void FormattedAppend<T>(

@@ -5,7 +5,7 @@ using Kari.Utils;
 
 namespace Kari.Plugins.Terminal
 {
-    public partial class ParsersAnalyzer : IAnalyzer, ITransformText
+    public partial class ParsersAnalyzer : IAnalyzer, IGenerateCode
     {
         public string DefinitionsNamespace => TerminalAdministrator.TerminalProject.GeneratedNamespaceName;
         internal readonly List<CustomParserInfo> _customParserInfos = new List<CustomParserInfo>();
@@ -114,35 +114,39 @@ namespace Kari.Plugins.Terminal
             result = default;
             return ParseSummary.TypeMismatch(""bool"", input);
         }
+        
                 
 ");
+            builder.IncreaseIndent();
             for (int i = 0; i < numberTypes.Length; i++)
             {
                 string type = numberTypes[i];
                 string typePascal = numberTypesPascal[i];
                 string parserName = $"{typePascal}Parser";
 
-                builder.AppendLine("public class ", parserName, " : IValueParser<", type, ">");
+                builder.AppendLine($"public class {parserName} : IValueParser<{type}>");
                 builder.StartBlock();
-                builder.AppendLine("public ParseSummary Parse(string input, out ", type, " value) => Parsers.Parse(input, out value);");
+                builder.AppendLine($"public ParseSummary Parse(string input, out {type} value) => Parsers.Parse(input, out value);");
                 builder.EndBlock();
 
-                builder.AppendLine("public static readonly ", parserName, typePascal, " = new ", parserName, "();");
-                builder.AppendLine("public static ParseSummary Parse(this string input, out ", type, " result");
+                builder.AppendLine($"public static readonly ", parserName, typePascal, " = new {parserName}();");
+                builder.AppendLine($"public static ParseSummary Parse(this string input, out {type} result");
                 builder.StartBlock();
-                builder.AppendLine("if (", type, ".TryParse(input, out result))");
+                builder.AppendLine($"if ({type}.TryParse(input, out result))");
                 builder.IncreaseIndent();
                 builder.AppendLine("return ParseSummary.Success;");
                 builder.DecreaseIndent();
-                builder.AppendLine("return ParseSummary.TypeMismatch(", type, "input);");
+                builder.AppendLine($"return ParseSummary.TypeMismatch({type}input);");
                 builder.EndBlock();
             }
 
             builder.EndBlock();
+            builder.EndBlock();
+
             return builder.ToString();
         }
 
-        public string TransformText(ProjectEnvironmentData project)
+        public string GenerateCode(ProjectEnvironmentData project)
         {
             if (_customParserFunctionInfos.Count == 0 && _customParserInfos.Count == 0) 
                 return null;
@@ -157,16 +161,16 @@ namespace Kari.Plugins.Terminal
             foreach (var func in _customParserFunctionInfos)
             {
                 var parserName = func.Name + "Parser";
-                builder.AppendLine("public class ", parserName, " : IValueParser<", func.TypeName, ">");
+                builder.AppendLine($"public class {parserName} : IValueParser<{func.TypeName}>");
                 builder.StartBlock();
-                builder.AppendLine("public ParseSummary Parse(string input, out ", func.TypeName, " value) => ",
-                    func.FullyQualifiedName, "(input, out value);");
-                builder.AppendLine("public static readonly ", parserName, func.Name, " = new ", parserName, "();");
+                builder.AppendLine($"public ParseSummary Parse(string input, out {func.TypeName} value) => ", 
+                    $"{func.FullyQualifiedName}(input, out value);");
+                builder.AppendLine($"public static readonly {parserName} {func.Name} = new {parserName}();");
                 builder.EndBlock();
             }
             foreach (var parser in _customParserInfos)
             {
-                builder.AppendLine("public static readonly ", parser.FullyQualifiedName, parser.Name, " = new ", parser.FullyQualifiedName, "();");
+                builder.AppendLine($"public static readonly {parser.FullyQualifiedName} {parser.Name} = new {parser.FullyQualifiedName}();");
             }
             builder.EndBlock();
 

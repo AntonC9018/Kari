@@ -46,9 +46,20 @@ namespace Kari.GeneratorCore.Workflow
         Task Generate();
     }
 
+    // TODO: A more appropriate name is ICollect or ICollectSymbols?
     public interface IAnalyzer
     {
         void Collect(ProjectEnvironment project);
+    }
+
+    public interface IGenerateCode
+    {
+        // TODO: it makes more sense to pass a wrapper of the stream writer here, 
+        // like the CodeBuilder, but which writes to a file since all generators 
+        // would always write some sort of code.
+        // On the other hand, it's not going to be that much faster, because it would still
+        // buffer before flushing, and the locks would get nasty so meh.
+        string GenerateCode(ProjectEnvironmentData project);
     }
 
     public static class AnalyzerMaster
@@ -77,36 +88,18 @@ namespace Kari.GeneratorCore.Workflow
             return Task.Run(() => Collect(slaves));
         }
 
-        public static void Generate<T>(T[] slaves, string fileName, IGenerator<T> generator)
-            where T : IAnalyzer
-        {
-            var projects = MasterEnvironment.Instance.Projects;
-            for (int i = 0; i < slaves.Length; i++)
-            {
-                generator.m = slaves[i];
-                generator.Project = projects[i];
-                projects[i].WriteFile(fileName, generator.TransformText());
-            }
-        }
-
-        public static Task GenerateAsync<T>(T[] slaves, string fileName, IGenerator<T> generator) 
-            where T : IAnalyzer
-        {
-            return Task.Run(() => Generate(slaves, fileName, generator));
-        }
-
         public static void Generate<T>(T[] slaves, string fileName)
-            where T : ITransformText
+            where T : IGenerateCode
         {
             var projects = MasterEnvironment.Instance.Projects;
             for (int i = 0; i < slaves.Length; i++)
             {
-                projects[i].WriteFile(fileName, slaves[i].TransformText(projects[i]));
+                projects[i].WriteFile(fileName, slaves[i].GenerateCode(projects[i]));
             }
         }
 
         public static Task GenerateAsync<T>(T[] slaves, string fileName) 
-            where T : ITransformText
+            where T : IGenerateCode
         {
             return Task.Run(() => Generate(slaves, fileName));
         }

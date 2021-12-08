@@ -12,7 +12,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Kari.Plugins.Terminal
 {
-    internal partial class CommandsAnalyzer : IAnalyzer, ITransformText
+    internal partial class CommandsAnalyzer : IAnalyzer, IGenerateCode
     {
         private readonly HashSet<string> _names = new HashSet<string>();
         public readonly List<CommandMethodInfo> _infos = new List<CommandMethodInfo>();
@@ -370,7 +370,7 @@ namespace Kari.Plugins.Terminal
 
         public static string TransformBasics()
         {
-            var builder = new CodeBuilder("    ", "");
+            var builder = CodeBuilder.Create();
             builder.AppendLine("namespace ", TerminalAdministrator.TerminalProject.GeneratedNamespaceName);
             builder.StartBlock();
             builder.Append(basics);
@@ -378,12 +378,12 @@ namespace Kari.Plugins.Terminal
             return builder.ToString();
         }
 
-        public string TransformText(ProjectEnvironmentData project)
+        public string GenerateCode(ProjectEnvironmentData project)
         {
             if (_infos.Count == 0 && _frontInfos.Count == 0) 
                 return null;
 
-            var builder = new CodeBuilder("    ", "");
+            var builder = CodeBuilder.Create();
             builder.AppendLine("namespace ", project.GeneratedNamespaceName);
             builder.StartBlock();
             builder.AppendLine("using ", TerminalAdministrator.TerminalProject.NamespaceName, ";");
@@ -417,16 +417,12 @@ namespace Kari.Plugins.Terminal
             builder.AppendLine("public static void InitializeBuiltinCommands()");
             builder.StartBlock();
             var ns = TerminalAdministrator.TerminalProject.GeneratedNamespaceName;
-            builder.AppendLine(ns, ".Commands.BuiltinCommands = new ", ns, ".CommandInfo[]");
+            builder.AppendLine($"{ns}.Commands.BuiltinCommands = new {ns}.CommandInfo[]");
             builder.StartBlock();
 
             void AppendInfo(CommandsAnalyzer a, string name, string fullClassName)
             {
-                builder.AppendLine("new ", ns, ".CommandInfo(");
-                builder.IncreaseIndent();
-                builder.AppendLine("name: \"", name, "\",");
-                builder.AppendLine("command: new ", name, "()),");
-                builder.DecreaseIndent();
+                builder.AppendLine($"new {ns}.CommandInfo(name: \"{name}\", command: new {fullClassName}()),");
             }
 
             foreach (var a in analyzers)

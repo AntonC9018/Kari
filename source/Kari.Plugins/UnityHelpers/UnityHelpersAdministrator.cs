@@ -28,10 +28,10 @@ namespace Kari.Plugins.UnityHelpers
         public Task Collect() => Task.CompletedTask;
         public Task Generate()
         {
-            return _engineCommon.WriteFileAsync("Helpers.cs", TransformText());
+            return _engineCommon.WriteFileAsync("Helpers.cs", GenerateCode());
         }
 
-        internal string TransformText()
+        internal string GenerateCode()
         {
             var builder = CodeBuilder.Create();
             builder.AppendLine("namespace ", engineCommon);
@@ -48,24 +48,24 @@ namespace Kari.Plugins.UnityHelpers
                     var classname = type + i;
                     builder.AppendLine("public struct ", classname);
                     builder.StartBlock();
-                    builder.AppendLine("public readonly ", type, "value");
-                    builder.AppendLine("public ", classname, "(", type, " value) => this.value = value;");
-                    builder.AppendLine("public static implicit operator ", classname, "(", type, " value) => new ", classname, "(value);");
-                    builder.AppendLine("public static implicit operator ", type,"(", classname, "t) => t.value;");
+                    builder.AppendLine($"public readonly {type} value");
+                    builder.AppendLine($"public {classname}({type} value) => this.value = value;");
+                    builder.AppendLine($"public static implicit operator {classname}({type} value) => new {classname}(value);");
+                    builder.AppendLine($"public static implicit operator {type}({classname} t) => t.value;");
                     builder.EndBlock();
                 }
             }
 
-            DoVector(ref builder, "Vector2", "float",  new string[] { "x", "y" });
-            DoVector(ref builder, "Vector3", "float",  new string[] { "x", "y", "z" });
-            DoVector(ref builder, "Vector4", "float",  new string[] { "x", "y", "z", "w" });
-            DoVector(ref builder, "Vector2Int", "int", new string[] { "x", "y" });
-            DoVector(ref builder, "Vector3Int", "int", new string[] { "x", "y", "z" });
+            AppendVectorCode(ref builder, "Vector2", "float",  new string[] { "x", "y" });
+            AppendVectorCode(ref builder, "Vector3", "float",  new string[] { "x", "y", "z" });
+            AppendVectorCode(ref builder, "Vector4", "float",  new string[] { "x", "y", "z", "w" });
+            AppendVectorCode(ref builder, "Vector2Int", "int", new string[] { "x", "y" });
+            AppendVectorCode(ref builder, "Vector3Int", "int", new string[] { "x", "y", "z" });
 
             return builder.ToString();
         }
 
-        internal void DoVector(ref CodeBuilder builder, string vectorName, string type, string[] vars)
+        internal void AppendVectorCode(ref CodeBuilder builder, string vectorName, string type, string[] vars)
         { 
             string[] args = new string[vars.Length];
             var otherParams = new ListBuilder(", ");

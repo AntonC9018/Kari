@@ -84,10 +84,12 @@ namespace Kari.GeneratorCore.Workflow
     {
         private readonly string _filePath;
         private StreamWriter _file;
+        private object _lock;
 
         public OneFilePerProjectFileWriter(string generatedFilePath)
         {
             _filePath = generatedFilePath;
+            _lock = new Object();
             var dirName = Path.GetDirectoryName(_filePath);
             FileWriterCommon.InitializeGeneratedDirectory(dirName);
         }
@@ -109,9 +111,10 @@ namespace Kari.GeneratorCore.Workflow
 
         public void WriteCodeFile(string fileNameHint, string text)
         {
-            lock (_file)
+            lock (_lock)
             {
-                if (_file is null) OpenFile();
+                if (_file is null) 
+                    OpenFile();
                 _file.WriteLine("// " + fileNameHint);
                 _file.WriteLine(text);
             }

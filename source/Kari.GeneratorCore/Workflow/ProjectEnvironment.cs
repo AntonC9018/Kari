@@ -63,12 +63,6 @@ namespace Kari.GeneratorCore.Workflow
             return Task.Run(() => WriteFile(fileName, text));
         }
 
-        /// <inheritdoc cref="WriteFile"/>
-        public Task WriteFileAsync(string fileName, ICodeTemplate template)
-        {
-            return Task.Run(() => WriteFile(fileName, template.TransformText()));
-        }
-
         internal void ClearOutput()
         {
             Logger.Log($"Clearing the generated output.");
