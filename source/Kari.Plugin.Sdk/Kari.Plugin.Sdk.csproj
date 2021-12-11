@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.Build.NoTargets">
-
+  
   <PropertyGroup>
     <PackageType>MSBuildSdk</PackageType>
     <TargetFramework>netstandard2.1</TargetFramework>

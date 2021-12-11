@@ -1,8 +1,6 @@
 <Project>
   <PropertyGroup Condition="'$(KariRootPath)'==''">
     <KariRootPath>$(MSBuildThisFileDirectory)</KariRootPath>
-    <KariNugetBuildFolderPath>$(MSBuildThisFileDirectory)..\build\</KariNugetBuildFolderPath>
-    <KariPluginPropsPath>$(MSBuildThisFileDirectory)Kari.Plugins\Plugin.props</KariPluginPropsPath>
     <KariOutputDirectoriesPropsPath>$(MSBuildThisFileDirectory)KariOutputDirectories.props</KariOutputDirectoriesPropsPath>
   </PropertyGroup>
 </Project>

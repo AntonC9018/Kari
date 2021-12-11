@@ -8,13 +8,18 @@
 
   <ItemGroup>
     <ProjectReference Include="$(KariRootPath)Kari.GeneratorCore\Kari.GeneratorCore.csproj" />
+
+    <!-- Compile-time dependency -->
+    <ProjectReference Include="$(KariRootPath)Kari.Annotator\Kari.Annotator.csproj">
+        <PrivateAssets>all</PrivateAssets>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>
     <KariAnnotatorGeneratedFiles Include="**\*.Generated.cs" Condtion=" '$(KariAnnotatorGeneratedFiles)' == '' "/>
   </ItemGroup>
   
-  <Target Name="RunAnnotator" BeforeTargets="BeforeBuild">
+  <Target Name="RunAnnotator" BeforeTargets="AfterResolveReferences">
     <Exec Command="$(KariOutputPath)Kari.Annotator\$(Configuration)\net5.0\Kari.Annotator.exe $(AnnotatorArguments)" />
     <ItemGroup>
       <!-- https://stackoverflow.com/a/44829863/9731532 -->
