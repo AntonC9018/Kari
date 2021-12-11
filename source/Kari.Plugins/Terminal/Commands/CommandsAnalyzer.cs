@@ -52,7 +52,7 @@ namespace Kari.Plugins.Terminal
             }
         }
 
-        public void InitializeParsers()
+        internal void InitializeParsers()
         {
             for (int i = 0; i < _infos.Count; i++)
             {
@@ -60,7 +60,7 @@ namespace Kari.Plugins.Terminal
             }
         }
 
-        public string GetClassName(ICommandMethodInfo info)
+        internal string GetClassName(ICommandMethodInfo info)
         {
             if (info.IsEscapedClassName)
             {
@@ -73,7 +73,7 @@ namespace Kari.Plugins.Terminal
             return info.ClassName;
         }
 
-        public void TransformFrontCommand(ref CodeBuilder builder, FrontCommandMethodInfo info)
+        private void TransformFrontCommand(ref CodeBuilder builder, FrontCommandMethodInfo info)
         {
             var className = GetClassName(info);
             builder.AppendLine($"public class {className} : CommandBase");
@@ -368,7 +368,7 @@ namespace Kari.Plugins.Terminal
     }
 ";
 
-        public static string TransformBasics()
+        internal static string TransformBasics()
         {
             var builder = CodeBuilder.Create();
             builder.AppendLine("namespace ", TerminalAdministrator.TerminalProject.GeneratedNamespaceName);
@@ -406,7 +406,7 @@ namespace Kari.Plugins.Terminal
             return builder.ToString();
         }
 
-        public static string TransformBuiltin(ProjectEnvironmentData project, CommandsAnalyzer[] analyzers)
+        internal static string TransformBuiltin(ProjectEnvironmentData project, CommandsAnalyzer[] analyzers)
         {
             var builder = CodeBuilder.Create();
             builder.AppendLine("namespace ", project.GeneratedNamespaceName);

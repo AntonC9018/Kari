@@ -319,52 +319,6 @@ namespace Kari.Utils
             builder.Append(c);
             builder.NewLine();
         }
-
-        public static void AppendLine(this ref CodeBuilder builder, string a, string b, string c, string d)
-        {
-            builder.Indent();
-            builder.Append(a);
-            builder.Append(b);
-            builder.Append(c);
-            builder.Append(d);
-            builder.NewLine();
-        }
-
-        public static void AppendLine(this ref CodeBuilder builder, string a, string b, string c, string d, string e)
-        {
-            builder.Indent();
-            builder.Append(a);
-            builder.Append(b);
-            builder.Append(c);
-            builder.Append(d);
-            builder.Append(e);
-            builder.NewLine();
-        }
-
-        public static void AppendLine(this ref CodeBuilder builder, string a, string b, string c, string d, string e, string f)
-        {
-            builder.Indent();
-            builder.Append(a);
-            builder.Append(b);
-            builder.Append(c);
-            builder.Append(d);
-            builder.Append(e);
-            builder.Append(f);
-            builder.NewLine();
-        }
-
-         public static void AppendLine(this ref CodeBuilder builder, string a, string b, string c, string d, string e, string f, string g)
-        {
-            builder.Indent();
-            builder.Append(a);
-            builder.Append(b);
-            builder.Append(c);
-            builder.Append(d);
-            builder.Append(e);
-            builder.Append(f);
-            builder.Append(g);
-            builder.NewLine();
-        }
         // // God the stack memory things are so cumbersome in this language
         // public static unsafe void FormattedAppend<T>(
         //     this ref T builder, ReadOnlySpan<char> format, 

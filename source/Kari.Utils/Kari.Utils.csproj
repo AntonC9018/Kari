@@ -2,5 +2,6 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>Kari.Utils</AssemblyName>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 </Project>

@@ -38,7 +38,7 @@ namespace Kari.Plugins.Terminal
             }
         }
 
-        public static string TransformMaster()
+        internal static string TransformMaster()
         {
             var numberTypes = new string[] 
             { 
@@ -129,7 +129,7 @@ namespace Kari.Plugins.Terminal
                 builder.AppendLine($"public ParseSummary Parse(string input, out {type} value) => Parsers.Parse(input, out value);");
                 builder.EndBlock();
 
-                builder.AppendLine($"public static readonly ", parserName, typePascal, " = new {parserName}();");
+                builder.AppendLine($"public static readonly {parserName} {typePascal} = new {parserName}();");
                 builder.AppendLine($"public static ParseSummary Parse(this string input, out {type} result");
                 builder.StartBlock();
                 builder.AppendLine($"if ({type}.TryParse(input, out result))");

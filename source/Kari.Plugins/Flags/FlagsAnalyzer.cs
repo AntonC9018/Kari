@@ -151,7 +151,7 @@ namespace Kari.Plugins.Flags
     }
     ";
 
-        public void AppendCodeForSingleInfo(FlagsInfo info, ref CodeBuilder builder)
+        private void AppendCodeForSingleInfo(FlagsInfo info, ref CodeBuilder builder)
         {
             builder.FormattedAppend(template, 
                 "Name", info.Name, 

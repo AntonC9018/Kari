@@ -22,22 +22,22 @@ namespace Kari.Annotator
         string targetFileRegex = @".*(Annotations|Attributes)$";
         [Option("Suffix to append to generated files. E.g. Annotations.cs -> Annotations.Generated.cs")]
         string generatedFileSuffix = ".Generated";
-        [Option("An absolute path or a path relative to `targetedFolder` of the directory in which to output the generated files. By default, the files get outputed next to the source files.")]
+        [Option("An absolute path or a path relative to `targetedFolder` of the directory in which to output the generated files. By default, the files get output next to the source files.")]
         string generatedFilesOutputFolder = null;
         [Option(" ")]
         string singleFileOutputName = null;
 
-        [Option("Whether to replace all instances of internal with public in the source file",
+        [Option("Whether to not replace all instances of internal with public in the source file",
             IsFlag = true)]
         bool noReplaceInternalWithPublic = false;
         // TODO: see if the files changed (cache the timestamps of when the dependent files changed last).
-        [Option(" ", IsFlag = true)]
-        bool clearOutputFolder = false;
+        // [Option(" ", IsFlag = true)]
+        // bool clearOutputFolder = false;
         [Option("The namespace that will replace the original namespace in the client version of the file. By default, the namespace stays as is.")]
         string clientNamespaceSubstitute = null;
         [Option("The namespace that will replace the original namespace in the plugin helper file. By default, the namespace stays as is.")]
         string pluginNamespaceSubstitute = null;
-        [Option("private / public / internal")]
+        [Option("public / internal")]
         string classVisibility = "internal";
 
 
@@ -129,11 +129,11 @@ namespace Kari.Annotator
 
             // THOUGHT: I probably should just use the parser here
             const string qualifiedIdentifierRegexString = @"([a-zA-Z_][a-zA-Z0-9_]*\.)*([a-zA-Z_][a-zA-Z0-9_]*)";
-            var namespaceRegex = new Regex(@"namespace\s+(?<namespace>" + qualifiedIdentifierRegexString + @")\s*{");
+            var namespaceRegex = new Regex(@"^namespace\s+(?<namespace>" + qualifiedIdentifierRegexString + @")\s*{");
             var attributeClassRegex = new Regex(@"class\s+(?<attribute>[a-zA-Z_][a-zA-Z0-9_]*Attribute)\s*:\s*" 
                 + qualifiedIdentifierRegexString + @"?Attribute");
 
-            CodeBuilder builder = new CodeBuilder("    ");
+            CodeBuilder builder = CodeBuilder.Create();
 
             for (int i = 0; i < targetedFiles.Length; i++)
             {

@@ -7,6 +7,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Generator", "source\Ka
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.GeneratorCore", "source\Kari.GeneratorCore\Kari.GeneratorCore.csproj", "{9FD2251F-CCD8-4127-BAD1-A31ED38AD253}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Annotator", "source\Kari.Annotator\Kari.Annotator.csproj", "{1109A24C-E0D8-4B26-B853-98634CA5C2DE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Arguments", "source\Kari.Arguments\Kari.Arguments.csproj", "{B8F0BD2F-C396-467F-B1A3-CF5A357ADCB2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Utils", "source\Kari.Utils\Kari.Utils.csproj", "{6D38B33F-72C7-4DFD-B508-FECADE16A464}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Kari.Plugins", "source\Kari.Plugins", "{E2A5F3F7-D455-41F2-892A-F5626490E4B8}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Terminal", "source\Kari.Plugins\Terminal\Terminal.csproj", "{722D0588-A9E8-4000-880E-B555D68CAB2D}"
@@ -18,12 +24,6 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataObject", "source\Kari.Plugins\DataObject\DataObject.csproj", "{6761B5DC-F801-4A79-B9B8-9C0A878B976B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "source", "source", "{836E13B2-77DF-4245-B17F-7F9959194AFF}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Arguments", "source\Kari.Arguments\Kari.Arguments.csproj", "{B8F0BD2F-C396-467F-B1A3-CF5A357ADCB2}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Utils", "source\Kari.Utils\Kari.Utils.csproj", "{6D38B33F-72C7-4DFD-B508-FECADE16A464}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Annotator", "source\Kari.Annotator\Kari.Annotator.csproj", "{1109A24C-E0D8-4B26-B853-98634CA5C2DE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
