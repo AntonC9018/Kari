@@ -7,12 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(KariRootPath)Kari.GeneratorCore\Kari.GeneratorCore.csproj" />
-
+    <!-- Kari will already have these dll's included by default when you import the dll -->
+    <ProjectReference Include="$(KariRootPath)Kari.GeneratorCore\Kari.GeneratorCore.csproj" 
+                      ExcludeAssets="runtime" />
     <!-- Compile-time dependency -->
-    <ProjectReference Include="$(KariRootPath)Kari.Annotator\Kari.Annotator.csproj">
-        <PrivateAssets>all</PrivateAssets>
-    </ProjectReference>
+    <ProjectReference Include="$(KariRootPath)Kari.Annotator\Kari.Annotator.csproj" 
+                      PrivateAssets="all"
+                      ExcludeAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

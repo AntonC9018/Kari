@@ -55,10 +55,7 @@ namespace Kari.Utils
 
         public void Log(string message, LogType type)
         {
-            lock (_MessageLock)
-            {
-                LogNoLock(message, type);
-            }
+            LogNoLock(message, type);
         }
 
         public void LogErrorNoLock(string message)

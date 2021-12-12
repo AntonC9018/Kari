@@ -10,7 +10,6 @@
 
   <ItemGroup>
     <ProjectReference Include="$(KariRootPath)Kari.Arguments\Kari.Arguments.csproj"/>
-    <PackageReference Include="Humanizer" Version="2.11.10" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
 
