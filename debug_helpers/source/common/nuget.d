@@ -107,3 +107,10 @@ NugetPackageInfo getInfoOfLatestPackage(string packageDirectoryWithDifferentVers
     result.nameInfo = getPackageNameInfo(result.dirEntry);
     return result;
 }
+
+
+bool isPathNugetPackage(string path)
+{
+    import std.path;
+    return path.extension.toLower == ".nupkg";
+}

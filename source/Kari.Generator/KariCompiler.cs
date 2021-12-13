@@ -35,12 +35,12 @@
 
         [Option("Plugins folder or paths to individual plugin dlls.",
             IsRequired = true)]
-        string[] pluginsLocations;
+        string[] pluginPaths;
 
         [Option("The suffix added to each subproject (or the root project) indicating the output folder.")] 
         string generatedName = "Generated";
 
-        [Option("Conditional compiler symbols. Ignored if a project file is specified for input.")] 
+        [Option("Conditional compiler symbols. Ignored if a project file is specified for input. (Currently ignored)")] 
         string[] conditionalSymbols = null;
 
         [Option("Set input namespace root name.")]
@@ -167,7 +167,7 @@
                 return;
             }
 
-            pluginsLocations = pluginsLocations?.Select(FileSystem.WithNormalizedDirectorySeparators).ToArray();
+            pluginPaths = pluginPaths?.Select(FileSystem.WithNormalizedDirectorySeparators).ToArray();
 
             // Hacky?
             if (parser.IsHelpSet)
@@ -221,7 +221,7 @@
                 return ExitCode.Ok;
             }
 
-            if (parser.IsHelpSet && pluginsLocations == null)
+            if (parser.IsHelpSet && pluginPaths == null)
             {
                 Logger.LogPlain(parser.GetHelpFor(this));
                 return ExitCode.Ok;
@@ -399,24 +399,24 @@
         {
             var finder = new AdministratorFinder();
 
-            for (int i = 0; i < pluginsLocations.Length; i++)
+            for (int i = 0; i < pluginPaths.Length; i++)
             {
                 void Handle(string error) 
                 {
-                    _logger.LogError($"Error while processing plugin input #{i}, {pluginsLocations[i]}: {error}");
+                    _logger.LogError($"Error while processing plugin input #{i}, {pluginPaths[i]}: {error}");
                 }
 
                 try
                 {
-                    pluginsLocations[i] = Path.GetFullPath(pluginsLocations[i]);
-                    if (Directory.Exists(pluginsLocations[i]))
+                    pluginPaths[i] = Path.GetFullPath(pluginPaths[i]);
+                    if (Directory.Exists(pluginPaths[i]))
                     {
-                        finder.LoadPluginsDirectory(pluginsLocations[i]);
+                        finder.LoadPluginsDirectory(pluginPaths[i]);
                         continue;
                     }
-                    if (File.Exists(pluginsLocations[i]))
+                    if (File.Exists(pluginPaths[i]))
                     {
-                        finder.LoadPlugin(pluginsLocations[i]);
+                        finder.LoadPlugin(pluginPaths[i]);
                         continue;
                     }
                     Handle("The specified plugin folder or file does not exist.");
