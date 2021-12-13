@@ -1,2 +1,7 @@
 build_folder
 apikey.txt
+
+*.ilk
+*.pdb
+*.exe
+*.obj

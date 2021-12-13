@@ -21,95 +21,15 @@
     <TargetsForTfmSpecificContentInPackage>
       $(TargetsForTfmSpecificContentInPackage);
       _SetNoBuildTrueWhenGeneratePackageOnBuild;
-      PackKariPlugin
+      <!-- PackKariPlugin -->
     </TargetsForTfmSpecificContentInPackage>
     <!-- Declare dependencies of PackKariPlugin target -->
     <PackKariPluginDependsOn>
       $(PackKariPluginDependsOn);
-      DefinePluginPackagePath;
-      CreatePluginPackageBuildProps;
-      Publish;
     </PackKariPluginDependsOn>
     <!-- Run validation before Pack target -->
     <BeforePack>ValidatePluginPackageBuildProps;$(BeforePack)</BeforePack>
   </PropertyGroup>
-
-  <Target Name="DefinePluginPackagePath">
-    <PropertyGroup>
-      <PluginPackagePath>tools/$(TargetFramework)/any</PluginPackagePath>
-    </PropertyGroup>
-  </Target>
-
-  <!--
-    This target writes PackageId.props/targets files that will get packed into build/ folder in NuGet.
-    Those MSBuild files add the path to the Plugin dll to the KariPlugin ItemGroup,
-    so that Kari tooling can read and load generator plugins, and additionally
-    create a target that checks whether the Tool targets were imported, and warns if they weren't.
-
-    It also imports any PackageBuildFolderProjectImport items as per extension - .props in .props,
-    .targets in .targets. It doesn't handle actually packaging those files correctly.
-  -->
-  <!-- <Target Name="CreatePluginPackageBuildProps"
-          DependsOnTargets="DefinePluginPackagePath"
-          Condition=" '$(PackAsKariPlugin)' == 'true' ">
-    <ItemGroup>
-      <_PackageBuildFolderProjectImport_props Include="@(PackageBuildFolderProjectImport->Distinct())" Condition=" '%(Extension)' == '.props' " />
-      <_PackageBuildFolderProjectImport_targets Include="@(PackageBuildFolderProjectImport->Distinct())" Condition=" '%(Extension)' == '.targets' " />
-    </ItemGroup>
-    <PropertyGroup>
-      <PackagePropsContent>
-        <![CDATA[
-<?xml version="1.0" encoding="utf-8" ?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-@(_PackageBuildFolderProjectImport_props->'  <Import Project="%(Identity)" />', '%0D%0A')
-  <ItemGroup>
-    <KariPlugin Include="%24(MSBuildThisFileDirectory)../$(PluginPackagePath)/$(TargetFileName)" />
-@(PluginRequestedProperty->'    <KariRequestedProperty Include="%(Identity)" />', '%0D%0A')
-  </ItemGroup>
-</Project>
-]]>
-      </PackagePropsContent>
-      <PackageTargetsContent>
-        <![CDATA[
-<?xml version="1.0" encoding="utf-8" ?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-@(_PackageBuildFolderProjectImport_targets->'  <Import Project="%(Identity)" />', '%0D%0A')
-  <Target Name="CheckCgrToolUsed" BeforeTargets="Build">
-    <Warning Condition=" '%24(UsingKariToolTargets)' != 'true' " Text="CodeGeneration.Roslyn.Tool build targets weren't detected. CG.R Plugins (generators) won't be run without importing targets from the CodeGeneration.Roslyn.Tool package (v$(PackageVersion))." />
-  </Target>
-</Project>
-]]>
-      </PackageTargetsContent>
-      <PackagePropsPath>$(IntermediateOutputPath)$(PackageId).props</PackagePropsPath>
-      <PackageTargetsPath>$(IntermediateOutputPath)$(PackageId).targets</PackageTargetsPath>
-    </PropertyGroup>
-    <WriteLinesToFile File="$(PackagePropsPath)" Lines="$(PackagePropsContent)" Overwrite="true" />
-    <WriteLinesToFile File="$(PackageTargetsPath)" Lines="$(PackageTargetsContent)" Overwrite="true" />
-    <ItemGroup>
-      <TfmSpecificPackageFile Include="$(PackagePropsPath);$(PackageTargetsPath)" Pack="true" PackagePath="build/" BuildAction="None" />
-      <FileWrites Include="$(PackagePropsPath);$(PackageTargetsPath)" />
-    </ItemGroup>
-  </Target> -->
-
-  <!--
-    This target adds 'Publish' target output to nuget package,
-    so the tool is packaged with all dependencies bundled.
-    As of this writing there's no better alternatives.
-  -->
-  <!-- <Target Name="PackKariPlugin" -->
-          <!-- DependsOnTargets="$(PackKariPluginDependsOn)" -->
-          <!-- Condition=" '$(PackAsKariPlugin)' == 'true' "> -->
-    <!-- <ItemGroup> -->
-      <!--
-        deps.json file is specifically added as a workaround for it not being in ResolvedFileToPublish
-        This is expected to be not needed once .NET 5 hits as per this change:
-        https://github.com/dotnet/sdk/commit/1f2a4a110e356808d721358ce358de4f88923795#diff-7dc833d02f198e5a9f0ab88e229db18aL1039-R1023
-      -->
-      <!-- <TfmSpecificPackageFile Include="$(PublishDepsFilePath)" PackagePath="$(PluginPackagePath)/$(ProjectDepsFileName)" /> -->
-      <!-- Include 'Publish' output in package -->
-      <!-- <TfmSpecificPackageFile Include="@(ResolvedFileToPublish)" PackagePath="$(PluginPackagePath)/%(ResolvedFileToPublish.RelativePath)" /> -->
-    <!-- </ItemGroup> -->
-  <!-- </Target> -->
 
   <!--
     This target raises a warning if the project is multi-targeting but doesn't set
@@ -126,7 +46,7 @@
     <PropertyGroup>
       <_PackAsCgrPluginRequiresSingleTargetFrameworkMessage>
         <![CDATA[
-        PackAsKariPlugin target requires a single TargetFramework to be used for packing the tool. Enable Plugin packing conditionally by adding this to one of PropertyGroup elements: <PackAsKariPlugin>%24(TargetFramework.Equals('netcoreapp2.1'))</PackAsKariPlugin>
+        PackAsKariPlugin target requires a single TargetFramework to be used for packing the tool. Enable Plugin packing conditionally by adding this to one of PropertyGroup elements: <PackAsKariPlugin>%24(TargetFramework.Equals('net5.0'))</PackAsKariPlugin>
         ]]>
       </_PackAsCgrPluginRequiresSingleTargetFrameworkMessage>
     </PropertyGroup>
