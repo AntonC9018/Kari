@@ -51,6 +51,7 @@ struct NugetPackageNameInfo
     string nameWithExtension;
     string nameWithVersion;
     size_t indexOfVersionStart;
+    const:
     string versionString() { return nameWithVersion[indexOfVersionStart .. $]; }
     string name() { return nameWithVersion[0 .. indexOfVersionStart - 1]; }
     string getNugetOutputPathRelativeToSources()

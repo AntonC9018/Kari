@@ -1,7 +1,6 @@
 module extract_plugin;
 
-import common.util;
-import common.nuget;
+import common;
 import std.file;
 import std.path;
 import std.process;
