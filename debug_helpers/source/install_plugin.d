@@ -89,6 +89,8 @@ void main(string[] args)
             if (visitedFiles.canFind(kariConfigFilePath))
                 return null;
             visitedFiles ~= kariConfigFilePath;
+            if (!exists(kariConfigFilePath))
+                return null;
 
             JSONValue kariConfiguration = parseJSON(std.file.readText(kariConfigFilePath));
             if (auto pluginPaths = "pluginPaths" in kariConfiguration)
@@ -115,7 +117,7 @@ void main(string[] args)
         }
         if (auto f = maybeFindPluginDirectoryRecursively(op.kariConfigurationFile))
             return f;
-        return makeAndReturn(defaultKariConfigFileName);
+        return makeAndReturn(defaultKariPluginsDirectoryName);
     }();
 
     writeln("The plugin folder is: ", op.pluginFolder);
@@ -154,7 +156,7 @@ void main(string[] args)
                 .buildPath(pluginId.toLower)
                 .getEntryWithLatestChange
                 .dirEntries(SpanMode.shallow)
-                .find!((string a) => a.extension == ".nupkg")
+                .find!isPathNugetPackage
                 .front;
         }
         

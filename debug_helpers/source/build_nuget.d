@@ -91,7 +91,7 @@ void main(string[] args)
         }
 
         // Clear its cache manually because beats me
-        immutable packageCachedPath = nugetPaths["global-packages"].buildPath(); 
+        immutable packageCachedPath = nugetPaths["global-packages"].buildPath(info.getNugetOutputPathRelativeToSources); 
         if (exists(packageCachedPath))
             rmdirRecurse(packageCachedPath);
 

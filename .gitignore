@@ -5,3 +5,5 @@ apikey.txt
 *.pdb
 *.exe
 *.obj
+.vs/*
+!.vs/launch.vs.json
