@@ -72,7 +72,7 @@ void main(string[] args)
         }
         else if (exists(pluginId))
         {
-            assert(0);
+            assert(0, "Folders are unimplemented");
         }
         else 
         {
