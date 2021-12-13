@@ -6,7 +6,7 @@
     <Description>The MSBuild project SDK that helps correctly create Kari plugins.
 How to use MSBuild project SDKs: https://docs.microsoft.com/visualstudio/msbuild/how-to-use-project-sdk
     </Description>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <!-- <GeneratePackageOnBuild>true</GeneratePackageOnBuild> -->
     <DevelopmentDependency>true</DevelopmentDependency>
     <SymbolPackageFormat></SymbolPackageFormat>
     <IncludeSymbols>false</IncludeSymbols>
@@ -16,8 +16,10 @@ How to use MSBuild project SDKs: https://docs.microsoft.com/visualstudio/msbuild
     -->
     <MinClientVersion>2.5</MinClientVersion>
     <IncludeBuildOutput>false</IncludeBuildOutput>
+
     <!-- Below is needed to make NuGet package TFM-oblivious -->
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    
     <!--
       Run our target to add Version.props to the nuget package before Pack
       using a documented extension point.

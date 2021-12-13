@@ -1,6 +1,35 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  
+  <!-- 
+    Enable plugin-packing automatically only for non-multitargeting projects
+    (that haven't specifically set the property).
+    TODO: idk what this means and I only allow net5.0 for now.
+  -->
+  <PropertyGroup Condition=" '$(PackAsKariPlugin)' == '' AND '$(TargetFrameworks)' == '' ">
+    <PackAsKariPlugin>true</PackAsKariPlugin>
+  </PropertyGroup>
 
-  <Import Project="BuildPluginPackage.targets" />
+  <!-- 
+    Run the annotator as a tool if RunKariAnnotator is not false 
+    TODO: force it to get installed automatically???
+  -->
+  <Target Name="RunAnnotator" BeforeTargets="BeforeBuild" Condition=" '$(RunKariAnnotator)' != 'false' ">
+    <Exec Command="dotnet tool run kari-annotator -- $(KariAnnotatorArguments)" />
+    <ItemGroup>
+      <!-- https://stackoverflow.com/a/44829863/9731532 -->
+      <Compile Include="**/*$(DefaultLanguageSourceExtension)"
+               Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder);$(BaseIntermediateOutputPath)**;$(BaseOutputPath)**;@(Compile)" />
+    </ItemGroup>
+    <!-- <Message Importance="high" Text="Compile: @(Compile)" /> -->
+  </Target>
+
+  <ItemGroup>
+    <KariAnnotatorGeneratedFiles Include="**\*.Generated.cs" Condtion=" '$(KariAnnotatorGeneratedFiles)' == '' "/>
+  </ItemGroup>
+
+  <Target Name="AnnotatorClean" AfterTargets="Clean">
+    <Delete Files="@(KariAnnotatorGeneratedFiles)" />
+  </Target>
 
 </Project>

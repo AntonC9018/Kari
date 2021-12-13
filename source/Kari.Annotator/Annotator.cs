@@ -22,11 +22,12 @@ namespace Kari.Annotator
         string targetFileRegex = @".*(Annotations|Attributes)$";
         [Option("Suffix to append to generated files. E.g. Annotations.cs -> Annotations.Generated.cs")]
         string generatedFileSuffix = ".Generated";
+        [Option("Regex pattern that tells whether a directory should be ignored")]
+        string ignoredDirectoriesPattern = "obj|bin";
         [Option("An absolute path or a path relative to `targetedFolder` of the directory in which to output the generated files. By default, the files get output next to the source files.")]
         string generatedFilesOutputFolder = null;
         [Option(" ")]
         string singleFileOutputName = null;
-
         [Option("Whether to not replace all instances of internal with public in the source file",
             IsFlag = true)]
         bool noReplaceInternalWithPublic = false;
@@ -77,6 +78,17 @@ namespace Kari.Annotator
             return annotator.Run();
         }
 
+        private class ShouldIgnoreDirectory : FileSystem.IShouldIgnoreDirectory
+        {
+            public Regex pattern;
+            public string fullIgnoredPath;
+
+            bool FileSystem.IShouldIgnoreDirectory.ShouldIgnoreDirectory(string fullFilePath)
+            {
+                return fullFilePath == fullIgnoredPath || pattern.IsMatch(fullFilePath);
+            }
+        }
+
         public int Run()
         {
             Logger logger = new Logger("Annotator");
@@ -97,26 +109,37 @@ namespace Kari.Annotator
             var targetRegex = new Regex(targetFileRegex, RegexOptions.IgnoreCase);
             if (targetedFiles is null)
             {
+                var ignoreMetric = new ShouldIgnoreDirectory();
                 try
                 {
-                    IEnumerable<string> sourceFiles; 
+                    ignoreMetric.pattern = new Regex(ignoredDirectoriesPattern);
+                }
+                catch (RegexParseException except)
+                {
+                    logger.LogError($"The regex {ignoredDirectoriesPattern} failed:\n{except}.");
+                    return 1;
+                }
+
+                try
+                {
+
                     if (generatedFilesOutputFolder is null 
                         // Non-empty suffix should in theory imply the generated files won't match the
                         // regex that determines files to be processed.
                         || generatedFileSuffix != "")
                     {
-                        sourceFiles = Directory.EnumerateFiles(targetedFolder, "*.cs", SearchOption.AllDirectories);
+                        // sourceFiles = Directory.EnumerateFiles(targetedFolder, "*.cs", SearchOption.AllDirectories);
                     }
                     else // if (!(generatedFilesOutputFolder is null))
                     {
                         generatedFilesOutputFolder = Path.GetFullPath(generatedFilesOutputFolder);
                         if (!Directory.Exists(generatedFilesOutputFolder))
                             Directory.CreateDirectory(generatedFilesOutputFolder);
-                        sourceFiles = FileSystem.EnumerateFilesIgnoringSingleDirectory(targetedFolder, generatedFilesOutputFolder, "*.cs");
+                        ignoreMetric.fullIgnoredPath = generatedFilesOutputFolder;
                     }
 
                     // We'll be checking out all files, so compiling should be useful? it depends.
-                    targetedFiles = sourceFiles
+                    targetedFiles = FileSystem.EnumerateFilesIgnoring(targetedFolder, ignoreMetric, "*.cs")
                         .Where(f => targetRegex.IsMatch(Path.GetFileNameWithoutExtension(f)))
                         .ToArray();
                 }
@@ -129,7 +152,7 @@ namespace Kari.Annotator
 
             // THOUGHT: I probably should just use the parser here
             const string qualifiedIdentifierRegexString = @"([a-zA-Z_][a-zA-Z0-9_]*\.)*([a-zA-Z_][a-zA-Z0-9_]*)";
-            var namespaceRegex = new Regex(@"^namespace\s+(?<namespace>" + qualifiedIdentifierRegexString + @")\s*{");
+            var namespaceRegex = new Regex(@"namespace\s+(?<namespace>" + qualifiedIdentifierRegexString + @")\s*{");
             var attributeClassRegex = new Regex(@"class\s+(?<attribute>[a-zA-Z_][a-zA-Z0-9_]*Attribute)\s*:\s*" 
                 + qualifiedIdentifierRegexString + @"?Attribute");
 

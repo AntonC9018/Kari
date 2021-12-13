@@ -2,14 +2,12 @@
 {
     using System;
     using System.Collections.Generic;
-    using System.Diagnostics;
     using System.IO;
     using System.Linq;
     using System.Runtime.Loader;
     using System.Threading;
     using System.Threading.Tasks;
     using Kari.Arguments;
-    using Kari.GeneratorCore;
     using Kari.GeneratorCore.Workflow;
     using Kari.Utils;
     using Microsoft.Build.Locator;
@@ -132,7 +130,7 @@
 
             try
             {
-                System.Environment.ExitCode = await compiler.RunAsync(parser, token);
+                System.Environment.ExitCode = (int) await compiler.RunAsync(parser, token);
             }
             catch (OperationCanceledException)
             {
@@ -198,7 +196,7 @@
             commonNamespace = commonNamespace.Replace("$Root.", namespacePrefixRoot);
         }
 
-        private async Task<int> RunAsync(ArgumentParser parser, CancellationToken token)
+        private async Task<ExitCode> RunAsync(ArgumentParser parser, CancellationToken token)
         {
             Workspace workspace = null;
             try // I hate that I have to do the stupid try-catch with awaits, 
@@ -208,12 +206,6 @@
             bool ShouldExit()
             {
                 return Logger.AnyLoggerHasErrors || token.IsCancellationRequested;
-            }
-
-            int Exit(ExitCode code)
-            {
-                workspace?.Dispose();
-                return (int) code;
             }
 
             _logger = new Logger("Master");
@@ -226,15 +218,15 @@
             if (!(newPluginPath is null) && !parser.IsHelpSet)
             {
                 new PluginFileTemplates().WriteNewPlugin(newPluginPath);
-                return Exit(ExitCode.Ok);
+                return ExitCode.Ok;
             }
 
             if (parser.IsHelpSet && pluginsLocations == null)
             {
                 Logger.LogPlain(parser.GetHelpFor(this));
-                return Exit(ExitCode.Ok);
+                return ExitCode.Ok;
             }
-            if (ShouldExit())  return (int) ExitCode.BadOptionValue;
+            if (ShouldExit())  return ExitCode.BadOptionValue;
 
             // Input must be either a directory of source files or an msbuild project
             string projectDirectory = "";
@@ -254,9 +246,9 @@
                 else
                 {
                     _logger.LogError($"No such input file or directory {input}.");
-                    return 1;
+                    return ExitCode.Other;
                 }
-                if (ShouldExit()) return Exit(ExitCode.BadOptionValue);
+                if (ShouldExit()) return ExitCode.BadOptionValue;
             }
 
             // We need to initialize this in order to create Administrators.
@@ -273,7 +265,7 @@
 
                 Logger.LogPlain(parser.GetHelpFor(this));
                 master.LogHelpForEachAdministrator(parser);
-                return Exit(ExitCode.Ok);
+                return ExitCode.Ok;
             }
 
             // Set the master instance globally
@@ -335,7 +327,7 @@
 
             // Now that plugins have loaded, we can actually use the rest of the arguments.
             master.TakeCommandLineArguments(parser);
-            if (ShouldExit()) return Exit(ExitCode.BadOptionValue);
+            if (ShouldExit()) return ExitCode.BadOptionValue;
 
             var unrecognizedOptions = parser.GetUnrecognizedOptions();
             var unrecognizedConfigOptions = parser.GetUnrecognizedOptionsFromConfigurations();
@@ -350,11 +342,11 @@
                     // TODO: This can contain more info, like the line number.
                     _logger.LogError($"Unrecognized option: `{arg.GetPropertyPath()}`");
                 }
-                return Exit(ExitCode.UnknownOptions);
+                return ExitCode.UnknownOptions;
             }
 
             await compileTask;
-            if (ShouldExit()) return Exit(ExitCode.Other);
+            if (ShouldExit()) return ExitCode.Other;
 
             // The code is a bit less ugly now, but still pretty ugly.
             // TODO: Is this profiling thing even useful? I mean, we already get the stats for the whole function. 
@@ -363,13 +355,13 @@
             measurer.Start("Environment Initialization");
             {
                 master.InitializeCompilation(ref compilation);
-                if (ShouldExit()) return Exit(ExitCode.FailedEnvironmentInitialization);
+                if (ShouldExit()) return ExitCode.FailedEnvironmentInitialization;
                 if (!monolithicProject) 
                     master.FindProjects(treatEditorAsSubproject);
                 master.InitializePseudoProjects();
                 master.InitializeAdministrators();
             }
-            if (ShouldExit()) return Exit(ExitCode.FailedEnvironmentInitialization);
+            if (ShouldExit()) return ExitCode.FailedEnvironmentInitialization;
             measurer.Stop();
 
             measurer.Start("Symbol Collect");
@@ -377,7 +369,7 @@
                 await master.Collect();
                 master.RunCallbacks();
             }
-            if (ShouldExit()) return Exit(ExitCode.FailedSymbolCollection);
+            if (ShouldExit()) return ExitCode.FailedSymbolCollection;
             measurer.Stop();
 
             measurer.Start("Output Generation");
@@ -386,16 +378,16 @@
                 await master.GenerateCode();
                 master.CloseWriters();
             }
-            if (ShouldExit()) return Exit(ExitCode.FailedOutputGeneration);
+            if (ShouldExit()) return ExitCode.FailedOutputGeneration;
             
             entireGenerationMeasurer.Stop();
-            return Exit(ExitCode.Ok);
+            return ExitCode.Ok;
 
 
             } // try
             catch (OperationCanceledException)
             {
-                return (int) ExitCode.OperationCanceled;
+                return ExitCode.OperationCanceled;
             }
             finally
             {

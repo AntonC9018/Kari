@@ -6,12 +6,31 @@
     <UsingKariPluginSdk>true</UsingKariPluginSdk>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- This is needed for local Plugin development, it copies all assemblies of dependencies. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!--
+      Min Version is 2.5 because that's when build/ folder support was introduced:
+      https://docs.microsoft.com/en-us/nuget/release-notes/nuget-2.5#automatic-import-of-msbuild-targets-and-props-files
+    -->
+    <MinClientVersion>2.5</MinClientVersion>
+
+    <!-- Below is needed to make NuGet package TFM-oblivious -->
+    <!-- <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking> -->
+
+    <!-- Lib is what we ditribute as a plugin -->
+    <IncludeBuildOutput>true</IncludeBuildOutput>    
+    <IsPackable>true</IsPackable>
+    <OutputType>Library</OutputType>
+
+    <!-- Kari is net 5. TODO: this should be generalized. -->
+    <TargetFramework>net5.0</TargetFramework>
+  </PropertyGroup>
+
   <!--
     Version.props defines KariPluginSdkVersion Property
     with the version of the Sdk package itself.
   -->
   <Import Project="Version.props" Condition=" Exists('Version.props') " />
-
-  <Import Project="BuildPluginPackage.props" />
 
 </Project>

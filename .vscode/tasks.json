@@ -22,7 +22,7 @@
             "type": "process",
             "args": [ 
                 "tool", "update", "--global", "Kari.Generator",
-                "--add-source", "Build\\bin\\Kari.Generator\\Release"
+                "--add-source", "build_folder\\bin\\Kari.Generator\\Release"
             ],
         },
         {
