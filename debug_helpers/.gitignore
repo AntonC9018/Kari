@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/debug_helpers
+debug_helpers.so
+debug_helpers.dylib
+debug_helpers.dll
+debug_helpers.a
+debug_helpers.lib
+debug_helpers-test-*
+*.exe
+*.o
+*.obj
+*.lst
