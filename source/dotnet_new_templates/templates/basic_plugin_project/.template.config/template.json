@@ -1,0 +1,24 @@
+{
+    "$schema": "http://json.schemastore.org/template",
+    "author": "Anton Curmanschii",
+    "classifications": [
+        "Kari Plugin"
+    ],
+    "identity": "Kari.Plugin.BasicTemplate",
+    "description": "A basic Kari plugin project: a csproj file and a few example source files. There is a more advanced template that also includes a configured tool manifest, a solution file, a gitignore file, and other stuff. This one is minimal though.",
+    "name": "A basic Kari plugin project",
+    "shortName": "kari_basic_plugin_project",
+    "tags": {
+        "language": "C#",
+        "type": "project"
+    },
+    "preferNameDirectory": true,
+    "symbols": {
+        "name": {
+            "type": "parameter",
+            "isRequired": true,
+            "replaces": "MyPlugin",
+            "FileRename": "MyPlugin"
+        }
+    }
+}

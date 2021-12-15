@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Anton Curmanschii",
+  "classifications": [
+      "Kari Plugin"
+  ],
+  "identity": "Kari.Plugin.AdvancedTemplate",
+  "description": "An advanced plugin project. Includes a configured tool manifest, a solution file, a gitignore file, and other stuff.",
+  "name": "An advanced Kari plugin project",
+  "shortName": "kari_advanced_plugin_project",
+  "preferNameDirectory": true,
+  "symbols": {
+      "name": {
+          "type": "parameter",
+          "isRequired": true,
+          "replaces": "MyPlugin",
+          "FileRename": "MyPlugin"
+      }
+  }
+}
