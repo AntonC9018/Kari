@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "kari.annotator": {
+      "version": "0.0.0-g4e6d2e92ed",
+      "commands": [
+        "kari-annotator"
+      ]
+    },
+    "kari.generator": {
+      "version": "0.0.0-g4e6d2e92ed",
+      "commands": [
+        "kari"
+      ]
+    }
+  }
+}
