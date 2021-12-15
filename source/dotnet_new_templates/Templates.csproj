@@ -15,37 +15,20 @@
     <ContentTargetFolders>content</ContentTargetFolders>
     <NoWarn>$(NoWarn);NU5128</NoWarn>
 
-    <BeforePack>
-      @(BeforePack);
-      CopyBasicPluginIntoAdvancedSubfolder;
-      IncludePackItems
-    </BeforePack>
+    <BeforePack> @(BeforePack);IncludePackItems</BeforePack>
+
+    <!-- Allow .gitignore -->
     <NoDefaultExcludes>true</NoDefaultExcludes>
   </PropertyGroup>
-
-  <Target Name="CopyBasicPluginIntoAdvancedSubfolder">
-    <ItemGroup>
-      <ItemsOfBasicProject
-        Include="basic_plugin_project\**\*"
-        Exclude="basic_plugin_project\**\.template.config\*" />
-    </ItemGroup>
-    <Copy 
-      SourceFiles="@(ItemsOfBasicProject)" 
-      DestinationFolder="advanced_plugin_project\MyPlugin"
-      SkipUnchangedFiles="true"/>
-  </Target>
-
-  <Target Name="CleanBasicPluginTemplateCopyInAdvanced" AfterTargets="Clean">
-    <ItemGroup>
-      <CopiedItems Include="advanced_plugin_project\MyPlugin\*;" />
-    </ItemGroup>
-    <Delete Files="@(CopiedItems)" />
-  </Target>
 
   <Target Name="IncludePackItems">
     <!-- All subdirectories, all files within them -->
     <ItemGroup>
-      <Content Include="*\**\*" />
+      <Content Include="*\**\*" PackagePath="%(RecursiveDir)" />
+      <Content 
+        Include="basic_plugin_project\**\*"
+        Exclude="basic_plugin_project\**\.template.config\*"
+        PackagePath="advanced_plugin_project\MyPlugin\" />
       <Compile Remove="**\*" />
     </ItemGroup>
   </Target>
