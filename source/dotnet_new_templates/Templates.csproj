@@ -28,7 +28,7 @@
       <Content 
         Include="basic_plugin_project\**\*"
         Exclude="basic_plugin_project\**\.template.config\*"
-        PackagePath="advanced_plugin_project\MyPlugin\" />
+        PackagePath="advanced_plugin_project\MyPlugin\%(RecursiveDir)" />
       <Compile Remove="**\*" />
     </ItemGroup>
   </Target>
