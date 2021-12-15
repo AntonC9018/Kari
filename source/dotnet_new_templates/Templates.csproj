@@ -17,28 +17,29 @@
 
     <BeforePack>
       @(BeforePack);
-      IncludePackItems;
-      CopyBasicPluginIntoAdvancedSubfolder
+      CopyBasicPluginIntoAdvancedSubfolder;
+      IncludePackItems
     </BeforePack>
+    <NoDefaultExcludes>true</NoDefaultExcludes>
   </PropertyGroup>
 
-  <ItemGroup>
-    <BasicPluginProjectTemplateFiles 
-      Include="basic_plugin_project\*"
-      Exclude="basic_plugin_project\.template.config">
-    </BasicPluginProjectTemplateFiles>
-  </ItemGroup>
-
-  <Target Name="CopyBasicPluginIntoAdvancedSubfolder" DependsOnTargets="IncludePackItems">
+  <Target Name="CopyBasicPluginIntoAdvancedSubfolder">
     <ItemGroup>
       <ItemsOfBasicProject
         Include="basic_plugin_project\**\*"
-        Exclude="basic_plugin_project\**\.template.config">
+        Exclude="basic_plugin_project\**\.template.config\*" />
     </ItemGroup>
     <Copy 
       SourceFiles="@(ItemsOfBasicProject)" 
       DestinationFolder="advanced_plugin_project\MyPlugin"
       SkipUnchangedFiles="true"/>
+  </Target>
+
+  <Target Name="CleanBasicPluginTemplateCopyInAdvanced" AfterTargets="Clean">
+    <ItemGroup>
+      <CopiedItems Include="advanced_plugin_project\MyPlugin\*;" />
+    </ItemGroup>
+    <Delete Files="@(CopiedItems)" />
   </Target>
 
   <Target Name="IncludePackItems">
