@@ -42,7 +42,7 @@ namespace Kari.Annotator
         string classVisibility = "internal";
 
 
-        private static int Main(string[] args)
+        internal static int Main(string[] args)
         {
             var argumentLogger = new Logger("Arguments");
             var parser = new ArgumentParser();

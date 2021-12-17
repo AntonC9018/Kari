@@ -12,14 +12,11 @@
                       ExcludeAssets="runtime" />
     <!-- Compile-time dependency -->
     <ProjectReference Include="$(KariRootPath)Kari.Annotator\Kari.Annotator.csproj" 
+                      ReferenceOutputAssembly="false"
                       PrivateAssets="all"
                       ExcludeAssets="all" />
   </ItemGroup>
 
-  <ItemGroup>
-    <KariAnnotatorGeneratedFiles Include="**\*.Generated.cs" Condtion=" '$(KariAnnotatorGeneratedFiles)' == '' "/>
-  </ItemGroup>
-  
   <Target Name="RunAnnotator" BeforeTargets="AfterResolveReferences">
     <Exec Command="$(KariOutputPath)Kari.Annotator\$(Configuration)\net5.0\Kari.Annotator.exe $(AnnotatorArguments)" />
     <ItemGroup>
@@ -30,6 +27,9 @@
   </Target>
 
   <Target Name="TextTemplateClean" AfterTargets="Clean">
+    <ItemGroup>
+      <KariAnnotatorGeneratedFiles Include="**\*.Generated.cs" Condtion=" '$(KariAnnotatorGeneratedFiles)' == '' "/>
+    </ItemGroup>
     <Delete Files="@(KariAnnotatorGeneratedFiles)" />
   </Target>
 </Project>

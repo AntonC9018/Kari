@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Kari.Annotator.Tests</AssemblyName>
+    <IsTestAssembly>true</IsTestAssembly>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(KariRootPath)Kari.Annotator\Kari.Annotator.csproj"/>
+  </ItemGroup>
+
+</Project>
