@@ -138,7 +138,7 @@ namespace Kari.Annotator
                         ignoreMetric.fullIgnoredPath = generatedFilesOutputFolder;
                     }
 
-                    // We'll be checking out all files, so compiling should be useful? it depends.
+                    // We'll be checking out all files, so compiling the regex should be useful? it depends.
                     targetedFiles = FileSystem.EnumerateFilesIgnoring(targetedFolder, ignoreMetric, "*.cs")
                         .Where(f => targetRegex.IsMatch(Path.GetFileNameWithoutExtension(f)))
                         .ToArray();
@@ -158,9 +158,25 @@ namespace Kari.Annotator
 
             CodeBuilder builder = CodeBuilder.Create();
 
-            for (int i = 0; i < targetedFiles.Length; i++)
+            string GetOutputFilePath(string inputFilePath)
             {
-                string attributesText = File.ReadAllText(targetedFiles[i], Encoding.UTF8);
+                var generatedFilePath = Path.ChangeExtension(inputFilePath, generatedFileSuffix + ".cs");
+                if (generatedFilesOutputFolder is not null)
+                    return Path.Combine(generatedFilesOutputFolder, Path.GetFileName(generatedFilePath));
+                return generatedFilePath;
+            }
+
+            foreach (var inputFilePath in targetedFiles)
+            {
+                // MSBuild checks timestamps instead of content too, I'm pretty sure.
+                // This is probably why it rebuilt my plugins, thinking the content changed.
+                var inputInfo      = new FileInfo(inputFilePath);
+                var outputFilePath = GetOutputFilePath(inputFilePath);
+                var outputInfo     = new FileInfo(outputFilePath);
+                if (inputInfo.LastWriteTime <= outputInfo.LastWriteTime)
+                    continue;
+
+                string attributesText = File.ReadAllText(inputFilePath, Encoding.UTF8);
                 string attributesTextEscaped = attributesText.Replace("\"", "\"\"");
                 if (!noReplaceInternalWithPublic)
                     attributesTextEscaped = attributesTextEscaped.Replace("internal", "public");
@@ -176,7 +192,7 @@ namespace Kari.Annotator
                 builder.NewLine();
                 builder.StartBlock();
 
-                string classname = Path.GetFileNameWithoutExtension(targetedFiles[i]);
+                string classname = Path.GetFileNameWithoutExtension(inputFilePath);
                 builder.AppendLine("using Kari.GeneratorCore.Workflow;");
                 builder.AppendLine("using Kari.Utils;");
                 builder.AppendLine($"{classVisibility} static class Dummy{classname}");
@@ -199,6 +215,7 @@ namespace Kari.Annotator
                 builder.NewLine();
                 builder.EndBlock();
 
+                // Attributes -> Symbols
                 string GetSymbolsClassName()
                 {
                     var targetRegexMatch = targetRegex.Match(classname);
@@ -238,19 +255,7 @@ namespace Kari.Annotator
 
                 if (singleFileOutputName is null)
                 {
-                    string GetPath()
-                    {
-                        if (generatedFilesOutputFolder is not null)
-                        {
-                            string generatedFilename = classname + generatedFileSuffix + ".cs";
-                            return Path.Combine(generatedFilesOutputFolder, generatedFilename);
-                        }
-                        else
-                        {
-                            return targetedFiles[i].Insert(targetedFiles[i].Length - ".cs".Length, generatedFileSuffix);
-                        }
-                    }
-                    File.WriteAllText(GetPath(), builder.ToString());
+                    File.WriteAllText(outputFilePath, builder.ToString());
                     builder.Clear();
                 }
             }
