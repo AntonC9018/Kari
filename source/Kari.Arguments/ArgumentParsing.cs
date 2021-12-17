@@ -100,7 +100,7 @@ namespace Kari.Arguments
         public struct ParsingResult
         {
             public readonly string Error;
-            public bool IsError => !(Error is null);
+            public bool IsError => Error is not null;
             internal ParsingResult(string error) => Error = error;
 
             internal static readonly ParsingResult Ok = new ParsingResult(null);
@@ -582,10 +582,10 @@ namespace Kari.Arguments
             {
                 // No reason for it to be stored as a field.
                 var helpMessageProperty = type.GetProperty("HelpMessage", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
-                if (!(helpMessageProperty is null) && !(helpMessageProperty.GetMethod is null))
+                if (helpMessageProperty is not null && helpMessageProperty.GetMethod is not null)
                 {
                     var message = helpMessageProperty.GetMethod.Invoke(t, null);
-                    if (!(message is null) && message is string messageString)
+                    if (message is string messageString)
                         return messageString + "\n\n";
                 }
                 return "";

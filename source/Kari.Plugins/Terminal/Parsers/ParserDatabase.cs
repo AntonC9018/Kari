@@ -123,7 +123,7 @@ namespace Kari.Plugins.Terminal
         {
             var customParser = argument.GetAttribute().Parser;
             
-            if (!(customParser is null))
+            if (customParser is not null)
             {
                 if (_customParsersTypeMap.TryGetValue(argument.Symbol.Type, out var parser))
                 {

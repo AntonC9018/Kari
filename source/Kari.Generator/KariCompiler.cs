@@ -19,19 +19,9 @@
     public class KariCompiler
     {
         string HelpMessage => "Use Kari to generate code for a C# project.";
-        // [Option("Show help for Kari and all specified plugins. Call with no arguments to show help just for Kari",
-        //     IsFlag = true)]
-        // bool help;
 
-        // This is a hack, but like my argument parsing system is simple and cannot handle this case easily.
-        // I assume one would just make another project = whole another program for the different use cases.
-        // I'm doing a hack to accomodate this currently.
-        [Option("Specify path for a new plugin folder. It will create all the default files.")]
-        string newPluginPath = null;
-
-        [Option("Input path to MSBuild project file or to the directory containing source files.", 
-            IsRequired = true)] 
-        string input;
+        [Option("Input path to MSBuild project file or to the directory containing source files.")] 
+        string input = ".";
 
         [Option("Plugins folder or paths to individual plugin dlls.",
             IsRequired = true)]
@@ -150,13 +140,6 @@
         private void PreprocessOptions(ArgumentParser parser)
         {
             var result = parser.FillObjectWithOptionValues(this);
-            
-            // FIXME: This is the horrible hack.
-            if (!(newPluginPath is null) && !parser.IsHelpSet)
-            {
-                newPluginPath = newPluginPath.WithNormalizedDirectorySeparators();
-                return;
-            }
 
             if (result.IsError)
             {
@@ -178,7 +161,7 @@
 
             if (generatedName == "" && clearOutput)
             {
-                _logger.LogNoLock($"Setting the `generatedName` to an empty string and `clearOutputFolder` to true will wipe all top-level source files in your project. (In principle! I WON'T do that.) Specify a different folder or file.", LogType.Error);
+                _logger.LogError($"Setting the `generatedName` to an empty string and `clearOutputFolder` to true will wipe all top-level source files in your project. (In principle! I WON'T do that.) Specify a different folder or file.");
             }
 
             // Validate the independent namespaces + initialize.
@@ -214,19 +197,13 @@
 
             PreprocessOptions(parser);
 
-            // TODO: Redo this in a reasonable way
-            if (!(newPluginPath is null) && !parser.IsHelpSet)
-            {
-                new PluginFileTemplates().WriteNewPlugin(newPluginPath);
-                return ExitCode.Ok;
-            }
-
-            if (parser.IsHelpSet && pluginPaths == null)
+            if (parser.IsHelpSet && pluginPaths is null)
             {
                 Logger.LogPlain(parser.GetHelpFor(this));
                 return ExitCode.Ok;
             }
-            if (ShouldExit())  return ExitCode.BadOptionValue;
+            if (ShouldExit())
+                return ExitCode.BadOptionValue;
 
             // Input must be either a directory of source files or an msbuild project
             string projectDirectory = "";
@@ -248,7 +225,8 @@
                     _logger.LogError($"No such input file or directory {input}.");
                     return ExitCode.Other;
                 }
-                if (ShouldExit()) return ExitCode.BadOptionValue;
+                if (ShouldExit())
+                    return ExitCode.BadOptionValue;
             }
 
             // We need to initialize this in order to create Administrators.
@@ -346,7 +324,8 @@
             }
 
             await compileTask;
-            if (ShouldExit()) return ExitCode.Other;
+            if (ShouldExit())
+                return ExitCode.Other;
 
             // The code is a bit less ugly now, but still pretty ugly.
             // TODO: Is this profiling thing even useful? I mean, we already get the stats for the whole function. 
@@ -355,13 +334,15 @@
             measurer.Start("Environment Initialization");
             {
                 master.InitializeCompilation(ref compilation);
-                if (ShouldExit()) return ExitCode.FailedEnvironmentInitialization;
+                if (ShouldExit())
+                    return ExitCode.FailedEnvironmentInitialization;
                 if (!monolithicProject) 
                     master.FindProjects(treatEditorAsSubproject);
                 master.InitializePseudoProjects();
                 master.InitializeAdministrators();
             }
-            if (ShouldExit()) return ExitCode.FailedEnvironmentInitialization;
+            if (ShouldExit())
+                return ExitCode.FailedEnvironmentInitialization;
             measurer.Stop();
 
             measurer.Start("Symbol Collect");
@@ -369,7 +350,8 @@
                 await master.Collect();
                 master.RunCallbacks();
             }
-            if (ShouldExit()) return ExitCode.FailedSymbolCollection;
+            if (ShouldExit())
+                return ExitCode.FailedSymbolCollection;
             measurer.Stop();
 
             measurer.Start("Output Generation");
@@ -378,7 +360,8 @@
                 await master.GenerateCode();
                 master.CloseWriters();
             }
-            if (ShouldExit()) return ExitCode.FailedOutputGeneration;
+            if (ShouldExit())
+                return ExitCode.FailedOutputGeneration;
             
             entireGenerationMeasurer.Stop();
             return ExitCode.Ok;
@@ -432,7 +415,8 @@
                 }
             }
 
-            if (Logger.AnyLoggerHasErrors) return;
+            if (Logger.AnyLoggerHasErrors)
+                return;
 
             if (pluginNames is null)
             {

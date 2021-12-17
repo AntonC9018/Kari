@@ -15,16 +15,17 @@
     <ContentTargetFolders>content</ContentTargetFolders>
     <NoWarn>$(NoWarn);NU5128</NoWarn>
 
-    <BeforePack> @(BeforePack);IncludePackItems</BeforePack>
+    <BeforePack>@(BeforePack);IncludePackItems</BeforePack>
 
     <!-- Allow .gitignore -->
     <NoDefaultExcludes>true</NoDefaultExcludes>
   </PropertyGroup>
 
   <Target Name="IncludePackItems">
-    <!-- All subdirectories, all files within them -->
     <ItemGroup>
+      <!-- All subdirectories, all files within them -->
       <Content Include="*\**\*" PackagePath="%(RecursiveDir)" />
+      <!-- RecursiveDir only includes the matched wildcard part -->
       <Content 
         Include="basic_plugin_project\**\*"
         Exclude="basic_plugin_project\**\.template.config\*"

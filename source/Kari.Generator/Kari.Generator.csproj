@@ -3,7 +3,7 @@
   <PropertyGroup>
     <AssemblyName>kari</AssemblyName>
     <OutputType>Exe</OutputType>
-    <LangVersion>8</LangVersion>
+    <LangVersion>9</LangVersion>
     <!-- Honestly, non-nullable sucks too much to be any useful -->
     <!-- <Nullable>enable</Nullable> -->
     <IsPackable>true</IsPackable>

@@ -270,7 +270,7 @@ namespace Kari.GeneratorCore.Workflow
 
         public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T> e) where T : class
         {
-            return e.Where(el => !(el is null));
+            return e.Where(el => el is not null);
         }
         
         public static IEnumerable<ITypeSymbol> GetLeafTypeArguments(this ITypeSymbol symbol)
@@ -437,7 +437,7 @@ namespace Kari.GeneratorCore.Workflow
                 var opMethod = arr[i] as IMethodSymbol;
 
                 // AFAIK it has to be a method.
-                Assert(!(opMethod is null));
+                Assert(opMethod is not null);
 
                 if (opMethod.Parameters.Length == 2 &&
                     type.Equals(opMethod.Parameters[0].Type) &&

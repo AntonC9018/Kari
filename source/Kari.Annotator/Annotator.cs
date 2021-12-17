@@ -130,7 +130,7 @@ namespace Kari.Annotator
                     {
                         // sourceFiles = Directory.EnumerateFiles(targetedFolder, "*.cs", SearchOption.AllDirectories);
                     }
-                    else // if (!(generatedFilesOutputFolder is null))
+                    else // if (generatedFilesOutputFolder is not null)
                     {
                         generatedFilesOutputFolder = Path.GetFullPath(generatedFilesOutputFolder);
                         if (!Directory.Exists(generatedFilesOutputFolder))
@@ -169,7 +169,7 @@ namespace Kari.Annotator
 
                 builder.Indent();
                 builder.Append("namespace ");
-                if (!(pluginNamespaceSubstitute is null))
+                if (pluginNamespaceSubstitute is not null)
                     builder.Append(pluginNamespaceSubstitute);
                 else
                     builder.Append(namespaceDeclaration.Groups["namespace"].Value);
@@ -184,7 +184,7 @@ namespace Kari.Annotator
 
                 builder.Indent();
                 builder.Append($"{classVisibility} const string Text = @\"");
-                if (!(clientNamespaceSubstitute is null))
+                if (clientNamespaceSubstitute is not null)
                 {
                     builder.Append(attributesTextEscaped, 0, namespaceDeclaration.Index);
                     builder.Append(clientNamespaceSubstitute);
@@ -240,7 +240,7 @@ namespace Kari.Annotator
                 {
                     string GetPath()
                     {
-                        if (!(generatedFilesOutputFolder is null))
+                        if (generatedFilesOutputFolder is not null)
                         {
                             string generatedFilename = classname + generatedFileSuffix + ".cs";
                             return Path.Combine(generatedFilesOutputFolder, generatedFilename);
@@ -255,7 +255,7 @@ namespace Kari.Annotator
                 }
             }
 
-            if (!(singleFileOutputName is null))
+            if (singleFileOutputName is not null)
             {
                 singleFileOutputName = Path.ChangeExtension(singleFileOutputName, ".cs");
 
@@ -263,7 +263,7 @@ namespace Kari.Annotator
                 {
                     if (Path.IsPathRooted(singleFileOutputName))
                         return singleFileOutputName;
-                    if (!(generatedFilesOutputFolder is null))
+                    if (generatedFilesOutputFolder is not null)
                         return Path.Combine(generatedFilesOutputFolder, singleFileOutputName);
                     return Path.Combine(targetedFolder, singleFileOutputName);
                 }

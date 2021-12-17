@@ -99,8 +99,8 @@ namespace Kari.GeneratorCore.Workflow
             // result null, message not null -> error
             public readonly T Result; 
             public readonly string Message;
-            public bool IsError => !(Message is null) && Result is null;
-            public bool IsSuccess => !(Result is null) && Message is null;
+            public bool IsError => Message is not null && Result is null;
+            public bool IsSuccess => Result is not null && Message is null;
             public bool IsFail => Result is null && Message is null;
 
             private AttributeConversionResult(string message)

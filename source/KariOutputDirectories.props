@@ -1,8 +1,7 @@
 <Project>
   <PropertyGroup>
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
-    <!-- If not run by the python script, set these variables to a reasonable default -->
-    <KariBuildPath>$(MSBuildThisFileDirectory)..\build_folder\</KariBuildPath>
+    <KariBuildPath Condition="'$(KariBuildPath)' == ''">$(MSBuildThisFileDirectory)..\build_folder\</KariBuildPath>
     <KariOutputPath Condition="'$(KariOutputPath)' == ''">$(KariBuildPath)bin\</KariOutputPath>
     <KariIntermediateOutputPath Condition="'$(KariIntermediateOutputPath)' == ''">$(KariBuildPath)obj\</KariIntermediateOutputPath>
     
