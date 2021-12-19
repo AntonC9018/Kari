@@ -310,6 +310,11 @@ namespace Kari.Arguments
                     continue;
 
                 string name = fieldInfo.Name;
+                // TODO: probably any case options??
+                // Allow opOptionName for clarity
+                // if (name.StartsWith("op"))
+                //     name = name.Substring(2, name.Length - 2);
+
                 bool hasOption = Options.TryGetValue(name, out var option);
                 
                 if (!hasOption)

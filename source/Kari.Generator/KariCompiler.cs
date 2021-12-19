@@ -7,6 +7,8 @@
     using System.Runtime.Loader;
     using System.Threading;
     using System.Threading.Tasks;
+    using System.Xml;
+    using System.Xml.Linq;
     using Kari.Arguments;
     using Kari.GeneratorCore.Workflow;
     using Kari.Utils;
@@ -15,6 +17,7 @@
     using Microsoft.CodeAnalysis;
     using Microsoft.CodeAnalysis.CSharp;
     using Microsoft.CodeAnalysis.MSBuild;
+    using static System.Diagnostics.Debug;
 
     public class KariCompiler
     {
@@ -24,8 +27,12 @@
         string input = ".";
 
         [Option("Plugins folder or paths to individual plugin dlls.",
-            IsRequired = true)]
-        string[] pluginPaths;
+            // Can be sometimes inferred from input, aka NuGet's packages.config
+            IsRequired = false)]
+        string[] pluginPaths = null;
+
+        [Option("Path to `packages.config` that you're using to manage packages. The plugins mentioned in that file will be imported.")]
+        string pluginConfigFilePath = null;
 
         [Option("The suffix added to each subproject (or the root project) indicating the output folder.")] 
         string generatedName = "Generated";
@@ -151,13 +158,14 @@
             }
 
             pluginPaths = pluginPaths?.Select(FileSystem.WithNormalizedDirectorySeparators).ToArray();
+            input = Path.GetFullPath(input.WithNormalizedDirectorySeparators());
+            generatedName = generatedName.WithNormalizedDirectorySeparators();
+            if (pluginConfigFilePath is not null)
+                pluginConfigFilePath = Path.GetFullPath(pluginConfigFilePath);
 
             // Hacky?
             if (parser.IsHelpSet)
                 return;
-
-            input = Path.GetFullPath(input.WithNormalizedDirectorySeparators());
-            generatedName = generatedName.WithNormalizedDirectorySeparators();
 
             if (generatedName == "" && clearOutput)
             {
@@ -197,7 +205,7 @@
 
             PreprocessOptions(parser);
 
-            if (parser.IsHelpSet && pluginPaths is null)
+            if (parser.IsHelpSet && pluginPaths is null && pluginConfigFilePath is null)
             {
                 Logger.LogPlain(parser.GetHelpFor(this));
                 return ExitCode.Ok;
@@ -210,6 +218,10 @@
             bool isProjectADirectory = false;
             if (!parser.IsHelpSet)
             {
+                if (!File.Exists(pluginConfigFilePath))
+                {
+                    _logger.LogError($"Plugin config file {pluginConfigFilePath} does not exist");
+                }
                 if (Directory.Exists(input))
                 {
                     projectDirectory = input;
@@ -223,7 +235,6 @@
                 else
                 {
                     _logger.LogError($"No such input file or directory {input}.");
-                    return ExitCode.Other;
                 }
                 if (ShouldExit())
                     return ExitCode.BadOptionValue;
@@ -233,10 +244,85 @@
             // Even if help is set, we need to new them up in order to retrieve the help messages,
             // so creating this is a prerequisite.
             var master = new MasterEnvironment(rootNamespace, projectDirectory, token, _logger, independentNamespaceParts);
-            
-            // It is fine to not have master entirely globally initialized.
+
+            IEnumerable<string> GetNugetPluginPaths()
+            {
+                if (pluginConfigFilePath is null)
+                    yield break;
+
+                var pluginConfigDirectory = Path.GetDirectoryName(pluginConfigFilePath);
+                var pluginConfigXml = XDocument.Load(pluginConfigFilePath);
+                var packages = pluginConfigXml.Root;
+                if (packages.Name != "packages")
+                {
+                    _logger.LogError("The root element must be named `packages`");
+                    yield break;
+                }
+
+                var pluginDirectoryNames = Directory.EnumerateDirectories(pluginConfigDirectory)
+                    // Actually gets just the last directory name (I think this function returns no slashes??)
+                    .Select(d => Path.GetFileName(d));
+
+                foreach (var package in packages.Elements())
+                {
+                    var attributes = package.Attributes();
+                    var idAttribute = attributes.Where(a => a.Name == "id").FirstOrDefault();
+                    if (idAttribute is null)
+                    {
+                        _logger.LogError("Wrong format: you forgot to specify a name for a package");
+                        break;
+                    }
+                    var id = idAttribute.Value;
+
+                    var targetFrameworkAttribute = attributes.Where(a => a.Name == "targetFramework").FirstOrDefault();
+                    var targetFramework = targetFrameworkAttribute?.Value ?? "net5.0";
+
+                    // We return the directories, since my function loads from directories fine anyway.
+                    string packageDirectoryName;
+
+                    var versionAttribute = attributes.Where(a => a.Name == "version").FirstOrDefault();
+                    // no version is fine, we just do the default one in this case
+                    if (versionAttribute is null)
+                    {
+                        packageDirectoryName = pluginDirectoryNames.FirstOrDefault(d => d.StartsWith(id));
+                        if (packageDirectoryName is null)
+                        {
+                            _logger.LogError($"Not found a directory for the plugin `{id}`. (Did you forget to restore?)");
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        var version = versionAttribute.Value;
+                        packageDirectoryName = $"{id}.{version}";
+
+                        // I'm not sure which one should be preferred?
+                        // if (!Directory.Exists(packageDirName))
+                        if (!pluginDirectoryNames.Contains(packageDirectoryName))
+                        {
+                            _logger.LogError($"Expected to find the directory {packageDirectoryName} within the plugin folder, but didn't. (Did you forget to restore?)");
+                            continue;
+                        }
+                    }
+
+                    var pluginRootFullPath = Path.Combine(pluginConfigDirectory, packageDirectoryName);
+                    // We've checked the enumerable above, so this should be true.
+                    Assert(Directory.Exists(pluginRootFullPath));
+
+                    string libPath = Path.Combine(pluginRootFullPath, "lib", targetFramework);
+                    if (!Directory.Exists(libPath))
+                    {
+                        _logger.LogError($"The plugin {packageDirectoryName} had no lib folder, so it's probably not even a plugin, someone messed something up.");
+                        continue;
+                    }
+                    yield return libPath;
+                }
+            }
+
+            // It is fine to not have master entirely globally initialized at this point.
             // The plugin loading only needs the administrator list.
-            Task pluginsTask = _logger.MeasureAsync("Load Plugins", () => LoadPlugins(master, token));
+            Task pluginsTask = _logger.MeasureAsync("Load Plugins", 
+                delegate { LoadPlugins(pluginPaths.Concat(GetNugetPluginPaths()), master, token); });
             if (parser.IsHelpSet)
             {
                 await pluginsTask;
@@ -305,7 +391,8 @@
 
             // Now that plugins have loaded, we can actually use the rest of the arguments.
             master.TakeCommandLineArguments(parser);
-            if (ShouldExit()) return ExitCode.BadOptionValue;
+            if (ShouldExit())
+                return ExitCode.BadOptionValue;
 
             var unrecognizedOptions = parser.GetUnrecognizedOptions();
             var unrecognizedConfigOptions = parser.GetUnrecognizedOptionsFromConfigurations();
@@ -378,28 +465,28 @@
             }
         }
 
-        private void LoadPlugins(MasterEnvironment master, CancellationToken cancellationToken)
+        private void LoadPlugins(IEnumerable<string> pluginPaths, MasterEnvironment master, CancellationToken cancellationToken)
         {
             var finder = new AdministratorFinder();
 
-            for (int i = 0; i < pluginPaths.Length; i++)
+            foreach (var pluginPath in pluginPaths)
             {
                 void Handle(string error) 
                 {
-                    _logger.LogError($"Error while processing plugin input #{i}, {pluginPaths[i]}: {error}");
+                    _logger.LogError($"Error while processing plugin input {pluginPath}: {error}");
                 }
 
                 try
                 {
-                    pluginPaths[i] = Path.GetFullPath(pluginPaths[i]);
-                    if (Directory.Exists(pluginPaths[i]))
+                    var pluginFullPath = Path.GetFullPath(pluginPath);
+                    if (Directory.Exists(pluginFullPath))
                     {
-                        finder.LoadPluginsDirectory(pluginPaths[i]);
+                        finder.LoadPluginsDirectory(pluginFullPath);
                         continue;
                     }
-                    if (File.Exists(pluginPaths[i]))
+                    if (File.Exists(pluginFullPath))
                     {
-                        finder.LoadPlugin(pluginPaths[i]);
+                        finder.LoadPlugin(pluginFullPath);
                         continue;
                     }
                     Handle("The specified plugin folder or file does not exist.");
@@ -415,8 +502,9 @@
                 }
             }
 
-            if (Logger.AnyLoggerHasErrors)
-                return;
+            // We don't return here, since I still want to load all available plugins for help
+            // if (Logger.AnyLoggerHasErrors)
+            //     return;
 
             if (pluginNames is null)
             {

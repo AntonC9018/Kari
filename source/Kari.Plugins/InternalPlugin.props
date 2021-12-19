@@ -14,7 +14,7 @@
     <ProjectReference Include="$(KariRootPath)Kari.Annotator\Kari.Annotator.csproj" 
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all"
-                      ExcludeAssets="all" />
+                      ExcludeAssets="runtime" />
   </ItemGroup>
 
   <Target Name="RunAnnotator" BeforeTargets="AfterResolveReferences">

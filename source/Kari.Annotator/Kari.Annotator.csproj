@@ -14,6 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Make tests be able to call internal (not private?) methods. -->
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>Kari.Annotator.Tests</_Parameter1>
     </AssemblyAttribute>
