@@ -251,7 +251,7 @@
                     yield break;
 
                 var pluginConfigDirectory = Path.GetDirectoryName(pluginConfigFilePath);
-                var pluginConfigXml = XDocument.Load(pluginConfigFilePath);
+                var pluginConfigXml = XDocument.Load(pluginConfigFilePath, LoadOptions.SetLineInfo);
                 var packages = pluginConfigXml.Root;
                 if (packages.Name != "packages")
                 {
@@ -265,12 +265,22 @@
 
                 foreach (var package in packages.Elements())
                 {
+                    // I'm not sure non-package elements are allowed tho
+                    if (package.Name != "package")
+                        continue;
+
+                    string getLocation()
+                    { 
+                        IXmlLineInfo info = package; 
+                        return $"{pluginConfigFilePath}({info.LineNumber},{info.LinePosition})"; 
+                    }
+
                     var attributes = package.Attributes();
                     var idAttribute = attributes.Where(a => a.Name == "id").FirstOrDefault();
                     if (idAttribute is null)
                     {
-                        _logger.LogError("Wrong format: you forgot to specify a name for a package");
-                        break;
+                        _logger.LogError($"{getLocation()}: Wrong format: you forgot to specify the id for the package");
+                        continue;
                     }
                     var id = idAttribute.Value;
 
@@ -287,7 +297,7 @@
                         packageDirectoryName = pluginDirectoryNames.FirstOrDefault(d => d.StartsWith(id));
                         if (packageDirectoryName is null)
                         {
-                            _logger.LogError($"Not found a directory for the plugin `{id}`. (Did you forget to restore?)");
+                            _logger.LogError($"Not found a directory for the plugin `{id}` at {getLocation()}. (Did you forget to restore?)");
                             continue;
                         }
                     }
