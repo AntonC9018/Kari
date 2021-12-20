@@ -9,7 +9,6 @@ namespace Kari.GeneratorCore.Workflow
     public class AdministratorFinder
     {
         public readonly List<Assembly> Plugins = new List<Assembly>();
-        public readonly List<System.Type> PluginTypes = new List<System.Type>();
 
         public void LoadPlugin(string path)
         {

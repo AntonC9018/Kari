@@ -291,7 +291,7 @@
                     string packageDirectoryName;
 
                     var versionAttribute = attributes.Where(a => a.Name == "version").FirstOrDefault();
-                    // no version is fine, we just do the default one in this case
+                    // No version is fine, we just do the default one in this case.
                     if (versionAttribute is null)
                     {
                         packageDirectoryName = pluginDirectoryNames.FirstOrDefault(d => d.StartsWith(id));
@@ -475,7 +475,7 @@
             }
         }
 
-        private void LoadPlugins(IEnumerable<string> pluginPaths, MasterEnvironment master, CancellationToken cancellationToken)
+        private void LoadPlugins(IEnumerable<string> pluginPaths, MasterEnvironment inoutMaster, CancellationToken cancellationToken)
         {
             var finder = new AdministratorFinder();
 
@@ -488,6 +488,10 @@
 
                 try
                 {
+                    // FIXME: 
+                    // These checks should be moved somewhere else.
+                    // Here we should be getting just valid dll paths.
+                    // Checking it here is bad design and extra unneeded work.
                     var pluginFullPath = Path.GetFullPath(pluginPath);
                     if (Directory.Exists(pluginFullPath))
                     {
@@ -500,7 +504,8 @@
                         continue;
                     }
                     Handle("The specified plugin folder or file does not exist.");
-                    if (cancellationToken.IsCancellationRequested) return;
+                    if (cancellationToken.IsCancellationRequested) 
+                        return;
                 }
                 catch (FileLoadException exception)
                 {
@@ -518,12 +523,12 @@
 
             if (pluginNames is null)
             {
-                finder.AddAllAdministrators(master);
+                finder.AddAllAdministrators(inoutMaster);
             }
             else
             {
                 var names = pluginNames.ToHashSet();
-                finder.AddAdministrators(master, names);
+                finder.AddAdministrators(inoutMaster, names);
 
                 if (names.Count > 0)
                 {
