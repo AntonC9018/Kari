@@ -1,0 +1,14 @@
+{
+    "$schema": "http://json.schemastore.org/template",
+    "author": "Anton Curmanschii",
+    "classifications": [
+        "Kari"
+    ],
+    "identity": "Kari.Plugin.ConsumerTemplate",
+    "description": "An msbuild project that uses kari to generate code.",
+    "name": "Kari msbuild consumer project",
+    "shortName": "kari_msbuild_consumer_project",
+    "preferNameDirectory": true,
+    "symbols": {
+    }
+}

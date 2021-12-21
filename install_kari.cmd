@@ -1,3 +1,3 @@
 dotnet pack --configuration Debug source\Kari.Generator
-dotnet tool uninstall --global kari.generator
-dotnet tool install --global kari.generator --add-source build_folder\.nupkg\Kari.Generator\Debug --version=0.0.0-g7c3e476b2c
+dotnet tool uninstall --global Kari.Generator
+dotnet tool install --global Kari.Generator --add-source build_folder\.nupkg\Kari.Generator\Debug --version=0.0.0-g4a24a1eae4

@@ -16,13 +16,13 @@ namespace Kari.Annotator.Tests
 
             var annotationFileName = "TestAnnotations.cs";
             var annotationFileFullPath = Path.Combine(tempFolderFullPath, annotationFileName);
-            const string content = @"namespace Hello
+            const string sourceFileContent = @"namespace Hello
 {
     public class AAttribute : System.Attribute
     {
     }
 }";
-            File.WriteAllText(annotationFileFullPath, content);
+            File.WriteAllText(annotationFileFullPath, sourceFileContent);
 
             int code = Kari.Annotator.Annotator.Main(new string[] { "-targetedFolder", tempFolderFullPath });
             Assert.Equal(0, code);
@@ -30,14 +30,14 @@ namespace Kari.Annotator.Tests
             var expectedFileName = "TestAnnotations.Generated.cs";
             var expectedFileFullPath = Path.Combine(tempFolderFullPath, expectedFileName);
             Assert.True(File.Exists(expectedFileFullPath));
-            string actualContent = File.ReadAllText(expectedFileFullPath);
+            string generatedFileContent = File.ReadAllText(expectedFileFullPath);
             const string expectedContent = @"namespace Hello
 {
     using Kari.GeneratorCore.Workflow;
     using Kari.Utils;
     internal static class DummyTestAnnotations
     {
-        internal const string Text = @""" + content + @""";
+        internal const string Text = @""" + sourceFileContent + @""";
     }
     internal static partial class TestSymbols
     {
@@ -51,7 +51,7 @@ namespace Kari.Annotator.Tests
     }
 }
 ";
-            Assert.Equal(expectedContent, actualContent);
+            Assert.Equal(expectedContent, generatedFileContent);
         }
     }
 }

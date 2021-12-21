@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <AssemblyName>Consumer</AssemblyName>
+  </PropertyGroup>
+  <Target Name="RunAnnotator" BeforeTargets="BeforeBuild">
+    <Exec Command="dotnet tool run kari" />
+    <ItemGroup>
+      <!-- https://stackoverflow.com/a/44829863/9731532 -->
+      <Compile Include="**/*$(DefaultLanguageSourceExtension)"
+               Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder);$(BaseIntermediateOutputPath)**;$(BaseOutputPath)**;@(Compile)" />
+    </ItemGroup>
+  </Target>
+</Project>

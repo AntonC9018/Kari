@@ -1,0 +1,6 @@
+{
+    "input": ".",
+    "monolithicProject": true,
+    "pluginConfigFilePath": "../kari_plugins/packages.config",
+    "rootNamespace": "Consumer"
+}
