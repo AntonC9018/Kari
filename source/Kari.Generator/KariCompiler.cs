@@ -296,7 +296,7 @@
                     var idAttribute = attributes.Where(a => a.Name == "id").FirstOrDefault();
                     if (idAttribute is null)
                     {
-                        _logger.LogError($"{getLocation()}: Wrong format: you forgot to specify the id for the package");
+                        _logger.LogError($"{getLocation()}: Wrong format: you forgot to specify the id for the package.");
                         continue;
                     }
                     var id = idAttribute.Value;
@@ -326,7 +326,7 @@
                         // if (!Directory.Exists(packageDirName))
                         if (!pluginDirectoryNames.Contains(packageDirectoryName))
                         {
-                            _logger.LogError($"Expected to find the directory {packageDirectoryName} within the plugin folder, but didn't. (Did you forget to restore?)");
+                            _logger.LogError($"Could not find the directory `{packageDirectoryName}` within the plugin folder. (Did you forget to restore?)");
                             continue;
                         }
                     }
@@ -338,7 +338,7 @@
                     string libPath = Path.Combine(pluginRootFullPath, "lib", targetFramework);
                     if (!Directory.Exists(libPath))
                     {
-                        _logger.LogError($"The plugin {packageDirectoryName} had no lib folder, so it's probably not even a plugin, someone messed something up.");
+                        _logger.LogError($"The plugin `{packageDirectoryName}` had no lib folder, so it's probably not even a plugin, someone messed something up.");
                         continue;
                     }
                     foreach (var dllFullPath in Directory.EnumerateFiles(libPath, "*.dll", SearchOption.AllDirectories))
@@ -374,7 +374,7 @@
                     }
                     else
                     {
-                        _logger.LogError($"Plugin file or directory {p} did not exist.");
+                        _logger.LogError($"Plugin file or directory `{p}` did not exist.");
                     }
                 }
             }
@@ -423,7 +423,7 @@
             {
                 if (!Path.GetExtension(generatedName).Equals(".cs", StringComparison.OrdinalIgnoreCase))
                 {
-                    _logger.LogError($"If the option {nameof(singleFileOutput)} is specified, the generated path must be relative to a file with the '.cs' extension, got {generatedName}.");
+                    _logger.LogError($"If the option `{nameof(singleFileOutput)}` is set, the generated path must be relative to a file with the '.cs' extension, got {generatedName}.");
                 }
                 else
                 {

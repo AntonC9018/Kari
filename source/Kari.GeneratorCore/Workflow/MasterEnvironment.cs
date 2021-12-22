@@ -239,7 +239,7 @@ namespace Kari.GeneratorCore.Workflow
             {
                 if (projectNamesInfo.CommonProjectNamespaceName is not null)
                 {
-                    Logger.LogWarning($"No common project {projectNamesInfo.CommonProjectNamespaceName}. The common files will be generated into root.");
+                    Logger.LogWarning($"No common project `{projectNamesInfo.CommonProjectNamespaceName}`. The common files will be generated into root.");
                 }
 
                 CommonPseudoProject = RootPseudoProject;
