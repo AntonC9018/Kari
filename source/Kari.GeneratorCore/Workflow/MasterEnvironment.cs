@@ -104,7 +104,7 @@ namespace Kari.GeneratorCore.Workflow
                 Logger.LogError($"No such namespace {rootNamespaceName}");
         }
 
-        private void AddProject(ProjectEnvironment project, string commonProjectNamespaceName)
+        private void AddProject(in ProjectEnvironment project, string commonProjectNamespaceName)
         {
             Logger.Log($"Adding project {project.NamespaceName}");
             Projects.Add(project);
@@ -115,7 +115,7 @@ namespace Kari.GeneratorCore.Workflow
             }
         }
 
-        public void FindProjects(bool treatEditorAsSubproject, ProjectNamesInfo projectNamesInfo)
+        public void FindProjects(in ProjectNamesInfo projectNamesInfo, bool treatEditorAsSubproject)
         {
             if (RootWriter is null) 
             {
@@ -210,7 +210,7 @@ namespace Kari.GeneratorCore.Workflow
             }
         }
 
-        public void InitializePseudoProjects(ProjectNamesInfo projectNamesInfo)
+        public void InitializePseudoProjects(in ProjectNamesInfo projectNamesInfo)
         {
             var generatedNamespaceName = Path.Combine(projectNamesInfo.RootNamespaceName, projectNamesInfo.GeneratedNamespaceSuffix);
             if (Projects.Count == 0)

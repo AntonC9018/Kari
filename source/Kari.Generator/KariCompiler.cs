@@ -351,6 +351,7 @@
                 if (pluginPaths is null)
                     yield break;
 
+                // These paths are already prenormalized by the argument parser
                 foreach (var p in pluginPaths)
                 {
                     if (File.Exists(p))
@@ -471,7 +472,7 @@
                 if (ShouldExit())
                     return ExitCode.FailedEnvironmentInitialization;
                 if (!monolithicProject) 
-                    master.FindProjects(treatEditorAsSubproject, projectNamesInfo);
+                    master.FindProjects(projectNamesInfo, treatEditorAsSubproject);
                 master.InitializePseudoProjects(projectNamesInfo);
                 master.InitializeAdministrators();
 
