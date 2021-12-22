@@ -77,7 +77,9 @@ void main(string[] args)
 
     import std.parallelism : parallel;
     foreach (DirEntry folder; dirEntries(nupkgFolder, SpanMode.shallow))//.parallel(1))
-    {
+    { 
+        try {
+
         immutable info = getInfoOfLatestPackage(folder.name.buildPath("Release"));
         immutable outputPath = buildPath(nupkgSourcesOutput, info.getNugetOutputPathRelativeToSources());
         
@@ -100,5 +102,7 @@ void main(string[] args)
         auto n = execute([nugetExecutablePath, "add", info.dirEntry.name, "-Source", nupkgSourcesOutput]);
         writeln("Copied ", info.name, " version ", info.versionString);
         writeln(n.output);
+        
+        } catch (Exception e) { writeln(e); continue; }
     }
 }

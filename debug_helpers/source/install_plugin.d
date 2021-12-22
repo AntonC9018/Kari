@@ -5,6 +5,9 @@ import std.file;
 import std.path;
 import std.process;
 
+// I don't recommend you use this script, Kari now supports nuget as the package manager
+// via packages.config.
+
 struct Options
 {
     @("Comma separated names of plugins to install, paths to plugin archives, ~~or folders with archives~~.")

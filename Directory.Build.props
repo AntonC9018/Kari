@@ -1,11 +1,12 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
-    <IsPackable>true</IsPackable>
+    <IsPackable Condition=" '$(IsTestAssembly)' != 'true' ">true</IsPackable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Authors>Anton Curmanschii</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <LangVersion>9</LangVersion>
+    
   </PropertyGroup>
 
   <ItemGroup>
