@@ -423,7 +423,7 @@
             {
                 if (!Path.GetExtension(generatedName).Equals(".cs", StringComparison.OrdinalIgnoreCase))
                 {
-                    _logger.LogError($"If the option {nameof(singleFileOutput)} is specified, the generated path must be a relative to a file with the '.cs' extension, got {generatedName}.");
+                    _logger.LogError($"If the option {nameof(singleFileOutput)} is specified, the generated path must be relative to a file with the '.cs' extension, got {generatedName}.");
                 }
                 else
                 {
