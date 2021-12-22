@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 using Kari.Utils;
 using Newtonsoft.Json.Linq;
+using static System.Diagnostics.Debug;
 
 namespace Kari.Arguments
 {
@@ -15,6 +16,7 @@ namespace Kari.Arguments
         None = 0,
         Flag = 1 << 0,
         Required = 1 << 1,
+        Path = 1 << 2
         // RequiredForHelp = 1 << 2
     }
 
@@ -44,6 +46,12 @@ namespace Kari.Arguments
             get => (Flags & OptionPropertyFlags.Required) != 0; 
             set => SetFlag(OptionPropertyFlags.Required, value);
         }
+
+        public bool IsPath 
+        { 
+            get => (Flags & OptionPropertyFlags.Path) != 0; 
+            set => SetFlag(OptionPropertyFlags.Path, value);
+        }
         // public bool IsRequiredForHelp 
         // { 
         //     get => (Flags & OptionPropertyFlags.RequiredForHelp) != 0; 
@@ -67,19 +75,24 @@ namespace Kari.Arguments
             public readonly string StringValue;
             // Indicates whether this value has been recognized as a valid option.
             public bool IsMarked { get; set; }
-            // public string ConfigurationFileOrigin { get; set; } 
-            public ArgumentOrOptionValue(string stringValue) => StringValue = stringValue;
+            public ArgumentOrOptionValue(string stringValue, int originConfigurationFileIndex)
+            {
+                OriginConfigurationFileIndex = originConfigurationFileIndex;
+                StringValue = stringValue;
+            }
         }
         private readonly Dictionary<string, ArgumentOrOptionValue> Options = new Dictionary<string, ArgumentOrOptionValue>();
 
         private readonly struct ConfigurationFile
         {
-            public readonly string Filename;
+            public readonly string FileFullPath;
+            public readonly string DirectoryName;
             public readonly JObject JsonRoot;
 
-            public ConfigurationFile(string filename, JObject jsonRoot)
+            public ConfigurationFile(string fileFullPath, JObject jsonRoot)
             {
-                Filename = filename;
+                FileFullPath = fileFullPath;
+                DirectoryName = Path.GetDirectoryName(fileFullPath);
                 JsonRoot = jsonRoot;
             }
         }
@@ -97,7 +110,7 @@ namespace Kari.Arguments
         /// <summary>
         /// Wraps a string error.
         /// </summary>
-        public struct ParsingResult
+        public readonly struct ParsingResult
         {
             public readonly string Error;
             public bool IsError => Error is not null;
@@ -142,6 +155,8 @@ namespace Kari.Arguments
                 {
                     return ParsingResult.DoubleDash(arguments[i]);
                 }
+
+                // TODO: I kinda want to allow option=value??
 
                 string option = arguments[i].Substring(1);
 
@@ -190,17 +205,17 @@ namespace Kari.Arguments
         /// ditto.
         /// Looks for a configuration file with the given name in cwd and next to the executable.
         /// </summary>
-        public ParsingResult MaybeParseConfiguration(string configurationFilename)
+        public ParsingResult MaybeParseConfiguration(string configurationFileNameWithoutExtension)
         {
-            var jsonName = configurationFilename += ".json";
-            if (Configurations.Any(conf => conf.Filename == jsonName))
+            var jsonName = configurationFileNameWithoutExtension += ".json";
+            if (Configurations.Any(conf => conf.FileFullPath == jsonName))
                 return ParsingResult.Ok;
             if (File.Exists(jsonName))
                 return ParseArgumentsJson(jsonName);
 
             var exeDirectory = AppDomain.CurrentDomain.BaseDirectory;
             var jsonNextToExePath = Path.Combine(exeDirectory, jsonName);
-            if (Configurations.Any(conf => conf.Filename == jsonNextToExePath))
+            if (Configurations.Any(conf => conf.FileFullPath == jsonNextToExePath))
                 return ParsingResult.Ok;
             if (File.Exists(jsonNextToExePath))
                 return ParseArgumentsJson(jsonNextToExePath);
@@ -212,26 +227,31 @@ namespace Kari.Arguments
         /// Reads the specified json files.
         /// The if the files do not exist.
         /// <summary>
-        private ParsingResult TryParseArgumentsJsons(string[] jsonPaths)
+        private ParsingResult TryParseArgumentsJsons(string[] jsonPaths, string relativeToDirectory)
         {
             for (int i = 0; i < jsonPaths.Length; i++)
             {
-                var result = TryParseArgumentsJson(jsonPaths[i]);
+                string path = jsonPaths[i];
+                if (!Path.IsPathRooted(path))
+                    path = Path.Combine(relativeToDirectory, path);
+                    
+                var result = TryParseArgumentsJson(path);
                 if (result.IsError)
                     return result;
             }
             return ParsingResult.Ok;
         }
 
-        private ParsingResult TryParseArgumentsJson(string jsonPath)
+        private ParsingResult TryParseArgumentsJson(string jsonFullPath)
         {
-            if (Path.GetExtension(jsonPath) == "")
-                jsonPath += ".json";
-            if (Configurations.Any(conf => conf.Filename == jsonPath))
+            if (Path.GetExtension(jsonFullPath) == "")
+                jsonFullPath += ".json";
+            jsonFullPath = FileSystem.WithNormalizedDirectorySeparators(jsonFullPath);
+            if (Configurations.Any(conf => conf.FileFullPath == jsonFullPath))
                 return ParsingResult.Ok;
-            if (!File.Exists(jsonPath))
-                return new ParsingResult("Missing config file " + jsonPath);
-            var result = ParseArgumentsJson(jsonPath);
+            if (!File.Exists(jsonFullPath))
+                return new ParsingResult("Missing config file " + jsonFullPath);
+            var result = ParseArgumentsJson(jsonFullPath);
             return result;
         }
 
@@ -244,7 +264,9 @@ namespace Kari.Arguments
             try
             {
                 var obj = JObject.Parse(File.ReadAllText(jsonPath));
-                Configurations.Add(new ConfigurationFile(jsonPath, obj));
+                int optionIndex = Configurations.Count;
+                var configuration = new ConfigurationFile(jsonPath, obj);
+                Configurations.Add(configuration);
                 
                 // Recurse.
                 if (obj.ContainsKey("configurationFile"))
@@ -296,12 +318,12 @@ namespace Kari.Arguments
         /// Shortened options like `-i` are not supported.
         /// Only field types supported: string, int, bool, string[], List<string>, int[], HashSet<string>
         /// </summary>
-        public MappingResult FillObjectWithOptionValues(object t)
+        public MappingResult FillObjectWithOptionValues(object objectToBeFilled)
         {
             // If the type of t is a struct, we need to box it, which is why we take an object here.
-            MappingResult result = new MappingResult(t);
+            MappingResult result = new MappingResult(objectToBeFilled);
 
-            var type = t.GetType();
+            var type = objectToBeFilled.GetType();
 
             foreach (var fieldInfo in GetFieldInfos(type))
             foreach (var attr in fieldInfo.GetCustomAttributes(inherit: false))
@@ -309,35 +331,47 @@ namespace Kari.Arguments
                 if (!(attr is OptionAttribute optionAttribute))
                     continue;
 
+                // Paths must be strings
+                Assert(!attr.IsPath || fieldInfo.FieldType == typeof(string));
+
                 string name = fieldInfo.Name;
-                // TODO: probably any case options??
+
+                // TODO: allow any case options??
                 // Allow opOptionName for clarity
                 // if (name.StartsWith("op"))
                 //     name = name.Substring(2, name.Length - 2);
-
+                
                 bool hasOption = Options.TryGetValue(name, out var option);
                 
                 if (!hasOption)
                 { 
-                    bool TryGetOptionFromConfiguration(string aname, out JToken confOption)
+                    JToken optionFromConfiguration = null;
+                    int configurationIndex = -1;
+                    for (int i = 0; i < Configurations.Count; i++)
                     {
-                        for (int i = 0; i < Configurations.Count; i++)
+                        if (Configurations[i].JsonRoot.ContainsKey(aname))
                         {
-                            if (Configurations[i].JsonRoot.ContainsKey(aname))
-                            {
-                                confOption = Configurations[i].JsonRoot[aname];
-                                return true;
-                            }
+                            confOption = Configurations[i].JsonRoot[aname];
+                            configurationIndex = i;
+                            break;
                         }
-                        confOption = null;
-                        return false;
                     }
-                    if (TryGetOptionFromConfiguration(name, out var optionFromConfiguration))
+                    
+                    if (configurationIndex != -1)
                     {
                         // God I hate exceptions
                         try
                         {
-                            fieldInfo.SetValue(t, optionFromConfiguration.ToObject(fieldInfo.FieldType));
+                            object obj = optionFromConfiguration.ToObject(fieldInfo.FieldType);
+                            if (attr.IsPath)
+                            {
+                                string t = (string) obj;
+                                if (!Path.IsPathRooted(t))
+                                    t = Path.Combine(Configurations[configurationIndex].DirectoryFullPath, t);
+                                obj = FileSystem.WithNormalizedDirectorySeparators(t);
+                            }
+                            
+                            fieldInfo.SetValue(objectToBeFilled, obj);
                             TakenConfigurationOptions.Add(name);
                         }
                         catch (Exception exception)
@@ -350,7 +384,7 @@ namespace Kari.Arguments
 
                 void SetValue(object value)
                 {
-                    fieldInfo.SetValue(t, value);
+                    fieldInfo.SetValue(objectToBeFilled, value);
                 }
 
                 bool TrySetBoolValue()
@@ -402,7 +436,7 @@ namespace Kari.Arguments
                         Debug.Assert(fieldInfo.FieldType == typeof(bool),
                             $"{name}, indicated as flag, must be bool type");
 
-                        Debug.Assert(((bool) fieldInfo.GetValue(t)) == false,
+                        Debug.Assert(((bool) fieldInfo.GetValue(objectToBeFilled)) == false,
                             "The default value for {name} flag must be true");
 
                         if (hasOption)
@@ -444,7 +478,12 @@ namespace Kari.Arguments
                 string[] ParseAsStringArray()
                 {
                     var str = option.StringValue;
-                    return str.Split(',');
+                    var strings = str.Split(',');
+                    if (attr.IsPath)
+                    {
+                        for (int i = 0; i < strings.Length; i++)
+                            strings[i] = FileSystem.ToFullNormalizedPath(strings[i]);
+                    }
                 }
 
                 option.IsMarked = true;
@@ -458,7 +497,10 @@ namespace Kari.Arguments
                 }
                 else if (fieldInfo.FieldType == typeof(string))
                 {
-                    SetValue(option.StringValue);
+                    string t = option.StringValue;
+                    if (attr.IsPath)
+                        t = FileSystem.ToFullNormalizedPath(t);
+                    SetValue(t);
                 }
                 else if (fieldInfo.FieldType == typeof(string[]))
                 {
@@ -477,9 +519,7 @@ namespace Kari.Arguments
                     var arr = ParseAsStringArray();
                     var ints = new int[arr.Length];
                     for (int i = 0; i < arr.Length; i++)
-                    {
                         ints[i] = ParseAsInteger(arr[i]);
-                    }
                     SetValue(ints);
                 }
             }
@@ -616,16 +656,17 @@ namespace Kari.Arguments
 
         public readonly struct ConfigurationOption
         {
-            public readonly string Filename;
+            // -1 means it was passed via command line, hence the cwd is the origin directory
+            public readonly int OriginConfigurationFileIndex;
             public readonly JProperty Property;
 
-            public ConfigurationOption(string filename, JProperty property)
+            public ConfigurationOption(int originConfigurationFileIndex, JProperty property)
             {
-                Filename = filename;
+                OriginConfigurationFileIndex = originConfigurationFileIndex;
                 Property = property;
             }
 
-            public string GetPropertyPath() => $"File {Filename}, at {Property.Path}";
+            public string GetPropertyPath(ArgumentParser originParser) => $"File {originParser.Configurations[OriginConfigurationIndex].FileFullPath}, at {Property.Path}";
         }
 
         public IEnumerable<ConfigurationOption> GetUnrecognizedOptionsFromConfigurations()
@@ -642,7 +683,7 @@ namespace Kari.Arguments
             {
                 if (!configOptionsTemp.Contains(property.Name))
                 {
-                    yield return new ConfigurationOption(Configurations[i].Filename, property);
+                    yield return new ConfigurationOption(Configurations[i].FileFullPath, property);
                 }
                 // It should only report the property in the first file it's found.
                 configOptionsTemp.Add(property.Name);

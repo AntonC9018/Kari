@@ -93,5 +93,11 @@ namespace Kari.Utils
         {
             return path.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
         }
+
+        public static string ToFullNormalizedPath(this string path)
+        {
+            path = FileSystem.WithNormalizedDirectorySeparators(path);
+            return Path.GetFullPath(path);
+        }
     }
 }

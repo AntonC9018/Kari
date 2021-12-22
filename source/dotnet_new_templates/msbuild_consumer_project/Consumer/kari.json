@@ -1,6 +1,6 @@
 {
     "input": ".",
     "monolithicProject": true,
-    "pluginConfigFilePath": "../kari_plugins/packages.config",
+    "configurationFile": "../kari_shared_config.json",
     "rootNamespace": "Consumer"
 }

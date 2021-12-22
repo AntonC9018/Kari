@@ -157,9 +157,8 @@
                 return;
             }
 
-            pluginPaths = pluginPaths?.Select(FileSystem.WithNormalizedDirectorySeparators).ToArray();
-            input = Path.GetFullPath(input.WithNormalizedDirectorySeparators());
             generatedName = generatedName.WithNormalizedDirectorySeparators();
+            
             if (pluginConfigFilePath is not null)
                 pluginConfigFilePath = Path.GetFullPath(pluginConfigFilePath);
 
