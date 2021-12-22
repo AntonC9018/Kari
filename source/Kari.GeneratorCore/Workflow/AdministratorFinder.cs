@@ -1,30 +1,20 @@
-using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 
 namespace Kari.GeneratorCore.Workflow
 {
-    public class AdministratorFinder
+    public static class AdministratorFinder
     {
-        public readonly List<Assembly> Plugins = new List<Assembly>();
+        public static readonly List<Assembly> Plugins = new List<Assembly>();
 
-        public void LoadPlugin(string path)
+        public static void LoadPlugin(string path)
         {
             var dll = Assembly.LoadFile(path);
             Plugins.Add(dll);
         }
 
-        public void LoadPluginsDirectory(string directory)
-        {
-            foreach (var file in Directory.EnumerateFiles(directory, "*.dll", SearchOption.TopDirectoryOnly))
-            {
-                LoadPlugin(file);
-            }
-        }
-
-        private IEnumerable<System.Type> GetAdministratorTypes()
+        private static IEnumerable<System.Type> GetAdministratorTypes()
         {
             return Plugins.SelectMany(dll => dll.GetExportedTypes())
                 .Where(type => typeof(IAdministrator).IsAssignableFrom(type) && !type.IsAbstract);
@@ -34,7 +24,7 @@ namespace Kari.GeneratorCore.Workflow
         /// Adds the administrators specified by name in `namesToAdd`, removing these names from there.
         /// The names must be in the correct case (exactly match the class names).
         /// </summary>
-        public void AddAdministrators(MasterEnvironment environment, HashSet<string> namesToAdd)
+        public static void AddAdministrators(MasterEnvironment environment, HashSet<string> namesToAdd)
         {
             foreach (var adminType in GetAdministratorTypes())
             {
@@ -46,7 +36,7 @@ namespace Kari.GeneratorCore.Workflow
             }
         }
 
-        public void AddAllAdministrators(MasterEnvironment environment)
+        public static void AddAllAdministrators(MasterEnvironment environment)
         {
             foreach (var adminType in GetAdministratorTypes())
             {

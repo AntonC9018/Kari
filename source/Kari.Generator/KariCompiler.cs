@@ -23,15 +23,18 @@
     {
         string HelpMessage => "Use Kari to generate code for a C# project.";
 
-        [Option("Input path to MSBuild project file or to the directory containing source files.")] 
+        [Option("Input path to MSBuild project file or to the directory containing source files.", 
+            IsPath = true)] 
         string input = ".";
 
         [Option("Plugins folder or paths to individual plugin dlls.",
             // Can be sometimes inferred from input, aka NuGet's packages.config
-            IsRequired = false)]
+            IsRequired = false,
+            IsPath = true)]
         string[] pluginPaths = null;
 
-        [Option("Path to `packages.config` that you're using to manage packages. The plugins mentioned in that file will be imported.")]
+        [Option("Path to `packages.config` that you're using to manage packages. The plugins mentioned in that file will be imported.",
+            IsPath = true)]
         string pluginConfigFilePath = null;
 
         [Option("The suffix added to each subproject (or the root project) indicating the output folder.")] 
@@ -158,7 +161,7 @@
             }
 
             generatedName = generatedName.WithNormalizedDirectorySeparators();
-            
+
             if (pluginConfigFilePath is not null)
                 pluginConfigFilePath = Path.GetFullPath(pluginConfigFilePath);
 
@@ -238,11 +241,26 @@
                 if (ShouldExit())
                     return ExitCode.BadOptionValue;
             }
+            
+            // This means no subprojects
+            if (!monolithicProject && commonNamespace == "")
+            {
+                _logger.LogError($"The common project name cannot be empty. If you wish to treat the entire code base as one monolithic project, use that option instead.");
+            }
+
+            var projectNamesInfo = new ProjectNamesInfo
+            {
+                RootNamespaceName = rootNamespace,
+                CommonProjectNamespaceName = monolithicProject ? null : commonNamespace,
+                GeneratedNamespaceSuffix = "Generated", // TODO
+                GeneratedPath = generatedName,
+                ProjectRootDirectory = projectDirectory
+            };
 
             // We need to initialize this in order to create Administrators.
             // Even if help is set, we need to new them up in order to retrieve the help messages,
             // so creating this is a prerequisite.
-            var master = new MasterEnvironment(rootNamespace, projectDirectory, token, _logger, independentNamespaceParts);
+            var master = new MasterEnvironment(token, _logger);
 
             IEnumerable<string> GetNugetPluginPaths()
             {
@@ -286,7 +304,6 @@
                     var targetFrameworkAttribute = attributes.Where(a => a.Name == "targetFramework").FirstOrDefault();
                     var targetFramework = targetFrameworkAttribute?.Value ?? "net5.0";
 
-                    // We return the directories, since my function loads from directories fine anyway.
                     string packageDirectoryName;
 
                     var versionAttribute = attributes.Where(a => a.Name == "version").FirstOrDefault();
@@ -324,14 +341,52 @@
                         _logger.LogError($"The plugin {packageDirectoryName} had no lib folder, so it's probably not even a plugin, someone messed something up.");
                         continue;
                     }
-                    yield return libPath;
+                    foreach (var dllFullPath in Directory.EnumerateFiles(libPath, "*.dll", SearchOption.AllDirectories))
+                        yield return dllFullPath;
+                }
+            }
+
+            IEnumerable<string> GetDllPathsFromUserGivenPaths()
+            {
+                if (pluginPaths is null)
+                    yield break;
+
+                foreach (var p in pluginPaths)
+                {
+                    if (File.Exists(p))
+                    {
+                        if (p.EndsWith("dll", StringComparison.OrdinalIgnoreCase))
+                        {
+                            yield return p;
+                        }
+                        else
+                        {
+                            _logger.LogError($"Plugin file `{p}` is not a dynamic library.");
+                        }
+                    }
+                    else if (Directory.Exists(p))
+                    {
+                        foreach (var dllPath in Directory.EnumerateFiles(p, "*.dll", SearchOption.AllDirectories))
+                        {
+                            yield return dllPath;
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogError($"Plugin file or directory {p} did not exist.");
+                    }
                 }
             }
 
             // It is fine to not have master entirely globally initialized at this point.
             // The plugin loading only needs the administrator list.
             Task pluginsTask = _logger.MeasureAsync("Load Plugins", 
-                delegate { LoadPlugins(pluginPaths.Concat(GetNugetPluginPaths()), master, token); });
+                delegate 
+                {
+                    var paths = Enumerable.Concat(GetDllPathsFromUserGivenPaths(), GetNugetPluginPaths());
+                    LoadPlugins(paths, master, token); 
+                });
+
             if (parser.IsHelpSet)
             {
                 await pluginsTask;
@@ -344,20 +399,6 @@
             // Set the master instance globally
             MasterEnvironment.InitializeSingleton(master);
 
-            master.GeneratedPath = generatedName;
-            // This means no subprojects
-            if (monolithicProject)
-            {
-                master.CommonProjectNamespaceName = null;
-            }
-            else if (commonNamespace == "")
-            {
-                _logger.LogError($"The common project name cannot be empty. If you wish to treat the entire code base as one monolithic project, use that option instead.");
-            }
-            else
-            {
-                master.CommonProjectNamespaceName = commonNamespace;
-            }
 
             // Now finally create the compilation
             Task compileTask;
@@ -374,11 +415,8 @@
             }
             
             var outputPath = generatedName;
-            if (!Path.IsPathFullyQualified(generatedName))
-            {
-                master.GeneratedNamespaceSuffix = generatedName;
+            if (!Path.IsPathFullyQualified(outputPath))
                 outputPath = Path.Combine(projectDirectory, generatedName);
-            }
             
             if (singleFileOutput)
             {
@@ -414,7 +452,7 @@
                 foreach (var arg in unrecognizedConfigOptions)
                 {
                     // TODO: This can contain more info, like the line number.
-                    _logger.LogError($"Unrecognized option: `{arg.GetPropertyPath()}`");
+                    _logger.LogError($"Unrecognized option: `{parser.GetPropertyPathOfOption(arg)}`");
                 }
                 return ExitCode.UnknownOptions;
             }
@@ -429,36 +467,41 @@
 
             measurer.Start("Environment Initialization");
             {
-                master.InitializeCompilation(ref compilation);
+                master.InitializeCompilation(ref compilation, projectNamesInfo.RootNamespaceName);
                 if (ShouldExit())
                     return ExitCode.FailedEnvironmentInitialization;
                 if (!monolithicProject) 
-                    master.FindProjects(treatEditorAsSubproject);
-                master.InitializePseudoProjects();
+                    master.FindProjects(treatEditorAsSubproject, projectNamesInfo);
+                master.InitializePseudoProjects(projectNamesInfo);
                 master.InitializeAdministrators();
+
+                if (ShouldExit())
+                    return ExitCode.FailedEnvironmentInitialization;
             }
-            if (ShouldExit())
-                return ExitCode.FailedEnvironmentInitialization;
             measurer.Stop();
 
             measurer.Start("Symbol Collect");
             {
-                await master.Collect();
+                await master.Collect(independentNamespaceParts);
                 master.RunCallbacks();
+                
+                if (ShouldExit())
+                    return ExitCode.FailedSymbolCollection;
             }
-            if (ShouldExit())
-                return ExitCode.FailedSymbolCollection;
             measurer.Stop();
 
             measurer.Start("Output Generation");
             {
-                if (clearOutput) master.ClearOutput();
+                if (clearOutput) 
+                    master.ClearOutput();
                 await master.GenerateCode();
                 master.CloseWriters();
+
+                if (ShouldExit())
+                    return ExitCode.FailedOutputGeneration;
             }
-            if (ShouldExit())
-                return ExitCode.FailedOutputGeneration;
-            
+            measurer.Stop();
+
             entireGenerationMeasurer.Stop();
             return ExitCode.Ok;
 
@@ -474,35 +517,18 @@
             }
         }
 
-        private void LoadPlugins(IEnumerable<string> pluginPaths, MasterEnvironment inoutMaster, CancellationToken cancellationToken)
+        private void LoadPlugins(IEnumerable<string> pluginDllPaths, MasterEnvironment inoutMaster, CancellationToken cancellationToken)
         {
-            var finder = new AdministratorFinder();
-
-            foreach (var pluginPath in pluginPaths)
+            foreach (var dllPath in pluginDllPaths)
             {
                 void Handle(string error) 
                 {
-                    _logger.LogError($"Error while processing plugin input {pluginPath}: {error}");
+                    _logger.LogError($"Error while processing plugin input {dllPath}: {error}");
                 }
 
                 try
                 {
-                    // FIXME: 
-                    // These checks should be moved somewhere else.
-                    // Here we should be getting just valid dll paths.
-                    // Checking it here is bad design and extra unneeded work.
-                    var pluginFullPath = Path.GetFullPath(pluginPath);
-                    if (Directory.Exists(pluginFullPath))
-                    {
-                        finder.LoadPluginsDirectory(pluginFullPath);
-                        continue;
-                    }
-                    if (File.Exists(pluginFullPath))
-                    {
-                        finder.LoadPlugin(pluginFullPath);
-                        continue;
-                    }
-                    Handle("The specified plugin folder or file does not exist.");
+                    AdministratorFinder.LoadPlugin(dllPath);
                     if (cancellationToken.IsCancellationRequested) 
                         return;
                 }
@@ -522,12 +548,12 @@
 
             if (pluginNames is null)
             {
-                finder.AddAllAdministrators(inoutMaster);
+                AdministratorFinder.AddAllAdministrators(inoutMaster);
             }
             else
             {
                 var names = pluginNames.ToHashSet();
-                finder.AddAdministrators(inoutMaster, names);
+                AdministratorFinder.AddAdministrators(inoutMaster, names);
 
                 if (names.Count > 0)
                 {

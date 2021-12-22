@@ -38,11 +38,11 @@ namespace Kari.GeneratorCore.Workflow
         /// </summary>
         public MasterEnvironment Master => MasterEnvironment.Instance;
 
-        internal ProjectEnvironmentData(string directory, string namespaceName, IFileWriter fileWriter, Logger logger)
+        internal ProjectEnvironmentData(string directory, string namespaceName, string generatedNamespaceName, IFileWriter fileWriter, Logger logger)
         {
             Directory = directory;
             NamespaceName = namespaceName;
-            GeneratedNamespaceName = NamespaceName.Combine(Master.GeneratedNamespaceSuffix);
+            GeneratedNamespaceName = generatedNamespaceName;
             FileWriter = fileWriter;
             Logger = logger;
         }
@@ -84,8 +84,8 @@ namespace Kari.GeneratorCore.Workflow
         public readonly List<INamedTypeSymbol> TypesWithAttributes = new List<INamedTypeSymbol>();
         public readonly List<IMethodSymbol> MethodsWithAttributes = new List<IMethodSymbol>();
 
-        internal ProjectEnvironment(string directory, string namespaceName, INamespaceSymbol rootNamespace, IFileWriter fileWriter) 
-            : base(directory, namespaceName, fileWriter, new Logger(rootNamespace.Name))
+        internal ProjectEnvironment(string directory, string namespaceName, string generatedNamespaceName, INamespaceSymbol rootNamespace, IFileWriter fileWriter) 
+            : base(directory, namespaceName, generatedNamespaceName, fileWriter, new Logger(rootNamespace.Name))
         {
             RootNamespace = rootNamespace;
         }
@@ -93,7 +93,7 @@ namespace Kari.GeneratorCore.Workflow
         /// <summary>
         /// Asynchronously collects and caches relevant symbols.
         /// </summary>
-        internal Task Collect()
+        internal Task Collect(HashSet<string> independentNamespaceNames)
         {
             return Task.Run(() => {
                 foreach (var symbol in RootNamespace.GetMembers())
@@ -118,7 +118,7 @@ namespace Kari.GeneratorCore.Workflow
                     }
                     else if (symbol is INamespaceSymbol nspace)
                     {
-                        if (MasterEnvironment.Instance.IndependentNamespaces.Contains(nspace.Name))
+                        if (independentNamespaceNames.Contains(nspace.Name))
                         {
                             continue;
                         }

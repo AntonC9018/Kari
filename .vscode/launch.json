@@ -6,7 +6,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build_kari_debug",
-            "program": "${workspaceFolder}/build_folder/bin/Kari.Generator/Debug/net5.0/kari.dll",
+            "program": "${workspaceFolder}/build_folder/bin/Kari.Generator/Debug/net5.0/Kari.Generator.dll",
             "args": [],
             "cwd": "${workspaceFolder}/../Stuff",
             "console": "internalConsole",

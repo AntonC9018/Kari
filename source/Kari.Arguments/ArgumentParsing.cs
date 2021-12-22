@@ -75,9 +75,8 @@ namespace Kari.Arguments
             public readonly string StringValue;
             // Indicates whether this value has been recognized as a valid option.
             public bool IsMarked { get; set; }
-            public ArgumentOrOptionValue(string stringValue, int originConfigurationFileIndex)
+            public ArgumentOrOptionValue(string stringValue)
             {
-                OriginConfigurationFileIndex = originConfigurationFileIndex;
                 StringValue = stringValue;
             }
         }
@@ -86,13 +85,13 @@ namespace Kari.Arguments
         private readonly struct ConfigurationFile
         {
             public readonly string FileFullPath;
-            public readonly string DirectoryName;
+            public readonly string DirectoryFullPath;
             public readonly JObject JsonRoot;
 
             public ConfigurationFile(string fileFullPath, JObject jsonRoot)
             {
                 FileFullPath = fileFullPath;
-                DirectoryName = Path.GetDirectoryName(fileFullPath);
+                DirectoryFullPath = Path.GetDirectoryName(fileFullPath);
                 JsonRoot = jsonRoot;
             }
         }
@@ -177,7 +176,7 @@ namespace Kari.Arguments
                 {
                     if (isApparentlyFlag)
                         return ParsingResult.MissingValueForConfigFile(); 
-                    var result = TryParseArgumentsJsons(arguments[i].Split(','));
+                    var result = TryParseArgumentsJsons(arguments[i].Split(','), Directory.GetCurrentDirectory());
                     i++;
                     if (result.IsError)
                         return result;
@@ -231,10 +230,7 @@ namespace Kari.Arguments
         {
             for (int i = 0; i < jsonPaths.Length; i++)
             {
-                string path = jsonPaths[i];
-                if (!Path.IsPathRooted(path))
-                    path = Path.Combine(relativeToDirectory, path);
-                    
+                string path = FileSystem.ToFullNormalizedPath(jsonPaths[i], relativeToDirectory);
                 var result = TryParseArgumentsJson(path);
                 if (result.IsError)
                     return result;
@@ -274,13 +270,13 @@ namespace Kari.Arguments
                     try
                     {
                         var jsonPaths = obj["configurationFile"].Values<string>().ToArray();
-                        return TryParseArgumentsJsons(jsonPaths);
+                        return TryParseArgumentsJsons(jsonPaths, configuration.DirectoryFullPath);
                     }
                     catch(Exception){}
                     try
                     {
                         var oneJsonPath = obj["configurationFile"].ToObject<string>();
-                        return TryParseArgumentsJson(oneJsonPath);
+                        return TryParseArgumentsJson(FileSystem.ToFullNormalizedPath(oneJsonPath, configuration.DirectoryFullPath));
                     }
                     catch(Exception){}
 
@@ -332,7 +328,10 @@ namespace Kari.Arguments
                     continue;
 
                 // Paths must be strings
-                Assert(!attr.IsPath || fieldInfo.FieldType == typeof(string));
+                Assert(!optionAttribute.IsPath 
+                    || (fieldInfo.FieldType == typeof(string) 
+                        || fieldInfo.FieldType == typeof(string[])
+                        || fieldInfo.FieldType == typeof(HashSet<string>)));
 
                 string name = fieldInfo.Name;
 
@@ -349,9 +348,9 @@ namespace Kari.Arguments
                     int configurationIndex = -1;
                     for (int i = 0; i < Configurations.Count; i++)
                     {
-                        if (Configurations[i].JsonRoot.ContainsKey(aname))
+                        if (Configurations[i].JsonRoot.ContainsKey(name))
                         {
-                            confOption = Configurations[i].JsonRoot[aname];
+                            optionFromConfiguration = Configurations[i].JsonRoot[name];
                             configurationIndex = i;
                             break;
                         }
@@ -363,12 +362,25 @@ namespace Kari.Arguments
                         try
                         {
                             object obj = optionFromConfiguration.ToObject(fieldInfo.FieldType);
-                            if (attr.IsPath)
+                            if (optionAttribute.IsPath)
                             {
-                                string t = (string) obj;
-                                if (!Path.IsPathRooted(t))
-                                    t = Path.Combine(Configurations[configurationIndex].DirectoryFullPath, t);
-                                obj = FileSystem.WithNormalizedDirectorySeparators(t);
+                                if (obj is IList<string> paths)
+                                {
+                                    for (int i = 0; i < paths.Count; i++)
+                                        paths[i] = FileSystem.ToFullNormalizedPath(
+                                            paths[i], Configurations[configurationIndex].DirectoryFullPath);
+                                }
+                                else if (obj is string path)
+                                {
+                                    obj = FileSystem.ToFullNormalizedPath(
+                                        path, Configurations[configurationIndex].DirectoryFullPath);
+                                }
+                                else if (obj is HashSet<string> pathSet)
+                                {
+                                    obj = pathSet.Select(p => FileSystem.ToFullNormalizedPath(
+                                        p, Configurations[configurationIndex].DirectoryFullPath)).ToHashSet();
+                                }
+                                else Assert(false);
                             }
                             
                             fieldInfo.SetValue(objectToBeFilled, obj);
@@ -479,11 +491,12 @@ namespace Kari.Arguments
                 {
                     var str = option.StringValue;
                     var strings = str.Split(',');
-                    if (attr.IsPath)
+                    if (optionAttribute.IsPath)
                     {
                         for (int i = 0; i < strings.Length; i++)
                             strings[i] = FileSystem.ToFullNormalizedPath(strings[i]);
                     }
+                    return strings;
                 }
 
                 option.IsMarked = true;
@@ -498,7 +511,7 @@ namespace Kari.Arguments
                 else if (fieldInfo.FieldType == typeof(string))
                 {
                     string t = option.StringValue;
-                    if (attr.IsPath)
+                    if (optionAttribute.IsPath)
                         t = FileSystem.ToFullNormalizedPath(t);
                     SetValue(t);
                 }
@@ -665,8 +678,6 @@ namespace Kari.Arguments
                 OriginConfigurationFileIndex = originConfigurationFileIndex;
                 Property = property;
             }
-
-            public string GetPropertyPath(ArgumentParser originParser) => $"File {originParser.Configurations[OriginConfigurationIndex].FileFullPath}, at {Property.Path}";
         }
 
         public IEnumerable<ConfigurationOption> GetUnrecognizedOptionsFromConfigurations()
@@ -683,11 +694,17 @@ namespace Kari.Arguments
             {
                 if (!configOptionsTemp.Contains(property.Name))
                 {
-                    yield return new ConfigurationOption(Configurations[i].FileFullPath, property);
+                    yield return new ConfigurationOption(i, property);
                 }
                 // It should only report the property in the first file it's found.
                 configOptionsTemp.Add(property.Name);
             }
         }
+
+        public string GetPropertyPathOfOption(in ConfigurationOption option) 
+        {
+            return $"File {Configurations[option.OriginConfigurationFileIndex].FileFullPath}, at {option.Property.Path}";
+        }
+
     }
 }

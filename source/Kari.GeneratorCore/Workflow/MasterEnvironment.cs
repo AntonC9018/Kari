@@ -13,20 +13,21 @@ using Newtonsoft.Json.Linq;
 
 namespace Kari.GeneratorCore.Workflow
 {
-    public class MasterEnvironment : Singleton<MasterEnvironment>
+    public readonly struct ProjectNamesInfo
     {
-        // TODO: 
-        // We could use [Option] here and fill these in directly, but then we will also 
-        // have to bring the validation logic here. Do I want that?
-        public string CommonProjectNamespaceName { get; set; } = "Common"; 
-
+        public string CommonProjectNamespaceName { get; init; } // "Common"
         /// <summary>
         /// Relative path to the generated folder or file (.cs will be appended in this case).
         /// Applies to each of the writers.
         /// </summary>
-        public string GeneratedPath { get; set; } = "Generated";
-        public string GeneratedNamespaceSuffix { get; set; } = "Generated";
+        public string GeneratedPath { get; init; } // "Generated"
+        public string GeneratedNamespaceSuffix { get; init; } // "Generated"
+        public string RootNamespaceName { get; init; } // ""
+        public string ProjectRootDirectory { get; init; } // ""
+    }
 
+    public class MasterEnvironment : Singleton<MasterEnvironment>
+    {
         /// <summary>
         /// All writers for the subprojects are generated from this writer.
         /// </summary>
@@ -54,22 +55,16 @@ namespace Kari.GeneratorCore.Workflow
 
         public readonly Logger Logger;
         public readonly CancellationToken CancellationToken;
-        public readonly string RootNamespaceName;
-        public readonly string ProjectRootDirectory;
         public readonly List<ProjectEnvironment> Projects = new List<ProjectEnvironment>();
         public readonly List<IAdministrator> Administrators = new List<IAdministrator>(5);
-        public readonly HashSet<string> IndependentNamespaces;
 
         /// <summary>
         /// Initializes the MasterEnvironment and replaces the global singleton instance.
         /// </summary>
-        public MasterEnvironment(string rootNamespace, string rootDirectory, CancellationToken cancellationToken, Logger logger, HashSet<string> independentNamespaces)
+        public MasterEnvironment(CancellationToken cancellationToken, Logger logger)
         {
             CancellationToken = cancellationToken;
-            RootNamespaceName = rootNamespace;
-            ProjectRootDirectory = rootDirectory;
             Logger = logger;
-            IndependentNamespaces = independentNamespaces;
         }
 
         public void TakeCommandLineArguments(ArgumentParser parser)
@@ -96,30 +91,31 @@ namespace Kari.GeneratorCore.Workflow
             }
         }
 
-        public void InitializeCompilation(ref Compilation compilation)
+        public void InitializeCompilation(ref Compilation compilation, string rootNamespaceName)
         {
             Compilation = compilation.AddSyntaxTrees(
                 Administrators.Select(a => CSharpSyntaxTree.ParseText(a.GetAnnotations())));
 
             Symbols.Initialize(Compilation);
             Compilation = Compilation;
-            RootNamespace = Compilation.TryGetNamespace(RootNamespaceName);
+            RootNamespace = Compilation.TryGetNamespace(rootNamespaceName);
 
-            if (RootNamespace is null)  Logger.LogError($"No such namespace {RootNamespaceName}");
+            if (RootNamespace is null)
+                Logger.LogError($"No such namespace {rootNamespaceName}");
         }
 
-        private void AddProject(ProjectEnvironment project)
+        private void AddProject(ProjectEnvironment project, string commonProjectNamespaceName)
         {
             Logger.Log($"Adding project {project.NamespaceName}");
             Projects.Add(project);
-            if (project.NamespaceName == CommonProjectNamespaceName)
+            if (project.NamespaceName == commonProjectNamespaceName)
             {
                 Logger.Log($"Found the common project {project.NamespaceName}");
                 CommonPseudoProject = project;
             }
         }
 
-        public void FindProjects(bool treatEditorAsSubproject)
+        public void FindProjects(bool treatEditorAsSubproject, ProjectNamesInfo projectNamesInfo)
         {
             if (RootWriter is null) 
             {
@@ -127,10 +123,10 @@ namespace Kari.GeneratorCore.Workflow
                 return;
             }
 
-            Logger.Log($"Searching for asmdef's in {ProjectRootDirectory}");
+            Logger.Log($"Searching for asmdef's in {projectNamesInfo.ProjectRootDirectory}");
 
             // find asmdef's
-            foreach (var asmdef in Directory.EnumerateFiles(ProjectRootDirectory, "*.asmdef", SearchOption.AllDirectories))
+            foreach (var asmdef in Directory.EnumerateFiles(projectNamesInfo.ProjectRootDirectory, "*.asmdef", SearchOption.AllDirectories))
             {
                 Logger.Log($"Found an asmdef file at {asmdef}");
                 
@@ -170,13 +166,15 @@ namespace Kari.GeneratorCore.Workflow
                     // Check if any folders exist besides the Editor folder
                     || Directory.EnumerateDirectories(projectDirectory).Any(path => !path.EndsWith("Editor")))
                 {
+                    var generatedPathForProject = Path.Combine(projectDirectory, projectNamesInfo.GeneratedPath);
                     var environment = new ProjectEnvironment(
-                        directory:      projectDirectory,
-                        namespaceName:  namespaceName,
-                        rootNamespace:  projectNamespace,
-                        fileWriter:     RootWriter.GetWriter(Path.Combine(projectDirectory, GeneratedPath)));
+                        directory:                  projectDirectory,
+                        namespaceName:              namespaceName,
+                        generatedNamespaceName:     namespaceName.Combine(projectNamesInfo.GeneratedNamespaceSuffix),
+                        rootNamespace:              projectNamespace,
+                        fileWriter:                 RootWriter.GetWriter(generatedPathForProject));
                     // TODO: Assume no duplicates for now, but this will have to be error-checked.
-                    AddProject(environment);
+                    AddProject(environment, projectNamesInfo.CommonProjectNamespaceName);
                 }
 
                 // !!! 
@@ -212,33 +210,36 @@ namespace Kari.GeneratorCore.Workflow
             }
         }
 
-        public void InitializePseudoProjects()
+        public void InitializePseudoProjects(ProjectNamesInfo projectNamesInfo)
         {
+            var generatedNamespaceName = Path.Combine(projectNamesInfo.RootNamespaceName, projectNamesInfo.GeneratedNamespaceSuffix);
             if (Projects.Count == 0)
             {
                 var rootProject = new ProjectEnvironment(
-                    directory:      ProjectRootDirectory,
-                    namespaceName:  RootNamespaceName,
-                    rootNamespace:  RootNamespace,
-                    fileWriter:     RootWriter);
-                AddProject(rootProject);
+                    directory:              projectNamesInfo.ProjectRootDirectory,
+                    namespaceName:          projectNamesInfo.RootNamespaceName,
+                    generatedNamespaceName: generatedNamespaceName,
+                    rootNamespace:          RootNamespace,
+                    fileWriter:             RootWriter);
+                AddProject(rootProject, projectNamesInfo.CommonProjectNamespaceName);
                 RootPseudoProject = rootProject;
             }
             else
             {
                 RootPseudoProject = new ProjectEnvironmentData(
-                    directory:      ProjectRootDirectory,
-                    namespaceName:  RootNamespaceName,
-                    fileWriter:     RootWriter,
-                    logger:         new Logger("Root")
+                    directory:              projectNamesInfo.ProjectRootDirectory,
+                    namespaceName:          projectNamesInfo.RootNamespaceName,
+                    generatedNamespaceName: generatedNamespaceName,
+                    fileWriter:             RootWriter,
+                    logger:                 new Logger("Root")
                 );
             }
 
             if (CommonPseudoProject is null) 
             {
-                if (CommonProjectNamespaceName is not null)
+                if (projectNamesInfo.CommonProjectNamespaceName is not null)
                 {
-                    Logger.LogWarning($"No common project {CommonProjectNamespaceName}. The common files will be generated into root.");
+                    Logger.LogWarning($"No common project {projectNamesInfo.CommonProjectNamespaceName}. The common files will be generated into root.");
                 }
 
                 CommonPseudoProject = RootPseudoProject;
@@ -253,9 +254,9 @@ namespace Kari.GeneratorCore.Workflow
             }
         }
 
-        public async Task Collect()
+        public async Task Collect(HashSet<string> independentNamespaceNames)
         {
-            var cachingTasks = Projects.Select(project => project.Collect());
+            var cachingTasks = Projects.Select(project => project.Collect(independentNamespaceNames));
             await Task.WhenAll(cachingTasks);
             CancellationToken.ThrowIfCancellationRequested();
 
