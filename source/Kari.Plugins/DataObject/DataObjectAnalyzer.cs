@@ -63,7 +63,7 @@ namespace Kari.Plugins.DataObject
             return cb.ToString();
         }
 
-        public void AppendCodeForSingleInfo(ref CodeBuilder cb, DataObjectInfo info)
+        public void AppendCodeForSingleInfo(ref CodeBuilder cb, in DataObjectInfo info)
         {
             cb.AppendLine($"{info.AccessModifier} partial {info.TypeKeyword} {info.NameTypeParameters}");
             cb.StartBlock();
@@ -77,6 +77,7 @@ namespace Kari.Plugins.DataObject
                 var listBuilder = new ListBuilder($"\r\n{cb.CurrentIndentation + cb.Indentation}&& ");
                 foreach (var field in info.Fields)
                 {
+                    // TODO: Check if this works for hierarchies.
                     if (field.Type.HasEqualityOperatorAbleToCompareAgainstOwnType())
                         listBuilder.Append($"a.{field.Name} == b.{field.Name}");
                     else
@@ -134,10 +135,14 @@ namespace Kari.Plugins.DataObject
                 cb.AppendLine($"return other is {info.NameTypeParameters} a && this == a;");
                 cb.EndBlock();
             }
-
+            
             if (info.Symbol.IsReferenceType) 
             {
                 cb.AppendLine($"public {info.NameTypeParameters} Copy => ({info.NameTypeParameters}) this.MemberwiseClone();");
+            }
+            else
+            {
+                cb.AppendLine($"public {info.NameTypeParameters} Copy => this;");
             }
 
             cb.EndBlock();

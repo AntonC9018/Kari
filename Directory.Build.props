@@ -27,4 +27,11 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- I'll need to look up glob iteration for this stuff -->
+  <!-- <ItemGroup Condition=" '$(TestedPluginNames)' != '' ">
+    <PackageReference Include="%(TestedPluginNames)"
+  </ItemGroup>
+  <Target Name="LauchKari" Condition=" '$(TestedPluginNames)' != '' ">
+  </Target> -->
+
 </Project>
