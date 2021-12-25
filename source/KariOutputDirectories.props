@@ -4,6 +4,14 @@
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <KariBuildPath Condition="'$(KariBuildPath)' == ''">$(MSBuildThisFileDirectory)..\build_folder\</KariBuildPath>
     <KariOutputPath Condition="'$(KariOutputPath)' == ''">$(KariBuildPath)bin\</KariOutputPath>
+
+    <!-- 
+      I hate the fact that all of these have to be hardcoded like that, but what are you gonna do?
+      You cannot "call functions" in msbuild, all you can do is queue up targets.
+      But those cannot define 
+     -->
+    <KariExecutablePath>$(KariOutputPath)Kari.Generator\$(Configuration)\$(TargetFramework)\Kari.Generator.exe</KariExecutablePath>
+
     <KariIntermediateOutputPath Condition="'$(KariIntermediateOutputPath)' == ''">$(KariBuildPath)obj\</KariIntermediateOutputPath>
     
     <BaseOutputPath>$(KariOutputPath)$(MSBuildProjectName)\</BaseOutputPath>
