@@ -1,5 +1,29 @@
 
 <Project>
+
+  <Target Name="ReIncludeCompilationItems">
+    <ItemGroup>
+      <!-- 
+        https://stackoverflow.com/a/44829863/9731532 
+        This approach must be slower than just including single files tho.
+        -->
+      <Compile Include="**/*$(DefaultLanguageSourceExtension)"
+               Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder);$(BaseIntermediateOutputPath)**;$(BaseOutputPath)**;@(Compile)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="IncludeKariGeneratedCompilationItems_Default">
+      <!-- 
+        It could be good to generate the files into the obj folder. 
+        Shouldn't be hard.
+
+        Currently, I assume the default generated directory.
+        -->
+    <ItemGroup>
+      <Compile Include="Generated/**/*$(DefaultLanguageSourceExtension)" 
+               KeepDuplicates="false" />
+    </ItemGroup>
+  </Target>
   
   <ItemGroup Condition=" '@(TestedPlugins)' != '' ">
     <ProjectReference Include="@(TestedPlugins -> '%(FullPath)')"
@@ -12,7 +36,7 @@
   </ItemGroup>
 
   <Target Name="LauchKariForTestedPlugins" 
-          BeforeTargets="BeforeBuild"
+          AfterTargets="ResolveProjectReferences"
           Condition=" '@(TestedPlugins)' != '' ">
 
     <PropertyGroup> 
@@ -22,6 +46,7 @@
     <Message Importance="high" Text="$(KariCommand)"/>
     <Exec Command="$(KariCommand)" 
           WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <CallTarget Targets="IncludeKariGeneratedCompilationItems_Default" />
   </Target>
 
 </Project>

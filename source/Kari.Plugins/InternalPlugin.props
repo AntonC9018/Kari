@@ -17,13 +17,10 @@
                       ExcludeAssets="runtime" />
   </ItemGroup>
 
-  <Target Name="RunAnnotator" BeforeTargets="AfterResolveReferences">
+  <Target Name="RunAnnotator" 
+          BeforeTargets="ResolveProjectReferences">
     <Exec Command="$(KariOutputPath)Kari.Annotator\$(Configuration)\net5.0\Kari.Annotator.exe $(AnnotatorArguments)" />
-    <ItemGroup>
-      <!-- https://stackoverflow.com/a/44829863/9731532 -->
-      <Compile Include="**/*$(DefaultLanguageSourceExtension)"
-               Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder);$(BaseIntermediateOutputPath)**;$(BaseOutputPath)**;@(Compile)" />
-    </ItemGroup>
+    <CallTarget Targets="ReIncludeCompilationItems" />
   </Target>
 
   <Target Name="TextTemplateClean" AfterTargets="Clean">

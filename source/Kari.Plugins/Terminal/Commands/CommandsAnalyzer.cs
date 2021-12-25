@@ -12,7 +12,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Kari.Plugins.Terminal
 {
-    internal partial class CommandsAnalyzer : IAnalyzer, IGenerateCode
+    internal partial class CommandsAnalyzer : ICollectSymbols, IGenerateCode
     {
         private readonly HashSet<string> _names = new HashSet<string>();
         public readonly List<CommandMethodInfo> _infos = new List<CommandMethodInfo>();
@@ -27,7 +27,7 @@ namespace Kari.Plugins.Terminal
             }
         }
 
-        public void Collect(ProjectEnvironment environment)
+        public void CollectSymbols(ProjectEnvironment environment)
         {
             _logger = environment.Logger;
 

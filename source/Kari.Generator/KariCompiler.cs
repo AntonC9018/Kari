@@ -467,8 +467,11 @@
             var measurer = new Measurer(_logger);
 
             measurer.Start("Environment Initialization");
-            {
                 master.InitializeCompilation(ref compilation, projectNamesInfo.RootNamespaceName);
+            measurer.Stop();
+
+            measurer.Start("Environment Initialization2");
+            {
                 if (ShouldExit())
                     return ExitCode.FailedEnvironmentInitialization;
                 if (!monolithicProject) 
@@ -484,7 +487,6 @@
             measurer.Start("Symbol Collect");
             {
                 await master.Collect(independentNamespaceParts);
-                master.RunCallbacks();
                 
                 if (ShouldExit())
                     return ExitCode.FailedSymbolCollection;

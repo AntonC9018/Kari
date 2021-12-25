@@ -9,11 +9,11 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Kari.Plugins.DataObject
 {
-    public class DataObjectAnalyzer : IAnalyzer, IGenerateCode
+    public class DataObjectAnalyzer : ICollectSymbols, IGenerateCode
     {
         public readonly List<DataObjectInfo> _infos = new List<DataObjectInfo>();
 
-        public void Collect(ProjectEnvironment environment)
+        public void CollectSymbols(ProjectEnvironment environment)
         {
             foreach (var type in environment.TypesWithAttributes)
             {

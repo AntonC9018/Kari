@@ -10,6 +10,7 @@ using Kari.Utils;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Newtonsoft.Json.Linq;
+using static System.Diagnostics.Debug;
 
 namespace Kari.GeneratorCore.Workflow
 {
@@ -101,7 +102,7 @@ namespace Kari.GeneratorCore.Workflow
             RootNamespace = Compilation.TryGetNamespace(rootNamespaceName);
 
             if (RootNamespace is null)
-                Logger.LogError($"No such namespace `{rootNamespaceName}`");
+                Logger.LogError($"No such root namespace `{rootNamespaceName}`");
         }
 
         private void AddProject(in ProjectEnvironment project, string commonProjectNamespaceName)
@@ -117,11 +118,7 @@ namespace Kari.GeneratorCore.Workflow
 
         public void FindProjects(in ProjectNamesInfo projectNamesInfo, bool treatEditorAsSubproject)
         {
-            if (RootWriter is null) 
-            {
-                Logger.LogError("The file writer must have been set by now.");
-                return;
-            }
+            Assert(RootWriter is not null, "The file writer must have been set by now.");
 
             Logger.Log($"Searching for asmdef's in {projectNamesInfo.ProjectRootDirectory}");
 
@@ -258,14 +255,18 @@ namespace Kari.GeneratorCore.Workflow
         {
             var cachingTasks = Projects.Select(project => project.Collect(independentNamespaceNames));
             await Task.WhenAll(cachingTasks);
-            CancellationToken.ThrowIfCancellationRequested();
+            if (CancellationToken.IsCancellationRequested)
+                return;
 
             var managerTasks = Administrators.Select(admin => admin.Collect());
             await Task.WhenAll(managerTasks);
-            CancellationToken.ThrowIfCancellationRequested();
+            if (CancellationToken.IsCancellationRequested)
+                return;
+
+            RunCallbacks();
         }
 
-        public void RunCallbacks()
+        private void RunCallbacks()
         {
             var infos = new List<CallbackInfo>(); 
             foreach (var admin in Administrators)

@@ -95,6 +95,7 @@ namespace Kari.GeneratorCore.Workflow
         /// </summary>
         internal Task Collect(HashSet<string> independentNamespaceNames)
         {
+            // THOUGHT: For monolithic projects, this effectively runs on 1 core.
             return Task.Run(() => {
                 foreach (var symbol in RootNamespace.GetMembers())
                 {

@@ -46,10 +46,9 @@ namespace Kari.GeneratorCore.Workflow
         Task Generate();
     }
 
-    // TODO: A more appropriate name is ICollect or ICollectSymbols?
-    public interface IAnalyzer
+    public interface ICollectSymbols
     {
-        void Collect(ProjectEnvironment project);
+        void CollectSymbols(ProjectEnvironment project);
     }
 
     public interface IGenerateCode
@@ -64,7 +63,7 @@ namespace Kari.GeneratorCore.Workflow
 
     public static class AnalyzerMaster
     {
-        public static void Initialize<T>(ref T[] slaves) where T : IAnalyzer, new()
+        public static void Initialize<T>(ref T[] slaves) where T : ICollectSymbols, new()
         {
             var projects = MasterEnvironment.Instance.Projects;
             slaves = new T[projects.Count]; 
@@ -74,16 +73,16 @@ namespace Kari.GeneratorCore.Workflow
             }
         }
 
-        public static void Collect<T>(T[] slaves) where T : IAnalyzer
+        public static void Collect<T>(T[] slaves) where T : ICollectSymbols
         {
             var projects = MasterEnvironment.Instance.Projects;
             for (int i = 0; i < slaves.Length; i++)
             {
-                slaves[i].Collect(projects[i]);
+                slaves[i].CollectSymbols(projects[i]);
             }
         }
 
-        public static Task CollectAsync<T>(T[] slaves) where T : IAnalyzer
+        public static Task CollectAsync<T>(T[] slaves) where T : ICollectSymbols
         {
             return Task.Run(() => Collect(slaves));
         }
@@ -94,6 +93,7 @@ namespace Kari.GeneratorCore.Workflow
             var projects = MasterEnvironment.Instance.Projects;
             for (int i = 0; i < slaves.Length; i++)
             {
+                // TODO: this does blocking io, fix this.
                 projects[i].WriteFile(fileName, slaves[i].GenerateCode(projects[i]));
             }
         }

@@ -1,0 +1,4 @@
+{
+    "monolithicProject": true,
+    "rootNamespace": "DataObject.Tests"
+}

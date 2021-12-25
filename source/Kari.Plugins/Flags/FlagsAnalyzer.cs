@@ -19,11 +19,11 @@ namespace Kari.Plugins.Flags
         public readonly string FullName;
     }
 
-    public partial class FlagsAnalyzer : IAnalyzer, IGenerateCode
+    public partial class FlagsAnalyzer : ICollectSymbols, IGenerateCode
     {
         public readonly List<FlagsInfo> _infos = new List<FlagsInfo>();
 
-        public void Collect(ProjectEnvironment environment)
+        public void CollectSymbols(ProjectEnvironment environment)
         {
             // It should be able to crank through those symbols fast on its own, so this
             // Task.Run is debatable.

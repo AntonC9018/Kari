@@ -8,11 +8,11 @@ namespace Kari.Plugins.MyPlugin
 {
     // An analyzer will be created per project. 
     // It manages collecting specific information with a single project as input.
-    public class MyPluginAnalyzer : IAnalyzer, IGenerateCode
+    public class MyPluginAnalyzer : ICollectSymbols, IGenerateCode
     {
         private readonly List<MyPluginInfo> _infos = new List<MyPluginInfo>();
         
-        public void Collect(ProjectEnvironment environment)
+        public void CollectSymbols(ProjectEnvironment environment)
         {
             foreach (var type in environment.TypesWithAttributes)
             {

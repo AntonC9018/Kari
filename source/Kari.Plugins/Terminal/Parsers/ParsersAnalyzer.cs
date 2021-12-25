@@ -5,13 +5,13 @@ using Kari.Utils;
 
 namespace Kari.Plugins.Terminal
 {
-    public partial class ParsersAnalyzer : IAnalyzer, IGenerateCode
+    public partial class ParsersAnalyzer : ICollectSymbols, IGenerateCode
     {
         public string DefinitionsNamespace => TerminalAdministrator.TerminalProject.GeneratedNamespaceName;
         internal readonly List<CustomParserInfo> _customParserInfos = new List<CustomParserInfo>();
         internal readonly List<CustomParserInfo> _customParserFunctionInfos = new List<CustomParserInfo>();
 
-        public void Collect(ProjectEnvironment environment)
+        public void CollectSymbols(ProjectEnvironment environment)
         {
             string parsersFullyQualifiedClassName = ParserDatabase.GetFullyQualifiedParsersClassNameForProject(environment);
 
