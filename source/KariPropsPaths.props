@@ -2,5 +2,12 @@
   <PropertyGroup Condition="'$(KariRootPath)'==''">
     <KariRootPath>$(MSBuildThisFileDirectory)</KariRootPath>
     <KariOutputDirectoriesPropsPath>$(MSBuildThisFileDirectory)KariOutputDirectories.props</KariOutputDirectoriesPropsPath>
+    
+    <!-- 
+      I hate the fact that all of these have to be hardcoded like that, but what are you gonna do?
+      You cannot "call functions" in msbuild, all you can do is queue up targets.
+      But those cannot define 
+     -->
+    <KariExecutablePath>$(KariOutputPath)Kari.Generator\$(Configuration)\$(TargetFramework)\Kari.Generator.exe</KariExecutablePath>
   </PropertyGroup>
 </Project>

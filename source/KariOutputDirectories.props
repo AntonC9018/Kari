@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
+    <AssemblyName Condition="'$(AssemblyName)' == ''">MSBuildProjectName</AssemblyName>
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <KariBuildPath Condition="'$(KariBuildPath)' == ''">$(MSBuildThisFileDirectory)..\build_folder\</KariBuildPath>
     <KariOutputPath Condition="'$(KariOutputPath)' == ''">$(KariBuildPath)bin\</KariOutputPath>
