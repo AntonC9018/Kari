@@ -26,23 +26,4 @@
     </PackageReference>
   </ItemGroup>
 
-  <Target Name="AddReferencesToTestedPlugins">
-    <ItemGroup Condition=" '$(TestedPlugins)' != '' ">
-      <PackageReference Include="%(TestedPlugins.FullPath)" 
-                        ExcludeAssets="runtime" 
-                        PrivateAssets="all" />
-        <!-- Condition="$(KariRootPath)Kari.Generator\Kari.Generator.csproj" -->
-      <PackageReference Include="$(KariRootPath)Kari.Generator\Kari.Generator.csproj"
-                        ExcludeAssets="runtime"
-                        PrivateAssets="all" />
-    </ItemGroup>
-  </Target>
-
-  <Target Name="LauchKariForTestedPlugins" 
-          DependsOnTargets="AddReferencesToTestedPlugins">
-    <Exec Condition=" '$(TestedPlugins)' != '' "
-          Command="$(KariExecutablePath) -pluginPaths &quot;@(TestedPlugins -> $(OutputPath)%(Filename)\$(Configuration)\%(TargetFramework)\%(Filename).dll)&quot;" 
-          WorkingDirectory="$(MSBuildProjectDirectory)"/>
-  </Target>
-
 </Project>

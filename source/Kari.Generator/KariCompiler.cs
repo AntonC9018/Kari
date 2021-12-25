@@ -220,7 +220,7 @@
             bool isProjectADirectory = false;
             if (!parser.IsHelpSet)
             {
-                if (!File.Exists(pluginConfigFilePath))
+                if (pluginConfigFilePath is not null && !File.Exists(pluginConfigFilePath))
                 {
                     _logger.LogError($"Plugin config file {pluginConfigFilePath} does not exist");
                 }

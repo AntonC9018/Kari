@@ -8,12 +8,4 @@
     <TestedPlugins Include="../DataObject/DataObject.csproj" />
   </ItemGroup>
 
-  <PropertyGroup>
-    <BeforeRestore Condition=" '$(TestedPlugins)' != '' ">
-      $(BeforeRestore);
-      AddReferencesToTestedPlugins;
-      LauchKariForTestedPlugins
-    </BeforeRestore>
-  </PropertyGroup>
-
 </Project>

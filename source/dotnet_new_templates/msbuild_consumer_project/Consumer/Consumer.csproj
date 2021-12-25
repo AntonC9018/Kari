@@ -3,7 +3,7 @@
     <TargetFramework>net5.0</TargetFramework>
     <AssemblyName>Consumer</AssemblyName>
   </PropertyGroup>
-  <Target Name="RunAnnotator" BeforeTargets="BeforeBuild">
+  <Target Name="BeforeBuild">
     <Exec Command="dotnet tool run kari" />
     <ItemGroup>
       <!-- https://stackoverflow.com/a/44829863/9731532 -->

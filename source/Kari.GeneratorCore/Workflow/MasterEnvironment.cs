@@ -101,16 +101,16 @@ namespace Kari.GeneratorCore.Workflow
             RootNamespace = Compilation.TryGetNamespace(rootNamespaceName);
 
             if (RootNamespace is null)
-                Logger.LogError($"No such namespace {rootNamespaceName}");
+                Logger.LogError($"No such namespace `{rootNamespaceName}`");
         }
 
         private void AddProject(in ProjectEnvironment project, string commonProjectNamespaceName)
         {
-            Logger.Log($"Adding project {project.NamespaceName}");
+            Logger.Log($"Adding project `{project.NamespaceName}`");
             Projects.Add(project);
             if (project.NamespaceName == commonProjectNamespaceName)
             {
-                Logger.Log($"Found the common project {project.NamespaceName}");
+                Logger.Log($"Found the common project `{project.NamespaceName}`");
                 CommonPseudoProject = project;
             }
         }

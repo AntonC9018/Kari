@@ -1,0 +1,27 @@
+
+<Project>
+  
+  <ItemGroup Condition=" '@(TestedPlugins)' != '' ">
+    <ProjectReference Include="@(TestedPlugins -> '%(FullPath)')"
+                      ReferenceOutputAssembly="false"
+                      ExcludeAssets="runtime" 
+                      PrivateAssets="all" />
+    
+    <!-- This does not actually force it to recompile for some reason?? -->
+    <ProjectReference Include="$(KariRootPath)Kari.Generator\Kari.Generator.csproj"/>
+  </ItemGroup>
+
+  <Target Name="LauchKariForTestedPlugins" 
+          BeforeTargets="BeforeBuild"
+          Condition=" '@(TestedPlugins)' != '' ">
+
+    <PropertyGroup> 
+      <KariCommand>$(KariExecutablePath) -pluginPaths &quot;@(TestedPlugins -> '$(KariOutputPath)%(Filename)\$(Configuration)\$(TargetFramework)\Kari.Plugins.%(Filename).dll', ',')&quot;</KariCommand>
+    </PropertyGroup> 
+
+    <Message Importance="high" Text="$(KariCommand)"/>
+    <Exec Command="$(KariCommand)" 
+          WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+
+</Project>
