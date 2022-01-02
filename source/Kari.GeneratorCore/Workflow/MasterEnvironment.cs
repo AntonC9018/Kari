@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -164,12 +165,15 @@ namespace Kari.GeneratorCore.Workflow
                     || Directory.EnumerateDirectories(projectDirectory).Any(path => !path.EndsWith("Editor")))
                 {
                     var generatedPathForProject = Path.Combine(projectDirectory, projectNamesInfo.GeneratedPath);
-                    var environment = new ProjectEnvironment(
-                        directory:                  projectDirectory,
-                        namespaceName:              namespaceName,
-                        generatedNamespaceName:     namespaceName.Combine(projectNamesInfo.GeneratedNamespaceSuffix),
-                        rootNamespace:              projectNamespace,
-                        fileWriter:                 RootWriter.GetWriter(generatedPathForProject));
+                    var environment = new ProjectEnvironment
+                    {
+                        Directory               = projectDirectory,
+                        NamespaceName           = namespaceName,
+                        GeneratedNamespaceName  = namespaceName.Combine(projectNamesInfo.GeneratedNamespaceSuffix),
+                        RootNamespace           = projectNamespace,
+                        Logger                  = new Logger(RootNamespace.Name),
+                        // FileWriter              = RootWriter.GetWriter(generatedPathForProject));
+                    };
                     // TODO: Assume no duplicates for now, but this will have to be error-checked.
                     AddProject(environment, projectNamesInfo.CommonProjectNamespaceName);
                 }
@@ -212,24 +216,26 @@ namespace Kari.GeneratorCore.Workflow
             var generatedNamespaceName = Path.Combine(projectNamesInfo.RootNamespaceName, projectNamesInfo.GeneratedNamespaceSuffix);
             if (Projects.Count == 0)
             {
-                var rootProject = new ProjectEnvironment(
-                    directory:              projectNamesInfo.ProjectRootDirectory,
-                    namespaceName:          projectNamesInfo.RootNamespaceName,
-                    generatedNamespaceName: generatedNamespaceName,
-                    rootNamespace:          RootNamespace,
-                    fileWriter:             RootWriter);
+                var rootProject = new ProjectEnvironment
+                {
+                    Directory              = projectNamesInfo.ProjectRootDirectory,
+                    NamespaceName          = projectNamesInfo.RootNamespaceName,
+                    GeneratedNamespaceName = generatedNamespaceName,
+                    RootNamespace          = RootNamespace,
+                    Logger                 = new Logger(RootNamespace.Name),
+                };
                 AddProject(rootProject, projectNamesInfo.CommonProjectNamespaceName);
                 RootPseudoProject = rootProject;
             }
             else
             {
-                RootPseudoProject = new ProjectEnvironmentData(
-                    directory:              projectNamesInfo.ProjectRootDirectory,
-                    namespaceName:          projectNamesInfo.RootNamespaceName,
-                    generatedNamespaceName: generatedNamespaceName,
-                    fileWriter:             RootWriter,
-                    logger:                 new Logger("Root")
-                );
+                RootPseudoProject = new ProjectEnvironmentData
+                {
+                    Directory              = projectNamesInfo.ProjectRootDirectory,
+                    NamespaceName          = projectNamesInfo.RootNamespaceName,
+                    GeneratedNamespaceName = generatedNamespaceName,
+                    Logger                 = new Logger("Root"),
+                };
             }
 
             if (CommonPseudoProject is null) 
@@ -280,6 +286,52 @@ namespace Kari.GeneratorCore.Workflow
             for (int i = 0; i < infos.Count; i++)
             {
                 infos[i].Callback();
+            }
+        }
+
+        public async Task MergeCodeFilesDefault()
+        {
+            foreach (var project in Projects)
+            {
+                foreach (var (fileName, contents) in project.FileNameToCodeFragments)
+                {
+                    contents.Sort();
+                    
+                    int contentLength = FileWriterCommon.Header.Length;
+                    foreach (var b in contents)
+                        contentLength += b.StringBuilder.Length;
+                    contentLength += FileWriterCommon.Footer.Length;
+
+                    char[] content = new char[contentLength];
+                    int position = 0;
+                    int length = FileWriterCommon.Header.Length;
+                    FileWriterCommon.Header.AsSpan().CopyTo(content.AsSpan(position, length));
+                    position += length;
+
+                    foreach (var b in contents)
+                    {
+                        length = b.StringBuilder.Length;
+                        b.StringBuilder.CopyTo(0, content, position, length);
+                        position += length;
+                    }
+
+                    length = FileWriterCommon.Footer.Length;
+                    FileWriterCommon.Footer.AsSpan().CopyTo(content.AsSpan(position, length));
+                    position += length;
+
+                    Assert(position == contentLength);
+
+                    string outputFilePath = Path.Combine(project.Directory, fileName);
+                    if (File.Exists(outputFilePath))
+                    {
+                        var text = await File.ReadAllTextAsync(outputFilePath);
+                        // Avoid overwriting the contents of the file if it didn't change
+                        if (MemoryExtensions.Equals(text, content, StringComparison.Ordinal))
+                            continue;
+                    }
+
+                    await File.WriteAllTextAsync(outputFilePath, content);
+                }
             }
         }
 

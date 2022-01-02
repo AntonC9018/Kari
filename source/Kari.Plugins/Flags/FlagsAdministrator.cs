@@ -19,7 +19,7 @@ namespace Kari.Plugins.Flags
         {
             return Task.WhenAll(
                 AnalyzerMaster.GenerateAsync(_slaves, "Flags.cs"),
-                MasterEnvironment.Instance.CommonPseudoProject.WriteFileAsync("FlagsAnnotations.cs", DummyFlagsAnnotations.Text)
+                MasterEnvironment.Instance.CommonPseudoProject.AppendFileContent("FlagsAnnotations.cs", DummyFlagsAnnotations.Text)
             );
         }
         public string GetAnnotations() => DummyFlagsAnnotations.Text;

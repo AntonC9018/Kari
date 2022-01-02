@@ -97,31 +97,61 @@ namespace Kari.Utils
         }
     }
 
+    // public struct Measurer : IDisposable
+    // {
+    //     private string _operationName;
+    //     private Logger _logger;
+    //     private long _startTime;
+
+    //     /// <summary>
+    //     /// Use like this: using (Measurer.Start("operation")) { stuff; }
+    //     /// </summary>
+    //     public static Measurer Start(Logger logger, string operationName)
+    //     {
+    //         Measurer result;
+    //         result._logger = logger;
+    //         result._operationName = operationName;
+    //         result._startTime = Stopwatch.GetTimestamp();
+            
+    //         logger.Log(operationName + " Started.", LogType.Information);
+            
+    //         return result;
+    //     }
+
+    //     public void Dispose()
+    //     {
+    //         var elapsed = new TimeSpan(Stopwatch.GetTimestamp() - _startTime);
+    //         _logger.Log(_operationName + " Ended. Elapsed time: " + elapsed.ToString(), LogType.Information);
+    //     }
+
+    //     public void Stop() { Dispose(); }
+    // }
+
     public struct Measurer
     {
-        string operationName;
-        Stopwatch stopwatch;
-        Logger logger;
+        private string _operationName;
+        private long _startTime;
+        private Logger _logger;
 
         public Measurer(Logger logger)
         { 
-            this.stopwatch = Stopwatch.StartNew();
-            this.logger = logger;
-            this.operationName = "";
+            _startTime = -1;
+            _logger = logger;
+            _operationName = "";
         }
 
         public void Start(string operationName)
         {
-            this.stopwatch.Restart();
-            this.operationName = operationName;
+            _startTime = Stopwatch.GetTimestamp();
+            _operationName = operationName;
 
-            logger.Log(operationName + " Started.", LogType.Information); 
+            _logger.Log(operationName + " Started.", LogType.Information); 
         }
 
         public void Stop()
         {
-            this.stopwatch.Stop();
-            logger.Log(operationName + " Completed. Time elapsed: " + stopwatch.Elapsed.ToString(), LogType.Information);
+            var elapsed = new TimeSpan(Stopwatch.GetTimestamp() - _startTime);
+            _logger.Log(_operationName + " Completed. Time elapsed: " + elapsed.ToString(), LogType.Information);
         }
     }
 }

@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Kari.Utils;
 using Microsoft.CodeAnalysis;
@@ -14,59 +16,44 @@ namespace Kari.GeneratorCore.Workflow
     /// </summary>
     public class ProjectEnvironmentData
     {
-        public readonly Logger Logger;
-        public readonly IFileWriter FileWriter;
+        public Logger Logger { get; init; }
 
         /// <summary>
         /// Directory with the source files, including the source code and the project files.
         /// </summary>
-        public readonly string Directory;
+        public string Directory { get; init; }
 
         /// <summary>
         /// The fully qualified namespace name, as it is in the source code.
         /// This has nothing to do with the generated namespace.
         /// </summary>
-        public readonly string NamespaceName;
+        public string NamespaceName { get; init; }
         
         /// <summary>
         /// The name of the namespace that the generated code will end up in.
         /// </summary>
-        public readonly string GeneratedNamespaceName;
+        public string GeneratedNamespaceName { get; init; }
 
         /// <summary>
         /// Shorthand for the MasterEnvironment singleton instance.
         /// </summary>
         public MasterEnvironment Master => MasterEnvironment.Instance;
 
-        internal ProjectEnvironmentData(string directory, string namespaceName, string generatedNamespaceName, IFileWriter fileWriter, Logger logger)
-        {
-            Directory = directory;
-            NamespaceName = namespaceName;
-            GeneratedNamespaceName = generatedNamespaceName;
-            FileWriter = fileWriter;
-            Logger = logger;
-        }
+        public readonly Dictionary<string, List<CodeFragment>> FileNameToCodeFragments = new();
 
+        
         /// <summary>
         /// Writes the text to a file with the given file name, 
         /// placed in the directory of this project, with the current /Generated suffix appended to it.
         /// </summary>
-        public void WriteFile(string fileName, string text)
+        public void AppendFileContent(string fileName, CodeFragment fragment)
         {
-            if (text == null) return;
-            FileWriter.WriteCodeFile(fileName, text);
-        }
-
-        /// <inheritdoc cref="WriteFile"/>
-        public Task WriteFileAsync(string fileName, string text)
-        {
-            return Task.Run(() => WriteFile(fileName, text));
-        }
-
-        internal void ClearOutput()
-        {
-            Logger.Log($"Clearing the generated output.");
-            FileWriter.DeleteOutput();
+            lock (FileNameToCodeFragments)
+            {
+                if (!FileNameToCodeFragments.TryGetValue(fileName, out var list))
+                    list = new List<CodeFragment>();
+                list.Add(fragment);
+            }
         }
     }
 
@@ -77,18 +64,12 @@ namespace Kari.GeneratorCore.Workflow
     {
         // Any registered resources, like small pieces of data common to the project
         public readonly Resources<object> Resources = new Resources<object>(5);
-        public readonly INamespaceSymbol RootNamespace;
+        public INamespaceSymbol RootNamespace { get; init; }
 
         // Cached symbols
         public readonly List<INamedTypeSymbol> Types = new List<INamedTypeSymbol>();
         public readonly List<INamedTypeSymbol> TypesWithAttributes = new List<INamedTypeSymbol>();
         public readonly List<IMethodSymbol> MethodsWithAttributes = new List<IMethodSymbol>();
-
-        internal ProjectEnvironment(string directory, string namespaceName, string generatedNamespaceName, INamespaceSymbol rootNamespace, IFileWriter fileWriter) 
-            : base(directory, namespaceName, generatedNamespaceName, fileWriter, new Logger(rootNamespace.Name))
-        {
-            RootNamespace = rootNamespace;
-        }
 
         /// <summary>
         /// Asynchronously collects and caches relevant symbols.

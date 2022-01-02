@@ -28,7 +28,7 @@ namespace Kari.Plugins.DataObject
         {
             return Task.WhenAll(
                 AnalyzerMaster.GenerateAsync(_analyzers, "DataObjects.cs"),
-                MasterEnvironment.Instance.CommonPseudoProject.WriteFileAsync("DataObjectAnnotations.cs", GetAnnotations())
+                MasterEnvironment.Instance.CommonPseudoProject.AppendFileContent("DataObjectAnnotations.cs", GetAnnotations())
             );
         }
         

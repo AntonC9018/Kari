@@ -28,7 +28,7 @@ namespace Kari.Plugins.UnityHelpers
         public Task Collect() => Task.CompletedTask;
         public Task Generate()
         {
-            return _engineCommon.WriteFileAsync("Helpers.cs", GenerateCode());
+            return _engineCommon.AppendFileContent("Helpers.cs", GenerateCode());
         }
 
         internal string GenerateCode()

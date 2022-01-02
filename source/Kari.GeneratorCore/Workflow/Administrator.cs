@@ -87,7 +87,7 @@ namespace Kari.GeneratorCore.Workflow
             return Task.Run(() => Collect(slaves));
         }
 
-        public static void Generate<T>(T[] slaves, string fileName)
+        public static Task Generate<T>(T[] slaves, string fileName)
             where T : IGenerateCode
         {
             var projects = MasterEnvironment.Instance.Projects;

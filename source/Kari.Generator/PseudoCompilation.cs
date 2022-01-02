@@ -33,7 +33,10 @@ namespace Kari.Generator
                 "CodeGenTemp",
                 syntaxTrees,
                 DistinctReference(metadata),
-                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, 
+                    allowUnsafe: true,
+                    generalDiagnosticOption: ReportDiagnostic.Suppress,
+                    concurrentBuild: true));
 
             return compilation;
         }

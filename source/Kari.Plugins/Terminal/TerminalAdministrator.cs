@@ -52,12 +52,12 @@ namespace Kari.Plugins.Terminal
             return Task.WhenAll(
                 AnalyzerMaster.GenerateAsync(_parserAnalyzers, "Parsers.cs"),
                 AnalyzerMaster.GenerateAsync(_commandAnalyzers, "Commands.cs"),
-                TerminalProject.WriteFileAsync("ParsersBasics.cs", ParsersAnalyzer.TransformMaster()),
-                TerminalProject.WriteFileAsync("CommandBasics.cs", CommandsAnalyzer.TransformBasics()),
-                MasterEnvironment.Instance.RootPseudoProject.WriteFileAsync(
+                TerminalProject.AppendFileContent("ParsersBasics.cs", ParsersAnalyzer.TransformMaster()),
+                TerminalProject.AppendFileContent("CommandBasics.cs", CommandsAnalyzer.TransformBasics()),
+                MasterEnvironment.Instance.RootPseudoProject.AppendFileContent(
                     "CommandsInitialization.cs", CommandsAnalyzer.TransformBuiltin(
                         MasterEnvironment.Instance.RootPseudoProject, _commandAnalyzers)),
-                TerminalProject.WriteFileAsync("TerminalAnnotations.cs", GetAnnotations())
+                TerminalProject.AppendFileContent("TerminalAnnotations.cs", GetAnnotations())
             );
         }
 
