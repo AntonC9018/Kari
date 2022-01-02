@@ -45,22 +45,15 @@ namespace Kari.Plugins.DataObject
             }
         }
 
-        public string GenerateCode(ProjectEnvironmentData p)
+        public void GenerateCode(ProjectEnvironmentData p, ref CodeBuilder cb)
         {
-            if (_infos.Count == 0) 
-                return null;
-                
-            var cb = CodeBuilder.Create();
-
             foreach (var info in _infos)
             {
-                cb.AppendLine("namespace " + info.Symbol.GetFullQualification());
+                cb.AppendLine("namespace ", info.Symbol.GetFullQualification());
                 cb.StartBlock();
                 AppendCodeForSingleInfo(ref cb, info);
                 cb.EndBlock();
             }
-
-            return cb.ToString();
         }
 
         public void AppendCodeForSingleInfo(ref CodeBuilder cb, in DataObjectInfo info)
@@ -74,22 +67,20 @@ namespace Kari.Plugins.DataObject
                 cb.Indent();
                 cb.Append("return ");
 
-                var listBuilder = new ListBuilder($"\r\n{cb.CurrentIndentation + cb.Indentation}&& ");
+                var listBuilder = CodeListBuilder.Create("&& ");
                 foreach (var field in info.Fields)
                 {
                     // TODO: Check if this works for hierarchies.
+                    // TODO: The lib code for symbols that are not part of the user code is not loaded, so this check will be wrong. 
                     if (field.Type.HasEqualityOperatorAbleToCompareAgainstOwnType())
-                        listBuilder.Append($"a.{field.Name} == b.{field.Name}");
+                        listBuilder.AppendOnNewLine(ref cb, $"a.{field.Name} == b.{field.Name}");
                     else
-                        listBuilder.Append($"a.{field.Name}.Equals(b.{field.Name})");
+                        listBuilder.AppendOnNewLine(ref cb, $"a.{field.Name}.Equals(b.{field.Name})");
                 }
-
-                cb.Append(listBuilder.ToString());
 
                 if (info.Fields.Length == 0)
-                {
                     cb.Append("true");
-                }
+
                 cb.Append(";");
                 cb.AppendLine();
                 cb.EndBlock();

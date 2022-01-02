@@ -3,4 +3,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>Kari.Utils</AssemblyName>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ZString" Version="2.4.3" />
+  </ItemGroup>
 </Project>

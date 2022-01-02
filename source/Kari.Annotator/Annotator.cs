@@ -1,4 +1,5 @@
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -202,10 +203,10 @@ namespace Kari.Annotator
                 builder.Append($"{classVisibility} const string Text = @\"");
                 if (clientNamespaceSubstitute is not null)
                 {
-                    builder.Append(attributesTextEscaped, 0, namespaceDeclaration.Index);
+                    builder.Append(attributesTextEscaped.AsSpan(0, namespaceDeclaration.Index));
                     builder.Append(clientNamespaceSubstitute);
                     int continueIndex = namespaceDeclaration.Index + namespaceDeclaration.Length;
-                    builder.Append(attributesTextEscaped, continueIndex, attributesTextEscaped.Length - continueIndex);
+                    builder.Append(attributesTextEscaped.AsSpan(continueIndex, attributesTextEscaped.Length - continueIndex));
                 }
                 else
                 {
@@ -233,7 +234,7 @@ namespace Kari.Annotator
                 builder.StartBlock();
 
                 var initializeBuilder = builder.NewWithPreservedIndentation();
-                initializeBuilder.AppendLine($"{classVisibility} static void Initialize(Logger logger)");
+                initializeBuilder.AppendLine(classVisibility, " static void Initialize(Logger logger)");
                 initializeBuilder.StartBlock();
                 initializeBuilder.AppendLine($"var compilation = MasterEnvironment.Instance.Compilation;");
 
@@ -249,13 +250,19 @@ namespace Kari.Annotator
                 initializeBuilder.EndBlock();
                 
                 builder.NewLine();
-                builder.Append(initializeBuilder.ToString());
+                builder.Append(ref initializeBuilder);
+
+                // Apparently, one cannot both do `using` and pass as ref.
+                // I say that makes no sense whatsoever.
+                initializeBuilder.Dispose();
+
                 builder.EndBlock();
                 builder.EndBlock();
 
                 if (singleFileOutputName is null)
                 {
-                    File.WriteAllText(outputFilePath, builder.ToString());
+                    using (FileStream fs = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write))
+                        fs.Write(builder.GetBuffer());
                     builder.Clear();
                 }
             }
@@ -279,7 +286,7 @@ namespace Kari.Annotator
             }
             else
             {
-                Assert(builder.ToString() == "");
+                Assert(builder.StringBuilder.Length == 0);
             }
 
             return 0;

@@ -13,7 +13,7 @@ namespace Kari.Plugins.DataObject
         
         public void Initialize()
         {
-            AnalyzerMaster.Initialize(ref _analyzers);
+            AdministratorHelpers.Initialize(ref _analyzers);
 
             var logger = new Logger("DataObject Plugin");
             DataObjectSymbols.Initialize(logger);
@@ -21,14 +21,16 @@ namespace Kari.Plugins.DataObject
         
         public Task Collect()
         {
-            return AnalyzerMaster.CollectAsync(_analyzers);
+            return AdministratorHelpers.CollectAsync(_analyzers);
         }
 
         public Task Generate()
         {
             return Task.WhenAll(
-                AnalyzerMaster.GenerateAsync(_analyzers, "DataObjects.cs"),
-                MasterEnvironment.Instance.CommonPseudoProject.AppendFileContent("DataObjectAnnotations.cs", GetAnnotations())
+                AdministratorHelpers.GenerateAsync(_analyzers, "DataObjects.cs"),
+                AdministratorHelpers.AddCodeStringAsync(
+                    MasterEnvironment.Instance.CommonPseudoProject,
+                    "DataObjectAnnotations.cs", nameof(DataObjectAnalyzer), DummyDataObjectAnnotations.Text)
             );
         }
         

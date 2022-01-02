@@ -23,13 +23,12 @@ namespace Kari.Plugins.MyPlugin
             }
         }
         
-        public string GenerateCode(ProjectEnvironmentData project)
+        public void GenerateCode(ProjectEnvironmentData project, ref CodeBuilder builder)
         {
             // Returing null implies no output should be generated for the given template.
             if (_infos.Count == 0) 
                 return null;
 
-            var builder = CodeBuilder.Create();
             builder.AppendLine($"namespace {project.GeneratedNamespaceName}");
             builder.StartBlock();
     
@@ -48,8 +47,6 @@ namespace Kari.Plugins.MyPlugin
             
             builder.EndBlock();
             builder.EndBlock();
-
-            return builder.ToString();
         }
     }
 

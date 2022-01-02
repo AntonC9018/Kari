@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Kari.Arguments;
 using Kari.GeneratorCore;
@@ -28,10 +29,16 @@ namespace Kari.Plugins.UnityHelpers
         public Task Collect() => Task.CompletedTask;
         public Task Generate()
         {
-            return _engineCommon.AppendFileContent("Helpers.cs", GenerateCode());
+            _engineCommon.AddCodeFragment(new CodeFragment 
+            {
+                FileNameHint = "Helpers.cs",
+                NameHint = "UnityHelpers",
+                CodeBuilder = GenerateCode()
+            });
+            return Task.CompletedTask;
         }
 
-        internal string GenerateCode()
+        internal CodeBuilder GenerateCode()
         {
             var builder = CodeBuilder.Create();
             builder.AppendLine("namespace ", engineCommon);
@@ -62,13 +69,13 @@ namespace Kari.Plugins.UnityHelpers
             AppendVectorCode(ref builder, "Vector2Int", "int", new string[] { "x", "y" });
             AppendVectorCode(ref builder, "Vector3Int", "int", new string[] { "x", "y", "z" });
 
-            return builder.ToString();
+            return builder;
         }
 
         internal void AppendVectorCode(ref CodeBuilder builder, string vectorName, string type, string[] vars)
         { 
             string[] args = new string[vars.Length];
-            var otherParams = new ListBuilder(", ");
+            List<string> otherParams = new ();
             int bitEnd = 1 << vars.Length;
 
             for (int bitCombo = 1; bitCombo < bitEnd - 1; bitCombo++) 
@@ -85,7 +92,7 @@ namespace Kari.Plugins.UnityHelpers
                     }
                     else
                     {
-                        otherParams.Append($"{type}{vars[bitIndex]} {vars[bitIndex]}");
+                        otherParams.Add($"{type}{vars[bitIndex]} {vars[bitIndex]}");
                         // Fill in with the variable name
                         args[bitIndex] = vars[bitIndex];
                     }
@@ -99,7 +106,7 @@ namespace Kari.Plugins.UnityHelpers
                 // codeBuilder.EndBlock();
                 // codeBuilder.AppendLine();
 
-                builder.AppendLine($"public static {vectorName} With(this in {vectorName} v, {otherParams})");
+                builder.AppendLine($"public static {vectorName} With(this in {vectorName} v, {string.Join(", ", otherParams)})");
                 builder.StartBlock();
                 builder.AppendLine($"return new {vectorName}({callArgs});");
                 builder.EndBlock();

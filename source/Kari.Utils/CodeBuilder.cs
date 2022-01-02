@@ -1,14 +1,17 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Text;
+using Cysharp.Text;
 using static System.Diagnostics.Debug;
 
 namespace Kari.Utils
 {
     public interface IAppend
     {
-        void Append(string text);
+        void Append(ReadOnlySpan<char> text);
     }
     public interface IIndent
     {
@@ -18,27 +21,56 @@ namespace Kari.Utils
     /// <summary>
     /// A utility string builder with indentation support.
     /// </summary>
-    public struct CodeBuilder : IAppend //, IIndent
+    public struct CodeBuilder : IDisposable, IAppend //, IIndent
     {
-        public static CodeBuilder Create() { return new CodeBuilder("    ", ""); }
+        public static readonly byte[] DefaultIndentation = Encoding.UTF8.GetBytes("    ");
+        public static CodeBuilder Create() { return new CodeBuilder(DefaultIndentation, 1); }
+        public static CodeBuilder FromText(string text)
+        {
+            CodeBuilder result = Create();
+            result.Append(text);
+            return result;
+        }        
         
-        private readonly StringBuilder _stringBuilder;
-        public string CurrentIndentation;
+        
+        /// <summary>
+        /// You may write to this directly.
+        /// If you want to reference this field, you can do `ref codeBuilder.StringBuilder` too.
+        /// </summary>
+        public Utf8ValueStringBuilder StringBuilder;
 
         /// <summary>
-        /// The string used for indentation.
-        /// One step in indentation amounts to a copy of this string being added to the indentation.
         /// </summary>
-        public string Indentation { get; }
+        public int CurrentIndentationCount;
+
+        /// <summary>
+        /// The bytes used for indentation.
+        /// One step in indentation amounts to a copy of these bytes being added to the indentation.
+        /// </summary>
+        public byte[] IndentationBytes { get; }
 
         /// <summary>
         /// A utility string builder with indentation support.
         /// </summary>
-        public CodeBuilder(string indentation, string initialIndentation = "")
+        public CodeBuilder(byte[] indentationBytes, int initialIndentationCount = 0, bool utfStringBuilderNotNested = false)
         {
-            _stringBuilder = new StringBuilder();
-            CurrentIndentation = initialIndentation;
-            Indentation = indentation;
+            // IMPORTANT: (and also kind of a hack)
+            // We will not dispose of the buffer when done building to avoid copying.
+            // The buffer will have to be deallocated manually, by a call to ArrayPool<byte>.Shared.Return(arr).
+            // I still provide the Dispose method tho, in the case when  
+            StringBuilder = ZString.CreateUtf8StringBuilder(notNested: utfStringBuilderNotNested);
+            CurrentIndentationCount = initialIndentationCount;
+            IndentationBytes = indentationBytes;
+        }
+
+        /// <summary>
+        /// Returns the underlying byte array to the array pool.
+        /// Important: only call this if you're not giving the buffer (the array segment) to Kari.
+        /// Otherwise the buffer could be overwritten.
+        /// </summary>
+        public void Dispose()
+        {
+            StringBuilder.Dispose();
         }
 
         /// <summary>
@@ -47,49 +79,68 @@ namespace Kari.Utils
         /// </summary>
         public CodeBuilder NewWithPreservedIndentation()
         {
-            return new CodeBuilder(Indentation, CurrentIndentation);
+            return new CodeBuilder(IndentationBytes, CurrentIndentationCount);
         }
 
-        public override string ToString() => _stringBuilder.ToString();
-        public void IncreaseIndent() => CurrentIndentation = CurrentIndentation + "    ";
-        public void DecreaseIndent() => CurrentIndentation = CurrentIndentation.Substring(0, CurrentIndentation.Length - Indentation.Length);
+        public ArraySegment<byte> GetBuffer() => StringBuilder.AsArraySegment();
+        public void IncreaseIndent() => CurrentIndentationCount++;
+        public void DecreaseIndent() => CurrentIndentationCount--;
 
         /// <summary>
         /// Appends the indentation string to the output.
         /// </summary>
         public void Indent()
         {
-            _stringBuilder.Append(CurrentIndentation);
+            for (int i = 0; i < CurrentIndentationCount; i++)
+                StringBuilder.Append(IndentationBytes);
+        }
+
+        /// <summary>
+        /// Appends the indentation and a new line character to the output.
+        /// </summary>
+        public void AppendLine() 
+        { 
+            Indent();
+            NewLine();
         }
 
         /// <summary>
         /// Appends the indentation, the text and a new line character to the output.
         /// </summary>
-        public void AppendLine(string text = "")
+        public void AppendLine(ReadOnlySpan<char> text)
         {
-            _stringBuilder.Append(CurrentIndentation);
-            _stringBuilder.AppendLine(text);
+            Indent();
+            Append(text);
+            NewLine();
         }
 
-        public void Append(string source, int startIndex, int count)
+        /// <summary>
+        /// Appends the uf8 encoded bytes to the output.
+        /// </summary>
+        public void Append(byte[] bytes)
         {
-            _stringBuilder.Append(source, startIndex, count);
+            StringBuilder.Append(bytes);
         }
 
         /// <summary>
         /// Appends only the text to the output.
         /// </summary>
-        public void Append(string text)
+        public void Append(ReadOnlySpan<char> source)
         {
-            _stringBuilder.Append(text);
+            StringBuilder.Append(source);
+        }
+
+        public void Append(ref CodeBuilder cb)
+        {
+            StringBuilder.Append(cb.StringBuilder);
         }
 
         /// <summary>
-        /// Appends only the text to the output.
+        /// Appends only new line to the output.
         /// </summary>
         public void NewLine()
         {
-            _stringBuilder.AppendLine();
+            StringBuilder.AppendLine();
         }
 
         /// <summary>
@@ -97,7 +148,7 @@ namespace Kari.Utils
         /// </summary>
         public void StartBlock()
         {
-            _stringBuilder.AppendLine(CurrentIndentation + "{");
+            AppendLine("{");
             IncreaseIndent();
         }
 
@@ -107,33 +158,92 @@ namespace Kari.Utils
         public void EndBlock()
         {
             DecreaseIndent();
-            _stringBuilder.AppendLine(CurrentIndentation + "}");
+            AppendLine("}");
         }
 
         public void Clear()
         {
-            CurrentIndentation = "";
-            _stringBuilder.Clear();
+            CurrentIndentationCount = 0;
+            StringBuilder.Clear();
+        }
+    }
+
+    public struct CodeListBuilder
+    {
+        public bool HasWritten;
+        public readonly byte[] _separator;
+
+        public CodeListBuilder(byte[] separator)
+        {
+            HasWritten = false;
+            _separator = separator;
+        }
+
+        /// <summary>
+        /// The separator indicates the string used to concatenate the added elements.
+        /// For e.g. a list of parameters, one may use ", " as the separator, in to get e.g. "a, b, c".
+        /// </summary>
+        public static CodeListBuilder Create(string separator) 
+        {
+            return new CodeListBuilder(Encoding.UTF8.GetBytes(separator));
+        }
+
+        private void MaybeAppendSeparator(ref CodeBuilder builder)
+        {
+            if (!HasWritten)
+                builder.StringBuilder.Append(_separator);
+        }
+
+        /// <summary>
+        /// Appends the given characters to the output code builder.
+        /// The characters are placed on new line and with a separator, 
+        /// in case when the element is not the first one.
+        /// </summary>
+        public void AppendOnNewLine(ref CodeBuilder builder, ReadOnlySpan<char> a)
+        {
+            if (HasWritten)
+            {
+                builder.NewLine();
+                builder.Indent();
+                builder.StringBuilder.Append(_separator);
+                HasWritten = true;
+            }
+            builder.Append(a);
+        }
+
+        /// <summary>
+        /// Appends the characters to the output code builder.
+        /// The characters will be written in a single line.
+        /// It will take care to not place the separator if the list has had nothing written to it.
+        /// </summary>
+        public void AppendOnSameLine(ref CodeBuilder builder, ReadOnlySpan<char> a)
+        {
+            if (HasWritten)
+            {
+                builder.StringBuilder.Append(_separator);
+                HasWritten = true;
+            }
+            builder.Append(a);
         }
     }
 
     /// <summary>
     /// A helper for building text lists, e.g. the parameters of a function call like "a, b, c".
     /// </summary>
-    public readonly struct ListBuilder
+    public readonly struct ListBuilder0
     {
-        private readonly StringBuilder _stringBuilder;
-        private readonly string _separator;
+        private readonly Utf8ValueStringBuilder _stringBuilder;
+        private readonly byte[] _separator;
 
         /// <summary>
         /// Creates a list builder.
         /// The separator indicates the string used to concatenate the added elements.
         /// For e.g. a list of parameters, one may use ", " as the separator, in to get e.g. "a, b, c".
         /// </summary>
-        public ListBuilder(string separator)
+        public ListBuilder0(string separator)
         {
-            _stringBuilder = new StringBuilder();
-            _separator = separator;
+            _stringBuilder = new Utf8ValueStringBuilder();
+            _separator = Encoding.UTF8.GetBytes(separator);
         }
 
         /// <summary>
@@ -145,14 +255,14 @@ namespace Kari.Utils
             _stringBuilder.Append(_separator);
         }
 
-        public override string ToString()
-        {
-            if (_stringBuilder.Length == 0)
-            {
-                return "";
-            }
-            return _stringBuilder.ToString(0, _stringBuilder.Length - _separator.Length);
-        }
+        // public override string ToString()
+        // {
+        //     if (_stringBuilder.Length == 0)
+        //     {
+        //         return "";
+        //     }
+        //     return _stringBuilder.ToString(0, _stringBuilder.Length - _separator.Length);
+        // }
 
         public void Clear()
         {
@@ -302,8 +412,9 @@ namespace Kari.Utils
 
     public static class TemplateFormatting
     {
-        // TODO: Autogenerate these with a script
-        public static void AppendLine(this ref CodeBuilder builder, string a, string b)
+        // TODO: Autogenerate these with a script.
+        // TODO: Mirror all ZString helper methods.
+        public static void AppendLine(this ref CodeBuilder builder, ReadOnlySpan<char> a, ReadOnlySpan<char> b)
         {
             builder.Indent();
             builder.Append(a);
@@ -311,7 +422,7 @@ namespace Kari.Utils
             builder.NewLine();
         }
 
-        public static void AppendLine(this ref CodeBuilder builder, string a, string b, string c)
+        public static void AppendLine(this ref CodeBuilder builder, ReadOnlySpan<char> a, ReadOnlySpan<char> b, ReadOnlySpan<char> c)
         {
             builder.Indent();
             builder.Append(a);

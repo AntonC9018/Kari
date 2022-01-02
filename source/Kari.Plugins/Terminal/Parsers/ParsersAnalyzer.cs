@@ -38,7 +38,7 @@ namespace Kari.Plugins.Terminal
             }
         }
 
-        internal static string TransformMaster()
+        internal static CodeBuilder TransformMaster()
         {
             var numberTypes = new string[] 
             { 
@@ -143,15 +143,14 @@ namespace Kari.Plugins.Terminal
             builder.EndBlock();
             builder.EndBlock();
 
-            return builder.ToString();
+            return builder;
         }
 
-        public string GenerateCode(ProjectEnvironmentData project)
+        public void GenerateCode(ProjectEnvironmentData project, ref CodeBuilder builder)
         {
             if (_customParserFunctionInfos.Count == 0 && _customParserInfos.Count == 0) 
-                return null;
+                return;
 
-            var builder = CodeBuilder.Create();
             builder.AppendLine("namespace ", project.GeneratedNamespaceName);
             builder.StartBlock();
             builder.AppendLine("using ", DefinitionsNamespace);
@@ -173,8 +172,6 @@ namespace Kari.Plugins.Terminal
                 builder.AppendLine($"public static readonly {parser.FullyQualifiedName} {parser.Name} = new {parser.FullyQualifiedName}();");
             }
             builder.EndBlock();
-
-            return builder.ToString();
         }
     }
 }

@@ -256,21 +256,24 @@ namespace Kari.Plugins.Terminal
                 executeBuilder.Append($"context.Log({info.Symbol.GetFullyQualifiedName()}(");
             }
 
-            var parameters = new ListBuilder(", ");
+            var parameters = CodeListBuilder.Create(", ");
 
             for (int i = 0; i < positionalArguments.Count; i++)
             {
-                parameters.Append($"{positionalArguments[i].Symbol.Name} : __{positionalArguments[i].Name}");
+                parameters.AppendOnNewLine(ref executeBuilder, 
+                    $"{positionalArguments[i].Symbol.Name} : __{positionalArguments[i].Name}");
             }
 
             for (int i = 0; i < optionLikeArguments.Count; i++)
             {
-                parameters.Append($"{optionLikeArguments[i].Symbol.Name} : __{optionLikeArguments[i].Name}");
+                parameters.AppendOnNewLine(ref executeBuilder, 
+                    $"{optionLikeArguments[i].Symbol.Name} : __{optionLikeArguments[i].Name}");
             }
 
             for (int i = 0; i < options.Count; i++)
             {
-                parameters.Append($"{options[i].Symbol.Name} : __{options[i].Name}");
+                parameters.AppendOnNewLine(ref executeBuilder, 
+                    $"{options[i].Symbol.Name} : __{options[i].Name}");
             }
 
             executeBuilder.Append(parameters.ToString());
@@ -368,22 +371,21 @@ namespace Kari.Plugins.Terminal
     }
 ";
 
-        internal static string TransformBasics()
+        internal static CodeBuilder TransformBasics()
         {
             var builder = CodeBuilder.Create();
             builder.AppendLine("namespace ", TerminalAdministrator.TerminalProject.GeneratedNamespaceName);
             builder.StartBlock();
             builder.Append(basics);
             builder.EndBlock();
-            return builder.ToString();
+            return builder;
         }
 
-        public string GenerateCode(ProjectEnvironmentData project)
+        public void GenerateCode(ProjectEnvironmentData project, ref CodeBuilder builder)
         {
             if (_infos.Count == 0 && _frontInfos.Count == 0) 
-                return null;
+                return;
 
-            var builder = CodeBuilder.Create();
             builder.AppendLine("namespace ", project.GeneratedNamespaceName);
             builder.StartBlock();
             builder.AppendLine("using ", TerminalAdministrator.TerminalProject.NamespaceName, ";");
@@ -402,13 +404,11 @@ namespace Kari.Plugins.Terminal
             }
 
             builder.EndBlock();
-
-            return builder.ToString();
         }
 
-        internal static string TransformBuiltin(ProjectEnvironmentData project, CommandsAnalyzer[] analyzers)
+        internal static CodeBuilder TransformBuiltin(ProjectEnvironmentData project, CommandsAnalyzer[] analyzers)
         {
-            var builder = CodeBuilder.Create();
+            CodeBuilder builder = CodeBuilder.Create();
             builder.AppendLine("namespace ", project.GeneratedNamespaceName);
             builder.StartBlock();
             builder.AppendLine("public static class CommandsInitialization");
@@ -436,8 +436,7 @@ namespace Kari.Plugins.Terminal
             builder.EndBlock();
             builder.EndBlock();
             builder.EndBlock();
-
-            return builder.ToString();
+            return builder;
         }
     }
 

@@ -39,20 +39,18 @@ namespace Kari.GeneratorCore.Workflow
         /// </summary>
         public MasterEnvironment Master => MasterEnvironment.Instance;
 
-        public readonly Dictionary<string, List<CodeFragment>> FileNameToCodeFragments = new();
+        public readonly List<CodeFragment> CodeFragments = new();
 
         
         /// <summary>
         /// Writes the text to a file with the given file name, 
         /// placed in the directory of this project, with the current /Generated suffix appended to it.
         /// </summary>
-        public void AppendFileContent(string fileName, CodeFragment fragment)
+        public void AddCodeFragment(CodeFragment fragment)
         {
-            lock (FileNameToCodeFragments)
+            lock (CodeFragments)
             {
-                if (!FileNameToCodeFragments.TryGetValue(fileName, out var list))
-                    list = new List<CodeFragment>();
-                list.Add(fragment);
+                CodeFragments.Add(fragment);
             }
         }
     }

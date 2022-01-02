@@ -4,7 +4,7 @@
   <!-- 
     Enable plugin-packing automatically only for non-multitargeting projects
     (that haven't specifically set the property).
-    TODO: idk what this means and I only allow net5.0 for now.
+    TODO: idk what this means and I only allow net6.0 for now.
   -->
   <PropertyGroup Condition=" '$(PackAsKariPlugin)' == '' AND '$(TargetFrameworks)' == '' ">
     <PackAsKariPlugin>true</PackAsKariPlugin>

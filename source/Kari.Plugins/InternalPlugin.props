@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <OutputType>Library</OutputType>
     <!-- RS1024 is Compare Symbols correctly, making me use `SymbolComparison.Default.Equals()` instead of `==` -->
     <NoWarn>$(NoWarn);RS1024</NoWarn>
@@ -18,8 +18,8 @@
   </ItemGroup>
 
   <Target Name="RunAnnotator" 
-          BeforeTargets="ResolveProjectReferences">
-    <Exec Command="$(KariOutputPath)Kari.Annotator\$(Configuration)\net5.0\Kari.Annotator.exe $(AnnotatorArguments)" />
+          AfterTargets="ResolveProjectReferences">
+    <Exec Command="$(KariOutputPath)Kari.Annotator\$(Configuration)\net6.0\Kari.Annotator.exe $(AnnotatorArguments)" />
     <CallTarget Targets="ReIncludeCompilationItems" />
   </Target>
 

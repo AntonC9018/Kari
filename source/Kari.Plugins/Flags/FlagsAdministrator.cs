@@ -11,15 +11,17 @@ namespace Kari.Plugins.Flags
 
         public void Initialize() 
         {
-            AnalyzerMaster.Initialize(ref _slaves);
+            AdministratorHelpers.Initialize(ref _slaves);
             FlagsSymbols.Initialize(_logger);
         }
-        public Task Collect() => AnalyzerMaster.CollectAsync(_slaves);
+        public Task Collect() => AdministratorHelpers.CollectAsync(_slaves);
         public Task Generate() 
         {
             return Task.WhenAll(
-                AnalyzerMaster.GenerateAsync(_slaves, "Flags.cs"),
-                MasterEnvironment.Instance.CommonPseudoProject.AppendFileContent("FlagsAnnotations.cs", DummyFlagsAnnotations.Text)
+                AdministratorHelpers.GenerateAsync(_slaves, "Flags.cs"),
+                AdministratorHelpers.AddCodeStringAsync(
+                    MasterEnvironment.Instance.CommonPseudoProject,
+                    "FlagsAnnotations.cs", nameof(FlagsAnalyzer), DummyFlagsAnnotations.Text)
             );
         }
         public string GetAnnotations() => DummyFlagsAnnotations.Text;

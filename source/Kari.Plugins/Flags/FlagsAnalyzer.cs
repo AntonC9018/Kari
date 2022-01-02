@@ -158,20 +158,17 @@ namespace Kari.Plugins.Flags
                 "FullName", info.FullName);
         }
 
-        public string GenerateCode(ProjectEnvironmentData project)
+        public void GenerateCode(ProjectEnvironmentData project, ref CodeBuilder builder)
         {
             if (_infos.Count == 0)
-                return null;
+                return;
 
-            var builder = new CodeBuilder("    ");
             builder.AppendLine("namespace " + project.GeneratedNamespaceName);
             builder.StartBlock();
             builder.AppendLine("System.Collections.Generic;");
             foreach (var info in _infos) 
                 AppendCodeForSingleInfo(info, ref builder);
             builder.EndBlock();
-
-            return builder.ToString();
         }
     }
 }

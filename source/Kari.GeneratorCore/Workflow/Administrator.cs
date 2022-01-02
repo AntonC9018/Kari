@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Kari.Utils;
 
 namespace Kari.GeneratorCore.Workflow
 {
@@ -53,15 +55,13 @@ namespace Kari.GeneratorCore.Workflow
 
     public interface IGenerateCode
     {
-        // TODO: it makes more sense to pass a wrapper of the stream writer here, 
-        // like the CodeBuilder, but which writes to a file since all generators 
-        // would always write some sort of code.
-        // On the other hand, it's not going to be that much faster, because it would still
-        // buffer before flushing, and the locks would get nasty so meh.
-        string GenerateCode(ProjectEnvironmentData project);
+        /// <summary>
+        /// Used to output the code of a given code generator (analyzer/template)
+        /// </summary>
+        void GenerateCode(ProjectEnvironmentData project, ref CodeBuilder codeBuilder);
     }
 
-    public static class AnalyzerMaster
+    public static class AdministratorHelpers
     {
         public static void Initialize<T>(ref T[] slaves) where T : ICollectSymbols, new()
         {
@@ -84,24 +84,50 @@ namespace Kari.GeneratorCore.Workflow
 
         public static Task CollectAsync<T>(T[] slaves) where T : ICollectSymbols
         {
-            return Task.Run(() => Collect(slaves));
+            return Task.Run(delegate { Collect(slaves); });
         }
 
-        public static Task Generate<T>(T[] slaves, string fileName)
+        public static void Generate<T>(T[] slaves, string fileName)
             where T : IGenerateCode
         {
             var projects = MasterEnvironment.Instance.Projects;
-            for (int i = 0; i < slaves.Length; i++)
+            var fragment = new CodeFragment
             {
-                // TODO: this does blocking io, fix this.
-                projects[i].WriteFile(fileName, slaves[i].GenerateCode(projects[i]));
-            }
+                FileNameHint = fileName,
+                NameHint = typeof(T).Name,
+                CodeBuilder = CodeBuilder.Create(),
+            };
+            fragment.CodeBuilder.Append(CodeFileCommon.HeaderBytes);
+            for (int i = 0; i < slaves.Length; i++)
+                slaves[i].GenerateCode(projects[i], ref fragment.CodeBuilder);
+            fragment.CodeBuilder.Append(CodeFileCommon.FooterBytes);
         }
 
         public static Task GenerateAsync<T>(T[] slaves, string fileName) 
             where T : IGenerateCode
         {
-            return Task.Run(() => Generate(slaves, fileName));
+            return Task.Run(delegate { Generate(slaves, fileName); });
         }
+
+        public static void AddCodeString(ProjectEnvironmentData project, string fileName, string nameHint, string content)
+        {
+            var builder = CodeBuilder.Create();
+            builder.Append(CodeFileCommon.HeaderBytes);
+            builder.Append(content);
+            builder.Append(CodeFileCommon.FooterBytes);
+
+            project.AddCodeFragment(new CodeFragment
+            {
+                FileNameHint = fileName,
+                NameHint = nameHint,
+                CodeBuilder = builder,
+            }); 
+        }
+
+        public static Task AddCodeStringAsync(ProjectEnvironmentData project, string fileName, string nameHint, string content)
+        {
+            return Task.Run(delegate { AddCodeString(project, fileName, nameHint, content); });
+        }
+
     }
 }

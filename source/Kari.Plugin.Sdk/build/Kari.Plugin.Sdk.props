@@ -23,8 +23,8 @@
     <IsPackable>true</IsPackable>
     <OutputType>Library</OutputType>
 
-    <!-- Kari is net 5. TODO: this should be generalized. -->
-    <TargetFramework>net5.0</TargetFramework>
+    <!-- Kari is net 6. TODO: this should be generalized. -->
+    <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
 
   <!--

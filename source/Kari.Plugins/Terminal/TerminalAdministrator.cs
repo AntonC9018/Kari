@@ -29,16 +29,16 @@ namespace Kari.Plugins.Terminal
 
             ParserSymbols.Initialize(_logger);
             CommandSymbols.Initialize(_logger);
-            AnalyzerMaster.Initialize(ref _parserAnalyzers);
-            AnalyzerMaster.Initialize(ref _commandAnalyzers);
+            AdministratorHelpers.Initialize(ref _parserAnalyzers);
+            AdministratorHelpers.Initialize(ref _commandAnalyzers);
             ParserDatabase.InitializeSingleton(new ParserDatabase(TerminalProject));
         }
 
         public Task Collect()
         {
             return Task.WhenAll(
-                AnalyzerMaster.CollectAsync(_parserAnalyzers),
-                AnalyzerMaster.CollectAsync(_commandAnalyzers))
+                AdministratorHelpers.CollectAsync(_parserAnalyzers),
+                AdministratorHelpers.CollectAsync(_commandAnalyzers))
             .ContinueWith(t => {
                 for (int i = 0; i < _commandAnalyzers.Length; i++)
                 {
@@ -50,14 +50,32 @@ namespace Kari.Plugins.Terminal
         public Task Generate()
         {
             return Task.WhenAll(
-                AnalyzerMaster.GenerateAsync(_parserAnalyzers, "Parsers.cs"),
-                AnalyzerMaster.GenerateAsync(_commandAnalyzers, "Commands.cs"),
-                TerminalProject.AppendFileContent("ParsersBasics.cs", ParsersAnalyzer.TransformMaster()),
-                TerminalProject.AppendFileContent("CommandBasics.cs", CommandsAnalyzer.TransformBasics()),
-                MasterEnvironment.Instance.RootPseudoProject.AppendFileContent(
-                    "CommandsInitialization.cs", CommandsAnalyzer.TransformBuiltin(
-                        MasterEnvironment.Instance.RootPseudoProject, _commandAnalyzers)),
-                TerminalProject.AppendFileContent("TerminalAnnotations.cs", GetAnnotations())
+                AdministratorHelpers.GenerateAsync(_parserAnalyzers, "Parsers.cs"),
+                AdministratorHelpers.GenerateAsync(_commandAnalyzers, "Commands.cs"),
+                Task.Run(delegate
+                {
+                    string hint = "Terminal";
+                    TerminalProject.AddCodeFragment(new CodeFragment
+                    {
+                        FileNameHint = "ParsersBasics.cs",
+                        NameHint = hint,
+                        CodeBuilder = ParsersAnalyzer.TransformMaster()
+                    });
+                    TerminalProject.AddCodeFragment(new CodeFragment
+                    {
+                        FileNameHint = "CommandBasics.cs",
+                        NameHint = hint,
+                        CodeBuilder = CommandsAnalyzer.TransformBasics()
+                    });
+                    MasterEnvironment.Instance.RootPseudoProject.AddCodeFragment(new CodeFragment
+                    {
+                        FileNameHint = "CommandsInitialization.cs",
+                        NameHint = hint,
+                        CodeBuilder = CommandsAnalyzer.TransformBuiltin(
+                            MasterEnvironment.Instance.RootPseudoProject, _commandAnalyzers),
+                    });
+                    AdministratorHelpers.AddCodeString(TerminalProject, "TerminalAnnotations.cs", hint, GetAnnotations());
+                })
             );
         }
 
