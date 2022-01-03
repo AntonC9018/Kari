@@ -87,5 +87,9 @@ namespace Kari.GeneratorCore.Workflow
                 File.WriteAllText(gitignore, "*\n!.gitignore");
             }
         }
+
+        public static readonly byte[] SlashesSpaceBytes = Encoding.UTF8.GetBytes("// ");
+        public static readonly byte[] NewLineBytes = Encoding.UTF8.GetBytes(Environment.NewLine);
+        public static readonly byte[] SpaceBytes = Encoding.UTF8.GetBytes(" ");
     }
 }

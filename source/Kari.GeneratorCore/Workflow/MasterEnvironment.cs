@@ -51,6 +51,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     public readonly Logger Logger;
     public readonly CancellationToken CancellationToken;
     public readonly List<ProjectEnvironment> Projects = new List<ProjectEnvironment>();
+    public IEnumerable<ProjectEnvironmentData> AllProjects => Projects.Append(RootPseudoProject);
     public readonly List<IAdministrator> Administrators = new List<IAdministrator>(5);
 
     /// <summary>
@@ -248,7 +249,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
     }
 
-    public async Task Collect(HashSet<string> independentNamespaceNames)
+    public async Task CollectSymbols(HashSet<string> independentNamespaceNames)
     {
         var cachingTasks = Projects.Select(project => project.Collect(independentNamespaceNames));
         await Task.WhenAll(cachingTasks);
@@ -262,6 +263,8 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
         RunCallbacks();
     }
+
+    public readonly record struct CallbackInfo(int Priority, System.Action Callback);
 
     private void RunCallbacks()
     {
@@ -280,13 +283,22 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
     }
 
-    public readonly record struct GeneratedNamesInfo(string[] FileNames, 
+    public Task GenerateAndBufferCode()
+    {
+        var managerTasks = Administrators.Select(admin => admin.Generate());
+        return Task.WhenAll(managerTasks);
+    }
+
+    // Thought: I kinda want to split these methods into a static class.
+    // Most of them don't need that much context, just requiring all projects, which I could pass as a parameter.
+    public readonly record struct GeneratedFileNamesInfo(
+        string[] FileNames, 
         Dictionary<string, int> ExistingFileNamesToIndices, 
         HashSet<string> ConflictingNames)
     {
         const int USE_LONG_NAME = -1;
 
-        public static GeneratedNamesInfo Create(ReadOnlySpan<CodeFragment> fragments, Logger logger)
+        public static GeneratedFileNamesInfo Create(ReadOnlySpan<CodeFragment> fragments, Logger logger)
         {
             string[] fileNames = new string[fragments.Length];
             Dictionary<string, int> existingFileNamesToIndices = new();
@@ -327,7 +339,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 }
             }
 
-            return new GeneratedNamesInfo(fileNames, existingFileNamesToIndices, conflictingNames);
+            return new GeneratedFileNamesInfo(fileNames, existingFileNamesToIndices, conflictingNames);
         }
     
         public bool IsFileGenerated(string fileName)
@@ -338,16 +350,6 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     && index != USE_LONG_NAME)
                 // Or it's the long name.
                 || ConflictingNames.Contains(fileName);
-        }
-    }
-
-    public static void RemoveNotGeneratedCodeFilesInDirectory(in GeneratedNamesInfo namesInfo, string directory)
-    {
-        foreach (string filePath in Directory.EnumerateFiles(directory, "*.cs", SearchOption.TopDirectoryOnly))
-        {
-            var fileName = Path.GetFileName(filePath);
-            if (!namesInfo.IsFileGenerated(fileName))
-                File.Delete(filePath);
         }
     }
 
@@ -403,7 +405,6 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         return difference == 0;
     }
 
-
     internal static async Task<bool> IsFileEqualToContent(SafeFileHandle fileHandle, ArraySegment<byte> bytes, long fromByteIndex, CancellationToken cancellationToken)
     {
         long length = RandomAccess.GetLength(fileHandle);
@@ -443,7 +444,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     {
         using SafeFileHandle outputFileHandle = File.OpenHandle(outputFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
 
-        if (await IsFileEqualToContent(outputFileHandle, outputBytes, 
+        if (!await IsFileEqualToContent(outputFileHandle, outputBytes, 
             fromByteIndex: CodeFileCommon.HeaderBytes.Length, cancellationToken))
         {
             long offset = 0;
@@ -480,51 +481,64 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// <summary>
     /// Make sure the directory exists, before calling this.
     /// </summary>
-    internal static Task WriteOutCodeFragments(string outputDirectory, 
+    internal static Task WriteCodeFragmentsToSeparateFiles(string outputDirectory, 
         ReadOnlySpan<CodeFragment> fragments, 
-        Logger logger, CancellationToken cancellationToken)
+        string[] fileNames, 
+        CancellationToken cancellationToken)
     {
         // The directory existing is part of the contract.
         Debug.Assert(Directory.Exists(outputDirectory));
 
-        var fileNamesInfo = GeneratedNamesInfo.Create(fragments, logger);
         Task[] writeOutputFileTasks = new Task[fragments.Length];
 
         for (int i = 0; i < fragments.Length; i++)
         {
-            var outputFilePath = Path.Join(outputDirectory, fileNamesInfo.FileNames[i]);
+            var outputFilePath = Path.Join(outputDirectory, fileNames[i]);
             writeOutputFileTasks[i] = WriteSingleCodeFileAsync(outputFilePath, fragments[i].Bytes, cancellationToken);
         }
 
         // TODO: this one should be done elsewhere.
-        RemoveNotGeneratedCodeFilesInDirectory(fileNamesInfo, outputDirectory);
+        // RemoveNotGeneratedCodeFilesInDirectory(fileNamesInfo, outputDirectory);
 
         return Task.WhenAll(writeOutputFileTasks);
     }
 
-    /// <summary>
-    /// Will also delete the code files that weren't generated by the code generator.
-    /// </summary>
-    public Task WriteCodeFiles_SingleDirectory_PerProject(string generatedFolderRelativePath)
+    public readonly record struct GeneratedPathsInfo(
+        string OutputDirectory, GeneratedFileNamesInfo GeneratedNamesInfo)
     {
-        Task ProcessProject(ProjectEnvironmentData project)
+        public void RemoveCodeFilesThatWereNotGenerated()
+        {
+            foreach (string filePath in Directory.EnumerateFiles(OutputDirectory, "*.cs", SearchOption.TopDirectoryOnly))
+            {
+                var fileName = Path.GetFileName(filePath);
+                if (!GeneratedNamesInfo.IsFileGenerated(fileName))
+                    File.Delete(filePath);
+            }
+        }   
+    }
+
+    public record class SingleDirectoryOutputResult(
+        GeneratedPathsInfo GeneratedPaths, Task WriteOutputTask);
+
+    /// <summary>
+    /// </summary>
+    public SingleDirectoryOutputResult[] WriteCodeFiles_NestedDirectory_ForEachProject(string generatedFolderRelativePath)
+    {
+        SingleDirectoryOutputResult ProcessProject(ProjectEnvironmentData project)
         {
             // TODO: test if "" does not make it append /
             var outputDirectory = Path.Join(project.Directory, generatedFolderRelativePath);
             CodeFileCommon.InitializeGeneratedDirectory(outputDirectory);
             var fragments = CollectionsMarshal.AsSpan(project.CodeFragments);
+            var fileNamesInfo = GeneratedFileNamesInfo.Create(fragments, Logger);
 
-            return WriteOutCodeFragments(outputDirectory, fragments, Logger, CancellationToken);
+            return new SingleDirectoryOutputResult(
+                new GeneratedPathsInfo(outputDirectory, fileNamesInfo), 
+                WriteCodeFragmentsToSeparateFiles(
+                    outputDirectory, fragments, fileNamesInfo.FileNames, CancellationToken));
         }
 
-        return Task.WhenAll(Projects.Append(RootPseudoProject).Select(ProcessProject));
-    }
-
-    public void DisposeOfAllCodeFragments()
-    {
-        foreach (var p in Projects)
-            p.DisposeOfCodeFragments();
-        RootPseudoProject.DisposeOfCodeFragments();
+        return AllProjects.Select(ProcessProject).ToArray();
     }
 
     /// <summary>
@@ -532,7 +546,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// 1. The project names correspond to namespaces. 
     /// 2. The project names are unique.
     /// </summary>
-    public Task WriteCodeFiles_SingleDirectory_SplitByProject(string generatedFolderFullPath)
+    public SingleDirectoryOutputResult[] WriteCodeFiles_SingleDirectory_SplitByProject(string generatedFolderFullPath)
     {
         // Make sure the project names are unique.
         // This has to be enforced elsewhere tho, but for now do it here.
@@ -549,65 +563,86 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
         #endif
 
-        Task ProcessProject(ProjectEnvironmentData project)
+        SingleDirectoryOutputResult ProcessProject(ProjectEnvironmentData project)
         {
             var outputDirectory = Path.Join(generatedFolderFullPath, project.NamespaceName);
             CodeFileCommon.InitializeGeneratedDirectory(outputDirectory);
             var fragments = CollectionsMarshal.AsSpan(project.CodeFragments);
+            var fileNamesInfo = GeneratedFileNamesInfo.Create(fragments, Logger);
 
-            return WriteOutCodeFragments(outputDirectory, fragments, Logger, CancellationToken);
+            return new SingleDirectoryOutputResult(
+                new GeneratedPathsInfo(outputDirectory, fileNamesInfo),
+                WriteCodeFragmentsToSeparateFiles(
+                    outputDirectory, fragments, fileNamesInfo.FileNames, CancellationToken));
         }
 
-        return Task.WhenAll(Projects.Append(RootPseudoProject).Select(ProcessProject));
+        return AllProjects.Select(ProcessProject).ToArray();
+    }
+
+    public void DisposeOfAllCodeFragments()
+    {
+        foreach (var p in Projects)
+            p.DisposeOfCodeFragments();
+        RootPseudoProject.DisposeOfCodeFragments();
+    }
+
+    internal static IEnumerable<ArraySegment<byte>> GetProjectArraySegmentsForSingleFileOutput(ProjectEnvironmentData project)
+    {
+        yield return CodeFileCommon.SlashesSpaceBytes;
+        yield return Encoding.UTF8.GetBytes(project.NamespaceName);
+        yield return CodeFileCommon.NewLineBytes;
+        yield return CodeFileCommon.NewLineBytes;
+
+        for (int i = 0; i < project.CodeFragments.Count; i++)
+        {
+            yield return CodeFileCommon.SlashesSpaceBytes;
+            yield return Encoding.UTF8.GetBytes(project.CodeFragments[i].FileNameHint);
+            yield return CodeFileCommon.SpaceBytes;
+            yield return Encoding.UTF8.GetBytes(project.CodeFragments[i].NameHint);
+            yield return CodeFileCommon.NewLineBytes;
+
+            yield return project.CodeFragments[i].Bytes;
+        }
+    }
+
+    internal static IEnumerable<ArraySegment<byte>> WrapArraySegmentsWithHeaderAndFooter(IEnumerable<ArraySegment<byte>> segments)
+    {
+        return new ArraySegment<byte>[] { CodeFileCommon.HeaderBytes }
+            .Concat(segments)
+            .Append(CodeFileCommon.FooterBytes); 
     }
     
     public Task WriteCodeFiles_SingleFile(string singleOutputFileFullPath)
     {
         var directory = Path.GetDirectoryName(singleOutputFileFullPath);
         Directory.CreateDirectory(directory);
-        var allProjects = Projects.Append(RootPseudoProject);
 
-        foreach (var project in allProjects)
+        foreach (var project in AllProjects)
         {
             project.CodeFragments.Sort();
         }
 
-        IEnumerable<ArraySegment<byte>> GetThings()
-        {
-            var slashesSpace = Encoding.UTF8.GetBytes("// ");
-            var newLine = Encoding.UTF8.GetBytes(Environment.NewLine);
-            var space = Encoding.UTF8.GetBytes(" ");
-
-            yield return CodeFileCommon.HeaderBytes;
-
-            foreach (var p in allProjects)
-            {
-                yield return slashesSpace;
-                yield return Encoding.UTF8.GetBytes(p.NamespaceName);
-                yield return newLine;
-                yield return newLine;
-
-                for (int i = 0; i < p.CodeFragments.Count; i++)
-                {
-                    yield return slashesSpace;
-                    yield return Encoding.UTF8.GetBytes(p.CodeFragments[i].FileNameHint);
-                    yield return space;
-                    yield return Encoding.UTF8.GetBytes(p.CodeFragments[i].NameHint);
-                    yield return newLine;
-
-                    yield return p.CodeFragments[i].Bytes;
-                }
-            }
-
-            yield return CodeFileCommon.FooterBytes;
-        }
-
-        return WriteArraySegmentsToCodeFileAsync(singleOutputFileFullPath, GetThings(), CancellationToken);
+        return WriteArraySegmentsToCodeFileAsync(
+            singleOutputFileFullPath, 
+            WrapArraySegmentsWithHeaderAndFooter(
+                AllProjects.SelectMany(GetProjectArraySegmentsForSingleFileOutput)), 
+            CancellationToken);
     }
 
     public Task WriteCodeFiles_SingleFile_PerProject(string singleOutputFileRelativeToProjectDirectoryPath)
     {
+        Task ProcessProject(ProjectEnvironmentData project)
+        {
+            project.CodeFragments.Sort();
+            string outputFilePath = Path.Join(project.Directory, singleOutputFileRelativeToProjectDirectoryPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(outputFilePath));
+            return WriteArraySegmentsToCodeFileAsync(
+                outputFilePath,
+                WrapArraySegmentsWithHeaderAndFooter(GetProjectArraySegmentsForSingleFileOutput(project)),
+                CancellationToken);
+        }
 
+        return Task.WhenAll(AllProjects.Select(ProcessProject));
     }
 
     public enum OutputMethod
@@ -615,25 +650,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         Invalid = 0,
         SingleFile = 1, // requires absolute file path
         SingleDirectory_SplitByProject = 2, // requres dir name
-        SingleDirectory_PerProject = 3, // requres dir name
+        NestedDirectory_ForEachProject = 3, // requres dir name
         SingleFile_PerProject = 4, // requres file name
-    }
-
-    public Task GenerateCode()
-    {
-        var managerTasks = Administrators.Select(admin => admin.Generate());
-        return Task.WhenAll(managerTasks);
-    }
-}
-
-public readonly struct CallbackInfo
-{
-    public readonly int Priority;
-    public readonly System.Action Callback;
-
-    public CallbackInfo(int priority, System.Action callback)
-    {
-        Priority = priority;
-        Callback = callback;
     }
 }

@@ -42,7 +42,7 @@ namespace Kari.GeneratorCore.Workflow
         /// right before or right after theirs, by setting the priority of your handler to a lower or to 
         /// a higher value respectively.
         /// </summary>
-        IEnumerable<CallbackInfo> GetCallbacks() { yield break; }
+        IEnumerable<MasterEnvironment.CallbackInfo> GetCallbacks() { yield break; }
 
         /// <summary>
         /// The method called asynchronously by the MasterEnvironment to initiate the code generation process.

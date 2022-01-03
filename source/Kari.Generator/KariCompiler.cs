@@ -416,23 +416,22 @@
             if (!Path.IsPathFullyQualified(outputPath))
                 outputPath = Path.Join(projectDirectory, _ops.generatedName);
             
-            GenerationMethod genMethod;
+            MasterEnvironment.OutputMethod outputMethod;
             if (_ops.singleFileOutput)
             {
                 if (!Path.GetExtension(_ops.generatedName).Equals(".cs", StringComparison.OrdinalIgnoreCase))
                 {
                     _logger.LogError($"If the option `{nameof(_ops.singleFileOutput)}` is set, the generated path must be relative to a file with the '.cs' extension, got {_ops.generatedName}.");
-                    genMethod = GenerationMethod.Invalid;
+                    outputMethod = MasterEnvironment.OutputMethod.Invalid;
                 }
                 else
                 {
-                    master.RootWriter = new OneFilePerProjectFileWriter(outputPath);
-                    genMethod = 
+                    outputMethod = MasterEnvironment.OutputMethod.SingleFile_PerProject;
                 }
             }
             else
             {
-                master.RootWriter = new SeparateCodeFileWriter(outputPath);
+                outputMethod = MasterEnvironment.OutputMethod.NestedDirectory_ForEachProject;
             }
 
             await pluginsTask;
@@ -486,7 +485,7 @@
 
             measurer.Start("Symbol Collect");
             {
-                await master.Collect(_ops.independentNamespaceParts);
+                await master.CollectSymbols(_ops.independentNamespaceParts);
                 
                 if (ShouldExit())
                     return ExitCode.FailedSymbolCollection;
@@ -495,8 +494,31 @@
 
             measurer.Start("Output Generation");
             {
-                await master.GenerateCode();
-                await master.WriteCodeFiles_SingleDirectory_PerProject(_ops.generatedName);
+                await master.GenerateAndBufferCode();
+                switch (outputMethod)
+                {
+                    case MasterEnvironment.OutputMethod.SingleFile_PerProject:
+                    {
+                        var result = master.WriteCodeFiles_SingleFile_PerProject(_ops.generatedName);
+                        await result;
+                        break;
+                    }
+                    case MasterEnvironment.OutputMethod.NestedDirectory_ForEachProject:
+                    {
+                        var result = master.WriteCodeFiles_NestedDirectory_ForEachProject(_ops.generatedName);
+                        foreach (var a in result)
+                            a.GeneratedPaths.RemoveCodeFilesThatWereNotGenerated();
+                        await Task.WhenAll(result.Select(a => a.WriteOutputTask));
+                        break;
+                    }
+                    default: 
+                    {
+                        Assert(false); 
+                        break;
+                    }
+                }
+
+                master.DisposeOfAllCodeFragments();
 
                 if (ShouldExit())
                     return ExitCode.FailedOutputGeneration;
