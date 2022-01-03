@@ -506,9 +506,10 @@
                     case MasterEnvironment.OutputMethod.NestedDirectory_ForEachProject:
                     {
                         var result = master.WriteCodeFiles_NestedDirectory_ForEachProject(_ops.generatedName);
+                        var t = Task.WhenAll(result.Select(a => a.WriteOutputTask));
                         foreach (var a in result)
                             a.GeneratedPaths.RemoveCodeFilesThatWereNotGenerated();
-                        await Task.WhenAll(result.Select(a => a.WriteOutputTask));
+                        await t;
                         break;
                     }
                     default: 

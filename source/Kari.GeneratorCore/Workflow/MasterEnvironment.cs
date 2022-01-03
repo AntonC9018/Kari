@@ -69,16 +69,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     public readonly Logger Logger;
     public readonly CancellationToken CancellationToken;
     public readonly List<ProjectEnvironment> Projects = new List<ProjectEnvironment>();
-    public IEnumerable<ProjectEnvironmentData> AllProjects
-    {
-        get
-        {
-            IEnumerable<ProjectEnvironmentData> result = Projects;
-            if (RootPseudoProject is not null)
-                return result.Append(RootPseudoProject);
-            return result;
-        }
-    }
+    public IEnumerable<ProjectEnvironmentData> AllProjects => Projects;
     public readonly List<IAdministrator> Administrators = new List<IAdministrator>(5);
 
     /// <summary>
@@ -432,33 +423,35 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         return difference == 0;
     }
 
-    internal static async Task<bool> IsFileEqualToContent(SafeFileHandle fileHandle, ArraySegment<byte> bytes, long fromByteIndex, CancellationToken cancellationToken)
+    internal static async Task<bool> IsFileEqualToContent(SafeFileHandle fileHandle, ArraySegment<byte> bytes, int byteOffsetFromStart, int byteOffsetFromEnd, CancellationToken cancellationToken)
     {
         long length = RandomAccess.GetLength(fileHandle);
-        if (length != bytes.Count)
+        if (length - byteOffsetFromEnd - byteOffsetFromStart != bytes.Count)
             return false;
 
         const int bufferSize = 1024 * 4; 
         byte[] readBytes = ArrayPool<byte>.Shared.Rent(bufferSize);
-        long offset = fromByteIndex;
+        long offset = 0;
         int difference;
         do
         {
-            int bytesRead = await RandomAccess.ReadAsync(fileHandle, readBytes, offset, cancellationToken);
-            if (bytesRead == 0)
+            int bytesRead = await RandomAccess.ReadAsync(fileHandle, readBytes, offset + byteOffsetFromStart, cancellationToken);
+            int sliceCompareLength = Math.Min(bytesRead, bytes.Count - (int) offset);
+            difference = bytes.AsSpan()
+                .Slice((int) offset, sliceCompareLength)
+                .SequenceCompareTo(
+                    readBytes.AsSpan(0, sliceCompareLength));
+            
+            if (sliceCompareLength < bytesRead
+                || difference != 0 
+                || cancellationToken.IsCancellationRequested)
             {
-                difference = 1;
                 break;
             }
-            difference = bytes.AsSpan()
-                .Slice((int) offset, bytesRead)
-                .SequenceCompareTo(
-                    readBytes.AsSpan(0, bytesRead));
-            if (difference != 0 || cancellationToken.IsCancellationRequested)
-                break;
-            offset += bytesRead;
+
+            offset += sliceCompareLength;
         }
-        while (offset < bytes.Count + fromByteIndex);
+        while (offset < bytes.Count + byteOffsetFromStart);
 
         ArrayPool<byte>.Shared.Return(readBytes);
 
@@ -472,7 +465,9 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         using SafeFileHandle outputFileHandle = File.OpenHandle(outputFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
 
         if (!await IsFileEqualToContent(outputFileHandle, outputBytes, 
-            fromByteIndex: CodeFileCommon.HeaderBytes.Length, cancellationToken))
+            byteOffsetFromStart:    CodeFileCommon.HeaderBytes.Length,
+            byteOffsetFromEnd:      CodeFileCommon.FooterBytes.Length,
+            cancellationToken))
         {
             ReflectedFileStreamHelpers.SetFileLength(outputFileHandle, outputBytes.Count);
 
@@ -554,7 +549,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
     /// <summary>
     /// </summary>
-    public IEnumerable<SingleDirectoryOutputResult> WriteCodeFiles_NestedDirectory_ForEachProject(string generatedFolderRelativePath)
+    public SingleDirectoryOutputResult[] WriteCodeFiles_NestedDirectory_ForEachProject(string generatedFolderRelativePath)
     {
         SingleDirectoryOutputResult ProcessProject(ProjectEnvironmentData project)
         {
@@ -570,7 +565,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     outputDirectory, fragments, fileNamesInfo.FileNames, CancellationToken));
         }
 
-        return AllProjects.Select(ProcessProject);
+        return AllProjects.Select(ProcessProject).ToArray();
     }
 
     /// <summary>
@@ -578,7 +573,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// 1. The project names correspond to namespaces. 
     /// 2. The project names are unique.
     /// </summary>
-    public IEnumerable<SingleDirectoryOutputResult> WriteCodeFiles_SingleDirectory_SplitByProject(string generatedFolderFullPath)
+    public SingleDirectoryOutputResult[] WriteCodeFiles_SingleDirectory_SplitByProject(string generatedFolderFullPath)
     {
         // Make sure the project names are unique.
         // This has to be enforced elsewhere tho, but for now do it here.
@@ -608,7 +603,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     outputDirectory, fragments, fileNamesInfo.FileNames, CancellationToken));
         }
 
-        return AllProjects.Select(ProcessProject);
+        return AllProjects.Select(ProcessProject).ToArray();
     }
 
     public void DisposeOfAllCodeFragments()

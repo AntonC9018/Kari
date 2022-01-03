@@ -82,7 +82,7 @@ namespace Kari.Plugins.DataObject
                     cb.Append("true");
 
                 cb.Append(";");
-                cb.AppendLine();
+                cb.NewLine();
                 cb.EndBlock();
 
                 cb.AppendLine($"public static bool operator!=({info.NameTypeParameters} a, {info.NameTypeParameters} b)");

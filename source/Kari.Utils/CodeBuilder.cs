@@ -170,11 +170,13 @@ namespace Kari.Utils
     {
         public bool HasWritten;
         public readonly byte[] _separator;
+        private readonly string ib; // look at ib in CodeBuilder
 
         public CodeListBuilder(byte[] separator)
         {
             HasWritten = false;
             _separator = separator;
+            ib = Encoding.UTF8.GetString(separator);
         }
 
         /// <summary>
@@ -189,7 +191,7 @@ namespace Kari.Utils
         private void MaybeAppendSeparator(ref CodeBuilder builder)
         {
             if (!HasWritten)
-                builder.StringBuilder.Append(_separator);
+                builder.Append(ib);
         }
 
         /// <summary>
@@ -202,11 +204,13 @@ namespace Kari.Utils
             if (HasWritten)
             {
                 builder.NewLine();
+                builder.IncreaseIndent();
                 builder.Indent();
-                builder.StringBuilder.Append(_separator);
-                HasWritten = true;
+                builder.DecreaseIndent();
+                builder.Append(ib);
             }
             builder.Append(a);
+            HasWritten = true;
         }
 
         /// <summary>
@@ -218,10 +222,10 @@ namespace Kari.Utils
         {
             if (HasWritten)
             {
-                builder.StringBuilder.Append(_separator);
-                HasWritten = true;
+                builder.Append(ib);
             }
             builder.Append(a);
+            HasWritten = true;
         }
     }
 
