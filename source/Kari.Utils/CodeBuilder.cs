@@ -82,7 +82,7 @@ namespace Kari.Utils
             return new CodeBuilder(IndentationBytes, CurrentIndentationCount);
         }
 
-        public ArraySegment<byte> GetBuffer() => StringBuilder.AsArraySegment();
+        public ArraySegment<byte> AsArraySegment() => StringBuilder.AsArraySegment();
         public void IncreaseIndent() => CurrentIndentationCount++;
         public void DecreaseIndent() => CurrentIndentationCount--;
 

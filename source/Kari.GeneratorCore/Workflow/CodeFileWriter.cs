@@ -19,17 +19,32 @@ namespace Kari.GeneratorCore.Workflow
         /// If another code fragment had the same name, the actual file name 
         /// is going to be appended `_NameHint` to.
         /// </summary>
-        public string FileNameHint;
+        public string FileNameHint { get; init; }
 
         /// <summary>
         /// The identification name of the entity that has produced the content.
         /// Using the class name is ok.
         /// </summary>
-        public string NameHint;
+        public string NameHint { get; init; }
 
         /// <summary>
         /// </summary>
-        public CodeBuilder CodeBuilder;
+        public ArraySegment<byte> Bytes { get; init; }
+
+        /// <summary>
+        /// </summary>
+        public bool AreBytesRentedFromArrayPool { get; init; }
+
+        public static CodeFragment CreateFromBuilder(string fileNameHint, string nameHint, CodeBuilder builder)
+        {
+            return new CodeFragment
+            {
+                FileNameHint = fileNameHint,
+                NameHint = nameHint,
+                Bytes = builder.AsArraySegment(),
+                AreBytesRentedFromArrayPool = true,
+            };
+        }
 
         public int CompareTo(CodeFragment other)
         {

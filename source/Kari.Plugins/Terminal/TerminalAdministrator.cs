@@ -54,26 +54,22 @@ namespace Kari.Plugins.Terminal
                 AdministratorHelpers.GenerateAsync(_commandAnalyzers, "Commands.cs"),
                 Task.Run(delegate
                 {
-                    string hint = "Terminal";
-                    TerminalProject.AddCodeFragment(new CodeFragment
-                    {
-                        FileNameHint = "ParsersBasics.cs",
-                        NameHint = hint,
-                        CodeBuilder = ParsersAnalyzer.TransformMaster()
-                    });
-                    TerminalProject.AddCodeFragment(new CodeFragment
-                    {
-                        FileNameHint = "CommandBasics.cs",
-                        NameHint = hint,
-                        CodeBuilder = CommandsAnalyzer.TransformBasics()
-                    });
-                    MasterEnvironment.Instance.RootPseudoProject.AddCodeFragment(new CodeFragment
-                    {
-                        FileNameHint = "CommandsInitialization.cs",
-                        NameHint = hint,
-                        CodeBuilder = CommandsAnalyzer.TransformBuiltin(
-                            MasterEnvironment.Instance.RootPseudoProject, _commandAnalyzers),
-                    });
+                    const string hint = "Terminal";
+
+                    TerminalProject.AddCodeFragment(
+                        CodeFragment.CreateFromBuilder(
+                            "ParsersBasics.cs", hint, ParsersAnalyzer.TransformMaster()));
+
+                    TerminalProject.AddCodeFragment(
+                        CodeFragment.CreateFromBuilder(
+                            "CommandBasics.cs", hint, CommandsAnalyzer.TransformBasics()));
+
+                    MasterEnvironment.Instance.RootPseudoProject.AddCodeFragment(
+                        CodeFragment.CreateFromBuilder(
+                            "CommandsInitialization.cs", hint, 
+                            CommandsAnalyzer.TransformBuiltin(
+                                MasterEnvironment.Instance.RootPseudoProject, _commandAnalyzers)));
+
                     AdministratorHelpers.AddCodeString(TerminalProject, "TerminalAnnotations.cs", hint, GetAnnotations());
                 })
             );

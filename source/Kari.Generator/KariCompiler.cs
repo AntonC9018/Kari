@@ -21,55 +21,55 @@
 
     public class KariCompiler
     {
-        string HelpMessage => "Use Kari to generate code for a C# project.";
+        public class KariOptions
+        {
+            public string HelpMessage => "Use Kari to generate code for a C# project.";
 
-        [Option("Input path to MSBuild project file or to the directory containing source files.", 
-            IsPath = true)] 
-        string input = ".";
+            [Option("Input path to MSBuild project file or to the directory containing source files.", 
+                IsPath = true)] 
+            public string input = ".";
 
-        [Option("Plugins folder or paths to individual plugin dlls.",
-            // Can be sometimes inferred from input, aka NuGet's packages.config
-            IsRequired = false,
-            IsPath = true)]
-        string[] pluginPaths = null;
+            [Option("Plugins folder or paths to individual plugin dlls.",
+                // Can be sometimes inferred from input, aka NuGet's packages.config
+                IsRequired = false,
+                IsPath = true)]
+            public string[] pluginPaths = null;
 
-        [Option("Path to `packages.config` that you're using to manage packages. The plugins mentioned in that file will be imported.",
-            IsPath = true)]
-        string pluginConfigFilePath = null;
+            [Option("Path to `packages.config` that you're using to manage packages. The plugins mentioned in that file will be imported.",
+                IsPath = true)]
+            public string pluginConfigFilePath = null;
 
-        [Option("The suffix added to each subproject (or the root project) indicating the output folder.")] 
-        string generatedName = "Generated";
+            [Option("The suffix added to each subproject (or the root project) indicating the output folder.")] 
+            public string generatedName = "Generated";
 
-        [Option("Conditional compiler symbols. Ignored if a project file is specified for input. (Currently ignored)")] 
-        string[] conditionalSymbols = null;
+            [Option("Conditional compiler symbols. Ignored if a project file is specified for input. (Currently ignored)")] 
+            public string[] conditionalSymbols = null;
 
-        [Option("Set input namespace root name.")]
-        string rootNamespace = "";
+            [Option("Set input namespace root name.")]
+            public string rootNamespace = "";
 
-        [Option("Delete all cs files in the output folder.", 
-            IsFlag = true)]
-        bool clearOutput = false;
+            [Option("Plugin names to be used for code analysis and generation. All plugins are used by default.")]
+            public string[] pluginNames = null;
 
-        [Option("Plugin names to be used for code analysis and generation. All plugins are used by default.")]
-        string[] pluginNames = null;
+            [Option("Whether to output all code into a single file.",
+                IsFlag = true)]
+            public bool singleFileOutput = false;
 
-        [Option("Whether to output all code into a single file.",
-            IsFlag = true)]
-        bool singleFileOutput = false;
+            [Option("Whether to not scan for subprojects and always treat the entire codebase as a single root project. This implies the files will be generated in a single folder. With `singleFileOutput` set to true implies generating all code for the entire project in the single file.",
+                IsFlag = true)]
+            public bool monolithicProject = false;
 
-        [Option("Whether to not scan for subprojects and always treat the entire codebase as a single root project. This implies the files will be generated in a single folder. With `singleFileOutput` set to true implies generating all code for the entire project in the single file.",
-            IsFlag = true)]
-        bool monolithicProject = false;
+            [Option("The common project namespace name (use $Root to mean the root namespace). This is the project where all the attributes and other things common to all projects will end up. Ignored when `monolithicProject` is set to true.")]
+            public string commonNamespace = "$Root.Common";
 
-        [Option("The common project namespace name (use $Root to mean the root namespace). This is the project where all the attributes and other things common to all projects will end up. Ignored when `monolithicProject` is set to true.")]
-        string commonNamespace = "$Root.Common";
+            [Option("The subnamespaces ignored for the particular project, but which are treated as a separate project, even if they sit in the same root namespace.")]
+            public HashSet<string> independentNamespaceParts = new HashSet<string> { "Editor", "Tests" };
 
-        [Option("The subnamespaces ignored for the particular project, but which are treated as a separate project, even if they sit in the same root namespace.")]
-        HashSet<string> independentNamespaceParts = new HashSet<string> { "Editor", "Tests" };
-
-        [Option("Whether to treat 'Editor' folders as separate subprojects, even if they contain no asmdef. Only the editor folder that is at root of a folder with asmdef is regarded this way, nested Editor folders are ignored.")]
-        bool treatEditorAsSubproject = true;
-
+            [Option("Whether to treat 'Editor' folders as separate subprojects, even if they contain no asmdef. Only the editor folder that is at root of a folder with asmdef is regarded this way, nested Editor folders are ignored.")]
+            public bool treatEditorAsSubproject = true;
+        }
+        private KariOptions _ops;
+        private Logger _logger;
 
         public enum ExitCode
         {
@@ -121,10 +121,12 @@
             }
 
             var compiler = new KariCompiler();
+            compiler._ops = new KariOptions();
+            compiler._logger = new Logger("Master");
 
             if (parser.IsEmpty)
             {
-                argumentLogger.Log(parser.GetHelpFor(compiler), LogType.Information);
+                argumentLogger.Log(parser.GetHelpFor(compiler._ops), LogType.Information);
                 return 0;
             }
 
@@ -144,9 +146,6 @@
             return 0;
         }
 
-
-        private Logger _logger;
-
         private void PreprocessOptions(ArgumentParser parser)
         {
             var result = parser.FillObjectWithOptionValues(this);
@@ -160,22 +159,22 @@
                 return;
             }
 
-            generatedName = generatedName.WithNormalizedDirectorySeparators();
+            _ops.generatedName = _ops.generatedName.WithNormalizedDirectorySeparators();
 
-            if (pluginConfigFilePath is not null)
-                pluginConfigFilePath = Path.GetFullPath(pluginConfigFilePath);
+            if (_ops.pluginConfigFilePath is not null)
+                _ops.pluginConfigFilePath = Path.GetFullPath(_ops.pluginConfigFilePath);
 
             // Hacky?
             if (parser.IsHelpSet)
                 return;
 
-            if (generatedName == "" && clearOutput)
+            if (_ops.generatedName == "")
             {
-                _logger.LogError($"Setting the `generatedName` to an empty string and `clearOutputFolder` to true will wipe all top-level source files in your project. (In principle! I WON'T do that.) Specify a different folder or file.");
+                _logger.LogError($"Setting the `generatedName` to an empty string will wipe all top-level source files in your project. (In principle! I WON'T do that.) Specify a different folder or file.");
             }
 
             // Validate the independent namespaces + initialize.
-            foreach (var part in independentNamespaceParts)
+            foreach (var part in _ops.independentNamespaceParts)
             {
                 if (!SyntaxFacts.IsValidIdentifier(part))
                 {
@@ -183,10 +182,10 @@
                 }
             }
 
-            var namespacePrefixRoot = string.IsNullOrEmpty(rootNamespace) 
-                ? "" : rootNamespace + '.';
+            var namespacePrefixRoot = string.IsNullOrEmpty(_ops.rootNamespace) 
+                ? "" : _ops.rootNamespace + '.';
 
-            commonNamespace = commonNamespace.Replace("$Root.", namespacePrefixRoot);
+            _ops.commonNamespace = _ops.commonNamespace.Replace("$Root.", namespacePrefixRoot);
         }
 
         private async Task<ExitCode> RunAsync(ArgumentParser parser, CancellationToken token)
@@ -201,13 +200,12 @@
                 return Logger.AnyLoggerHasErrors || token.IsCancellationRequested;
             }
 
-            _logger = new Logger("Master");
             var entireGenerationMeasurer = new Measurer(_logger);
             entireGenerationMeasurer.Start("The entire generation process");
 
             PreprocessOptions(parser);
 
-            if (parser.IsHelpSet && pluginPaths is null && pluginConfigFilePath is null)
+            if (parser.IsHelpSet && _ops.pluginPaths is null && _ops.pluginConfigFilePath is null)
             {
                 Logger.LogPlain(parser.GetHelpFor(this));
                 return ExitCode.Ok;
@@ -220,40 +218,39 @@
             bool isProjectADirectory = false;
             if (!parser.IsHelpSet)
             {
-                if (pluginConfigFilePath is not null && !File.Exists(pluginConfigFilePath))
+                if (_ops.pluginConfigFilePath is not null && !File.Exists(_ops.pluginConfigFilePath))
                 {
-                    _logger.LogError($"Plugin config file {pluginConfigFilePath} does not exist");
+                    _logger.LogError($"Plugin config file {_ops.pluginConfigFilePath} does not exist");
                 }
-                if (Directory.Exists(input))
+                if (Directory.Exists(_ops.input))
                 {
-                    projectDirectory = input;
+                    projectDirectory = _ops.input;
                     isProjectADirectory = true;
                 }
-                else if (File.Exists(input))
+                else if (File.Exists(_ops.input))
                 {
-                    projectDirectory = Path.GetDirectoryName(input);
+                    projectDirectory = Path.GetDirectoryName(_ops.input);
                     isProjectADirectory = false;
                 }
                 else
                 {
-                    _logger.LogError($"No such input file or directory {input}.");
+                    _logger.LogError($"No such input file or directory {_ops.input}.");
                 }
                 if (ShouldExit())
                     return ExitCode.BadOptionValue;
             }
             
             // This means no subprojects
-            if (!monolithicProject && commonNamespace == "")
+            if (!_ops.monolithicProject && _ops.commonNamespace == "")
             {
                 _logger.LogError($"The common project name cannot be empty. If you wish to treat the entire code base as one monolithic project, use that option instead.");
             }
 
             var projectNamesInfo = new ProjectNamesInfo
             {
-                RootNamespaceName = rootNamespace,
-                CommonProjectNamespaceName = monolithicProject ? null : commonNamespace,
+                RootNamespaceName = _ops.rootNamespace,
+                CommonProjectNamespaceName = _ops.monolithicProject ? null : _ops.commonNamespace,
                 GeneratedNamespaceSuffix = "Generated", // TODO
-                GeneratedPath = generatedName,
                 ProjectRootDirectory = projectDirectory
             };
 
@@ -264,11 +261,11 @@
 
             IEnumerable<string> GetNugetPluginPaths()
             {
-                if (pluginConfigFilePath is null)
+                if (_ops.pluginConfigFilePath is null)
                     yield break;
 
-                var pluginConfigDirectory = Path.GetDirectoryName(pluginConfigFilePath);
-                var pluginConfigXml = XDocument.Load(pluginConfigFilePath, LoadOptions.SetLineInfo);
+                var pluginConfigDirectory = Path.GetDirectoryName(_ops.pluginConfigFilePath);
+                var pluginConfigXml = XDocument.Load(_ops.pluginConfigFilePath, LoadOptions.SetLineInfo);
                 var packages = pluginConfigXml.Root;
                 if (packages.Name != "packages")
                 {
@@ -289,7 +286,7 @@
                     string getLocation()
                     { 
                         IXmlLineInfo info = package; 
-                        return $"{pluginConfigFilePath}({info.LineNumber},{info.LinePosition})"; 
+                        return $"{_ops.pluginConfigFilePath}({info.LineNumber},{info.LinePosition})"; 
                     }
 
                     var attributes = package.Attributes();
@@ -348,11 +345,11 @@
 
             IEnumerable<string> GetDllPathsFromUserGivenPaths()
             {
-                if (pluginPaths is null)
+                if (_ops.pluginPaths is null)
                     yield break;
 
                 // These paths are already prenormalized by the argument parser
-                foreach (var p in pluginPaths)
+                foreach (var p in _ops.pluginPaths)
                 {
                     if (File.Exists(p))
                     {
@@ -407,23 +404,23 @@
             if (isProjectADirectory)
             {
                 compileTask = _logger.MeasureAsync("Pseudo Compilation", () =>
-                    compilation = PseudoCompilation.CreateFromDirectory(input, generatedName, token));
+                    compilation = PseudoCompilation.CreateFromDirectory(_ops.input, _ops.generatedName, token));
             }
             else
             {
                 compileTask = _logger.MeasureAsync("MSBuild Compilation", () =>
-                    (workspace, compilation) = OpenMSBuildProjectAsync(input, token).Result);
+                    (workspace, compilation) = OpenMSBuildProjectAsync(_ops.input, token).Result);
             }
             
-            var outputPath = generatedName;
+            var outputPath = _ops.generatedName;
             if (!Path.IsPathFullyQualified(outputPath))
-                outputPath = Path.Combine(projectDirectory, generatedName);
+                outputPath = Path.Combine(projectDirectory, _ops.generatedName);
             
-            if (singleFileOutput)
+            if (_ops.singleFileOutput)
             {
-                if (!Path.GetExtension(generatedName).Equals(".cs", StringComparison.OrdinalIgnoreCase))
+                if (!Path.GetExtension(_ops.generatedName).Equals(".cs", StringComparison.OrdinalIgnoreCase))
                 {
-                    _logger.LogError($"If the option `{nameof(singleFileOutput)}` is set, the generated path must be relative to a file with the '.cs' extension, got {generatedName}.");
+                    _logger.LogError($"If the option `{nameof(_ops.singleFileOutput)}` is set, the generated path must be relative to a file with the '.cs' extension, got {_ops.generatedName}.");
                 }
                 else
                 {
@@ -474,8 +471,8 @@
             {
                 if (ShouldExit())
                     return ExitCode.FailedEnvironmentInitialization;
-                if (!monolithicProject) 
-                    master.FindProjects(projectNamesInfo, treatEditorAsSubproject);
+                if (!_ops.monolithicProject) 
+                    master.FindProjects(projectNamesInfo, _ops.treatEditorAsSubproject);
                 master.InitializePseudoProjects(projectNamesInfo);
                 master.InitializeAdministrators();
 
@@ -486,7 +483,7 @@
 
             measurer.Start("Symbol Collect");
             {
-                await master.Collect(independentNamespaceParts);
+                await master.Collect(_ops.independentNamespaceParts);
                 
                 if (ShouldExit())
                     return ExitCode.FailedSymbolCollection;
@@ -495,10 +492,8 @@
 
             measurer.Start("Output Generation");
             {
-                if (clearOutput) 
-                    master.ClearOutput();
                 await master.GenerateCode();
-                master.CloseWriters();
+                await master.WriteCodeFiles_SplitByProject(_ops.generatedName);
 
                 if (ShouldExit())
                     return ExitCode.FailedOutputGeneration;
@@ -549,13 +544,13 @@
             // if (Logger.AnyLoggerHasErrors)
             //     return;
 
-            if (pluginNames is null)
+            if (_ops.pluginNames is null)
             {
                 AdministratorFinder.AddAllAdministrators(inoutMaster);
             }
             else
             {
-                var names = pluginNames.ToHashSet();
+                var names = _ops.pluginNames.ToHashSet();
                 AdministratorFinder.AddAdministrators(inoutMaster, names);
 
                 if (names.Count > 0)

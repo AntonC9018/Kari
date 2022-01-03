@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
+using Cysharp.Text;
 using Kari.Utils;
 
 namespace Kari.GeneratorCore.Workflow
@@ -91,16 +93,23 @@ namespace Kari.GeneratorCore.Workflow
             where T : IGenerateCode
         {
             var projects = MasterEnvironment.Instance.Projects;
-            var fragment = new CodeFragment
-            {
-                FileNameHint = fileName,
-                NameHint = typeof(T).Name,
-                CodeBuilder = CodeBuilder.Create(),
-            };
-            fragment.CodeBuilder.Append(CodeFileCommon.HeaderBytes);
+            
             for (int i = 0; i < slaves.Length; i++)
-                slaves[i].GenerateCode(projects[i], ref fragment.CodeBuilder);
-            fragment.CodeBuilder.Append(CodeFileCommon.FooterBytes);
+            {
+                var builder = CodeBuilder.Create();
+                
+                builder.Append(CodeFileCommon.HeaderBytes);
+                slaves[i].GenerateCode(projects[i], ref builder);
+                builder.Append(CodeFileCommon.FooterBytes);
+                
+                projects[i].AddCodeFragment(new CodeFragment
+                {
+                    FileNameHint = fileName,
+                    NameHint = typeof(T).Name,
+                    Bytes = builder.AsArraySegment(),
+                    AreBytesRentedFromArrayPool = true,
+                });
+            }
         }
 
         public static Task GenerateAsync<T>(T[] slaves, string fileName) 
@@ -111,7 +120,7 @@ namespace Kari.GeneratorCore.Workflow
 
         public static void AddCodeString(ProjectEnvironmentData project, string fileName, string nameHint, string content)
         {
-            var builder = CodeBuilder.Create();
+            var builder = ZString.CreateUtf8StringBuilder();
             builder.Append(CodeFileCommon.HeaderBytes);
             builder.Append(content);
             builder.Append(CodeFileCommon.FooterBytes);
@@ -120,8 +129,9 @@ namespace Kari.GeneratorCore.Workflow
             {
                 FileNameHint = fileName,
                 NameHint = nameHint,
-                CodeBuilder = builder,
-            }); 
+                Bytes = builder.AsArraySegment(),
+                AreBytesRentedFromArrayPool = true,
+            });
         }
 
         public static Task AddCodeStringAsync(ProjectEnvironmentData project, string fileName, string nameHint, string content)

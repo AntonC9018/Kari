@@ -262,7 +262,7 @@ namespace Kari.Annotator
                 if (singleFileOutputName is null)
                 {
                     using (FileStream fs = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write))
-                        fs.Write(builder.GetBuffer());
+                        fs.Write(builder.AsArraySegment());
                     builder.Clear();
                 }
             }

@@ -21,11 +21,6 @@ namespace Kari.GeneratorCore.Workflow;
 public readonly struct ProjectNamesInfo
 {
     public string CommonProjectNamespaceName { get; init; } = "Common";
-    /// <summary>
-    /// Relative path to the generated folder or file (.cs will be appended in this case).
-    /// Applies to each of the writers.
-    /// </summary>
-    public string GeneratedPath { get; init; } = "Generated";
     public string GeneratedNamespaceSuffix { get; init; } = "Generated";
     public string RootNamespaceName { get; init; } = "";
     public string ProjectRootDirectory { get; init; } = "";
@@ -162,7 +157,6 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 // Check if any folders exist besides the Editor folder
                 || Directory.EnumerateDirectories(projectDirectory).Any(path => !path.EndsWith("Editor")))
             {
-                var generatedPathForProject = Path.Combine(projectDirectory, projectNamesInfo.GeneratedPath);
                 var environment = new ProjectEnvironment
                 {
                     Directory               = projectDirectory,
@@ -170,7 +164,6 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     GeneratedNamespaceName  = namespaceName.Combine(projectNamesInfo.GeneratedNamespaceSuffix),
                     RootNamespace           = projectNamespace,
                     Logger                  = new Logger(RootNamespace.Name),
-                    // FileWriter              = RootWriter.GetWriter(generatedPathForProject));
                 };
                 // TODO: Assume no duplicates for now, but this will have to be error-checked.
                 AddProject(environment, projectNamesInfo.CommonProjectNamespaceName);
@@ -287,17 +280,18 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
     }
 
-    public Task MergeCodeFilesDefault()
+    public readonly record struct GeneratedNamesInfo(string[] FileNames, 
+        Dictionary<string, int> ExistingFileNamesToIndices, 
+        HashSet<string> ConflictingNames)
     {
-        Task ProcessProject(ProjectEnvironmentData project)
-        {
-            var dirInfo = Directory.CreateDirectory(project.Directory);
-            var fragments = CollectionsMarshal.AsSpan(project.CodeFragments);
+        const int USE_LONG_NAME = -1;
 
+        public static GeneratedNamesInfo Create(ReadOnlySpan<CodeFragment> fragments, Logger logger)
+        {
             string[] fileNames = new string[fragments.Length];
-            const int USE_LONG_NAME = -1;
             Dictionary<string, int> existingFileNamesToIndices = new();
-            HashSet<string> ConflictingNames = new();
+            HashSet<string> conflictingNames = new();
+
             for (int i = 0; i < fragments.Length; i++)
             {
                 // This prevents fragments to try to be written in files with same names.
@@ -310,15 +304,15 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                         // so force them to use the long name.
                         existingFileNamesToIndices[fileNames[index]] = USE_LONG_NAME;
                         fileNames[index] = fragments[index].GetLongName();
-                        ConflictingNames.Add(fileNames[index]);
+                        conflictingNames.Add(fileNames[index]);
                     }
 
                     var longName = fragments[i].GetLongName();
                     // The long name has been taken too.
-                    if (!ConflictingNames.Add(longName))
+                    if (!conflictingNames.Add(longName))
                     {
                         // The long name here hopefully contains enough info to identify the plugin that caused the problem. 
-                        Logger.LogWarning($"The file name {longName} appeared twice. It will be appended a guid.");
+                        logger.LogWarning($"The file name {longName} appeared twice. It will be appended a guid.");
                         // The guid is essentially guaranteed to never have a collision.
                         longName += Guid.NewGuid().ToString();
                     }
@@ -333,79 +327,109 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 }
             }
 
-            // Check if the content changed + write the new content
-            static async Task WriteSingleCodeFileAsync(string outputFilePath, ArraySegment<byte> outputBytes, CancellationToken cancellationToken)
-            {
-                using SafeFileHandle outputFileHandle = File.OpenHandle(outputFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
-                long length = RandomAccess.GetLength(outputFileHandle);
+            return new GeneratedNamesInfo(fileNames, existingFileNamesToIndices, conflictingNames);
+        }
+    
+        public bool IsFileGenerated(string fileName)
+        {
+            // If it has been used directly.
+            return (ExistingFileNamesToIndices.TryGetValue(fileName, out int index) 
+                    // And not in its long form.
+                    && index != USE_LONG_NAME)
+                // Or it's the long name.
+                || ConflictingNames.Contains(fileName);
+        }
 
-                ValueTask GetEndTask()
-                {
-                    return RandomAccess.WriteAsync(outputFileHandle, outputBytes, 0, cancellationToken);
-                }
+        
+    }
 
-                if (length != outputBytes.Count)
-                {
-                    // just write
-                    await GetEndTask();
-                }
-                else
-                {
-                    const int bufferSize = 1024; 
-                    byte[] readBytes = ArrayPool<byte>.Shared.Rent(bufferSize);
-                    long offset = 0;
-                    do
-                    {
-                        int bytesRead = await RandomAccess.ReadAsync(outputFileHandle, readBytes, offset, cancellationToken);
-                        int difference = outputBytes.AsSpan()
-                            .Slice((int) offset, bytesRead)
-                            .SequenceCompareTo(
-                                readBytes.AsSpan(0, bytesRead));
-                        if (difference != 0)
-                        {
-                            await GetEndTask();
-                            break;
-                        }
-                        offset += bytesRead;
-                    }
-                    while (offset < outputBytes.Count);
+    public static void RemoveNotGeneratedCodeFilesInDirectory(in GeneratedNamesInfo namesInfo, string directory)
+    {
+        foreach (string filePath in Directory.EnumerateFiles(directory, "*.cs", SearchOption.TopDirectoryOnly))
+        {
+            var fileName = Path.GetFileName(filePath);
+            if (!namesInfo.IsFileGenerated(fileName))
+                File.Delete(filePath);
+        }
+    }
 
-                    ArrayPool<byte>.Shared.Return(readBytes);
-                    // Buffers equal, can safely return.
-                }
+    internal static async Task<bool> IsFileEqualToContent(SafeFileHandle fileHandle, ArraySegment<byte> bytes, CancellationToken cancellationToken)
+    {
+        long length = RandomAccess.GetLength(fileHandle);
+        if (length != bytes.Count)
+            return false;
 
-                // WARNING: this line exists because ZString allocates from this pool
-                ArrayPool<byte>.Shared.Return(outputBytes.Array);
-            }
+        const int bufferSize = 1024 * 4; 
+        byte[] readBytes = ArrayPool<byte>.Shared.Rent(bufferSize);
+        long offset = 0;
+        int difference;
+        do
+        {
+            int bytesRead = await RandomAccess.ReadAsync(fileHandle, readBytes, offset, cancellationToken);
+            difference = bytes.AsSpan()
+                .Slice((int) offset, bytesRead)
+                .SequenceCompareTo(
+                    readBytes.AsSpan(0, bytesRead));
+            if (difference != 0 || cancellationToken.IsCancellationRequested)
+                break;
+            offset += bytesRead;
+        }
+        while (offset < bytes.Count);
 
-            Task[] writeOutputFileTasks = new Task[fragments.Length];
+        ArrayPool<byte>.Shared.Return(readBytes);
 
-            for (int i = 0; i < fragments.Length; i++)
-            {
-                var outputFilePath = Path.Combine(project.Directory, fileNames[i]);
-                writeOutputFileTasks[i] = WriteSingleCodeFileAsync(outputFilePath, fragments[i].CodeBuilder.GetBuffer(), CancellationToken);
-            }
+        return difference == 0;
+    }
 
-            // Delete code files that were not generated.
-            foreach (string filePath in Directory.EnumerateFiles(project.Directory, "*.cs", SearchOption.TopDirectoryOnly))
-            {
-                var fileName = Path.GetFileName(filePath);
-            
-                bool IsFileGenerated(string fileName)
-                {
-                    // If it has been used directly.
-                    return (existingFileNamesToIndices.TryGetValue(fileName, out int index) 
-                            // And not in its long form.
-                            && index != USE_LONG_NAME)
-                        // Or it's the long name.
-                        || ConflictingNames.Contains(fileName);
-                }
-                
-                if (!IsFileGenerated(fileName))
-                    File.Delete(filePath);
-            }
+    // Check if the content changed + write the new content
+    internal static async Task WriteSingleCodeFileAsync(string outputFilePath, ArraySegment<byte> outputBytes, 
+        bool whetherReturnToPool, CancellationToken cancellationToken)
+    {
+        using SafeFileHandle outputFileHandle = File.OpenHandle(outputFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
 
-            return Task.WhenAll(writeOutputFileTasks);
+        if (await IsFileEqualToContent(outputFileHandle, outputBytes, cancellationToken))
+        {
+            await RandomAccess.WriteAsync(outputFileHandle, outputBytes, 0, cancellationToken);
+        }
+
+        // WARNING: this line exists because ZString allocates from this pool
+        if (whetherReturnToPool)
+            ArrayPool<byte>.Shared.Return(outputBytes.Array);
+    }
+
+    public static Task ProcessProjectOutput(string outputDirectory, 
+        ReadOnlySpan<CodeFragment> fragments, 
+        Logger logger, CancellationToken cancellationToken)
+    {
+        // TODO: test if "" does not make it append /
+        Debug.Assert(Directory.Exists(outputDirectory));
+        var fileNamesInfo = GeneratedNamesInfo.Create(fragments, logger);
+        Task[] writeOutputFileTasks = new Task[fragments.Length];
+
+        for (int i = 0; i < fragments.Length; i++)
+        {
+            var outputFilePath = Path.Combine(outputDirectory, fileNamesInfo.FileNames[i]);
+            writeOutputFileTasks[i] = WriteSingleCodeFileAsync(outputFilePath, fragments[i].Bytes, 
+                fragments[i].AreBytesRentedFromArrayPool, cancellationToken);
+        }
+
+        RemoveNotGeneratedCodeFilesInDirectory(fileNamesInfo, outputDirectory);
+
+        return Task.WhenAll(writeOutputFileTasks);
+    }
+
+    /// <summary>
+    /// </summary>
+    public Task WriteCodeFiles_SplitByProject(string generatedFolderRelativePath)
+    {
+        Task ProcessProject(ProjectEnvironmentData project)
+        {
+            // TODO: test if "" does not make it append /
+            var outputDirectory = Path.Combine(project.Directory, generatedFolderRelativePath);
+            var dirInfo = Directory.CreateDirectory(outputDirectory);
+            var fragments = CollectionsMarshal.AsSpan(project.CodeFragments);
+
+            return ProcessProjectOutput(outputDirectory, fragments, Logger, CancellationToken);
         }
 
         return Task.WhenAll(Projects.Append(RootPseudoProject).Select(ProcessProject));

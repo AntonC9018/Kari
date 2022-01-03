@@ -29,12 +29,8 @@ namespace Kari.Plugins.UnityHelpers
         public Task Collect() => Task.CompletedTask;
         public Task Generate()
         {
-            _engineCommon.AddCodeFragment(new CodeFragment 
-            {
-                FileNameHint = "Helpers.cs",
-                NameHint = "UnityHelpers",
-                CodeBuilder = GenerateCode()
-            });
+            _engineCommon.AddCodeFragment(CodeFragment.CreateFromBuilder(
+                "Helpers.cs", "UnityHelpers", GenerateCode()));
             return Task.CompletedTask;
         }
 
