@@ -59,6 +59,10 @@ namespace Kari.GeneratorCore.Workflow
         {
             return FileNameHint + "__" + NameHint;
         }
+
+        #if DEBUG
+            public string BytesAsString => Encoding.UTF8.GetString(Bytes);
+        #endif
     }
 
     /// <summary>

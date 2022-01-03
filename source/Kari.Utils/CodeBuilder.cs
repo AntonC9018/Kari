@@ -24,7 +24,7 @@ namespace Kari.Utils
     public struct CodeBuilder : IDisposable, IAppend //, IIndent
     {
         public static readonly byte[] DefaultIndentation = Encoding.UTF8.GetBytes("    ");
-        public static CodeBuilder Create() { return new CodeBuilder(DefaultIndentation, 1); }
+        public static CodeBuilder Create() { return new CodeBuilder(DefaultIndentation, 0); }
         public static CodeBuilder FromText(string text)
         {
             CodeBuilder result = Create();
@@ -49,6 +49,10 @@ namespace Kari.Utils
         /// </summary>
         public byte[] IndentationBytes { get; }
 
+        /// Won't be needed when this gets merged.
+        /// https://github.com/Cysharp/ZString/pull/71
+        private string ib { get; }
+
         /// <summary>
         /// A utility string builder with indentation support.
         /// </summary>
@@ -61,6 +65,7 @@ namespace Kari.Utils
             StringBuilder = ZString.CreateUtf8StringBuilder(notNested: utfStringBuilderNotNested);
             CurrentIndentationCount = initialIndentationCount;
             IndentationBytes = indentationBytes;
+            ib = Encoding.UTF8.GetString(IndentationBytes);
         }
 
         /// <summary>
@@ -92,7 +97,8 @@ namespace Kari.Utils
         public void Indent()
         {
             for (int i = 0; i < CurrentIndentationCount; i++)
-                StringBuilder.Append(IndentationBytes);
+                StringBuilder.Append(ib);
+                // StringBuilder.Append(IndentationBytes);
         }
 
         /// <summary>
@@ -112,14 +118,6 @@ namespace Kari.Utils
             Indent();
             Append(text);
             NewLine();
-        }
-
-        /// <summary>
-        /// Appends the uf8 encoded bytes to the output.
-        /// </summary>
-        public void Append(byte[] bytes)
-        {
-            StringBuilder.Append(bytes);
         }
 
         /// <summary>

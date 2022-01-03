@@ -15,6 +15,7 @@ using Microsoft.Win32.SafeHandles;
 using static System.Diagnostics.Debug;
 using System.Runtime.InteropServices;
 using System.Buffers;
+using System.Reflection;
 
 namespace Kari.GeneratorCore.Workflow;
 
@@ -24,6 +25,23 @@ public readonly struct ProjectNamesInfo
     public string GeneratedNamespaceSuffix { get; init; } = "Generated";
     public string RootNamespaceName { get; init; } = "";
     public string ProjectRootDirectory { get; init; } = "";
+}
+
+public static class ReflectedFileStreamHelpers
+{
+    // The method I need is internal.
+    // System.IO.Strategies.FileStreamHelpers.SetFileLength(SafeFileHandle, long);
+    public static readonly Action<SafeFileHandle, long> SetFileLength;
+
+    static ReflectedFileStreamHelpers()
+    {
+        SetFileLength = typeof(FileStream).Assembly
+            .GetType("System.IO.Strategies.FileStreamHelpers")
+            .GetMethod("SetFileLength", BindingFlags.Static|BindingFlags.NonPublic)
+            .CreateDelegate<Action<SafeFileHandle, long>>();
+            
+        Assert(SetFileLength is not null);
+    }
 }
 
 public class MasterEnvironment : Singleton<MasterEnvironment>
@@ -51,7 +69,16 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     public readonly Logger Logger;
     public readonly CancellationToken CancellationToken;
     public readonly List<ProjectEnvironment> Projects = new List<ProjectEnvironment>();
-    public IEnumerable<ProjectEnvironmentData> AllProjects => Projects.Append(RootPseudoProject);
+    public IEnumerable<ProjectEnvironmentData> AllProjects
+    {
+        get
+        {
+            IEnumerable<ProjectEnvironmentData> result = Projects;
+            if (RootPseudoProject is not null)
+                return result.Append(RootPseudoProject);
+            return result;
+        }
+    }
     public readonly List<IAdministrator> Administrators = new List<IAdministrator>(5);
 
     /// <summary>
@@ -447,6 +474,8 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         if (!await IsFileEqualToContent(outputFileHandle, outputBytes, 
             fromByteIndex: CodeFileCommon.HeaderBytes.Length, cancellationToken))
         {
+            ReflectedFileStreamHelpers.SetFileLength(outputFileHandle, outputBytes.Count);
+
             long offset = 0;
 
             await RandomAccess.WriteAsync(outputFileHandle, CodeFileCommon.HeaderBytes, offset, cancellationToken);
@@ -476,6 +505,9 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             await RandomAccess.WriteAsync(outputFileHandle, segment, offset, cancellationToken);
             offset += segment.Count;
         }
+        
+        // We might have to set the length ahead of time.
+        ReflectedFileStreamHelpers.SetFileLength(outputFileHandle, offset);
     }
 
     /// <summary>

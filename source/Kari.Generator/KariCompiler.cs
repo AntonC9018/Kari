@@ -148,7 +148,7 @@
 
         private void PreprocessOptions(ArgumentParser parser)
         {
-            var result = parser.FillObjectWithOptionValues(this);
+            var result = parser.FillObjectWithOptionValues(_ops);
 
             if (result.IsError)
             {
