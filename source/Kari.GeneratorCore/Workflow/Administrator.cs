@@ -65,42 +65,40 @@ namespace Kari.GeneratorCore.Workflow
 
     public static class AdministratorHelpers
     {
-        public static void Initialize<T>(ref T[] slaves) where T : ICollectSymbols, new()
+        public static void Initialize<T>(ref T[] collectors) where T : ICollectSymbols, new()
         {
             var projects = MasterEnvironment.Instance.Projects;
-            slaves = new T[projects.Count]; 
+            collectors = new T[projects.Count]; 
             for (int i = 0; i < projects.Count; i++)
             {
-                slaves[i] = new T();
+                collectors[i] = new T();
             }
         }
 
-        public static void Collect<T>(T[] slaves) where T : ICollectSymbols
+        public static void Collect<T>(T[] collectors) where T : ICollectSymbols
         {
             var projects = MasterEnvironment.Instance.Projects;
-            for (int i = 0; i < slaves.Length; i++)
+            for (int i = 0; i < collectors.Length; i++)
             {
-                slaves[i].CollectSymbols(projects[i]);
+                collectors[i].CollectSymbols(projects[i]);
             }
         }
 
-        public static Task CollectAsync<T>(T[] slaves) where T : ICollectSymbols
+        public static Task CollectAsync<T>(T[] collectors) where T : ICollectSymbols
         {
-            return Task.Run(delegate { Collect(slaves); });
+            return Task.Run(delegate { Collect(collectors); });
         }
 
-        public static void Generate<T>(T[] slaves, string fileName)
+        public static void Generate<T>(T[] generators, string fileName)
             where T : IGenerateCode
         {
             var projects = MasterEnvironment.Instance.Projects;
             
-            for (int i = 0; i < slaves.Length; i++)
+            for (int i = 0; i < generators.Length; i++)
             {
                 var builder = CodeBuilder.Create();
-                
-                builder.Append(CodeFileCommon.HeaderBytes);
-                slaves[i].GenerateCode(projects[i], ref builder);
-                builder.Append(CodeFileCommon.FooterBytes);
+
+                generators[i].GenerateCode(projects[i], ref builder);
                 
                 projects[i].AddCodeFragment(new CodeFragment
                 {
@@ -120,17 +118,13 @@ namespace Kari.GeneratorCore.Workflow
 
         public static void AddCodeString(ProjectEnvironmentData project, string fileName, string nameHint, string content)
         {
-            var builder = ZString.CreateUtf8StringBuilder();
-            builder.Append(CodeFileCommon.HeaderBytes);
-            builder.Append(content);
-            builder.Append(CodeFileCommon.FooterBytes);
 
             project.AddCodeFragment(new CodeFragment
             {
                 FileNameHint = fileName,
                 NameHint = nameHint,
-                Bytes = builder.AsArraySegment(),
-                AreBytesRentedFromArrayPool = true,
+                Bytes = Encoding.UTF8.GetBytes(content),
+                AreBytesRentedFromArrayPool = false,
             });
         }
 

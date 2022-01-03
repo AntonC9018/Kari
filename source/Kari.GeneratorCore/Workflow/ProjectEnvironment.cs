@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Kari.Utils;
@@ -52,6 +54,19 @@ namespace Kari.GeneratorCore.Workflow
             {
                 CodeFragments.Add(fragment);
             }
+        }
+
+        /// <summary>
+        /// Is not thread safe.
+        /// </summary>
+        public void DisposeOfCodeFragments()
+        {
+            foreach (ref var f in CollectionsMarshal.AsSpan(CodeFragments))
+            {
+                if (f.AreBytesRentedFromArrayPool)
+                    ArrayPool<byte>.Shared.Return(f.Bytes.Array);
+            }
+            CodeFragments.Clear();
         }
     }
 
