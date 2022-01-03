@@ -472,7 +472,7 @@ namespace Kari.Plugins.Terminal
                 IsEscapedClassName = false;
                 ClassName = attribute.Name + "Command";
             }
-            FullClassName = generatedNamespace.Combine(ClassName);
+            FullClassName = generatedNamespace.Join(ClassName);
         }
 
         private static void UpdateAttributeHelp(IMethodSymbol method, ICommandAttribute attribute)

@@ -105,7 +105,7 @@ namespace Kari.Utils
             path = FileSystem.WithNormalizedDirectorySeparators(path);
             if (Path.IsPathRooted(path))
                 return path;
-            return Path.Combine(relativeToDirectory, path);
+            return Path.Join(relativeToDirectory, path);
         }
     }
 }

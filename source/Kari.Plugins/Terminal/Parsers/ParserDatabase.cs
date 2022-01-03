@@ -19,7 +19,7 @@ namespace Kari.Plugins.Terminal
         public BuiltinParser(string parsersFullyQualifiedClassName, string name)
         {
             Name = name;
-            FullName = parsersFullyQualifiedClassName.Combine(name);
+            FullName = parsersFullyQualifiedClassName.Join(name);
         }
     }
 
@@ -35,7 +35,7 @@ namespace Kari.Plugins.Terminal
         {
             Attribute = attribute;
             Attribute.Name ??= symbol.Name;
-            FullName = parsersFullyQualifiedClassName.Combine(Attribute.Name);
+            FullName = parsersFullyQualifiedClassName.Join(Attribute.Name);
             FullyQualifiedName = symbol.GetFullyQualifiedName();
             Symbol = symbol;
             Next = null;
@@ -69,7 +69,7 @@ namespace Kari.Plugins.Terminal
 
         internal static string GetFullyQualifiedParsersClassNameForProject(ProjectEnvironmentData environment)
         {
-            return environment.GeneratedNamespaceName.Combine("Parsers");
+            return environment.GeneratedNamespaceName.Join("Parsers");
         }
 
         internal ParserDatabase(ProjectEnvironmentData terminalProject)

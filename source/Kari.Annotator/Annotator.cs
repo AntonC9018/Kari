@@ -163,7 +163,7 @@ namespace Kari.Annotator
             {
                 var generatedFilePath = Path.ChangeExtension(inputFilePath, generatedFileSuffix + ".cs");
                 if (generatedFilesOutputFolder is not null)
-                    return Path.Combine(generatedFilesOutputFolder, Path.GetFileName(generatedFilePath));
+                    return Path.Join(generatedFilesOutputFolder, Path.GetFileName(generatedFilePath));
                 return generatedFilePath;
             }
 
@@ -276,8 +276,8 @@ namespace Kari.Annotator
                     if (Path.IsPathRooted(singleFileOutputName))
                         return singleFileOutputName;
                     if (generatedFilesOutputFolder is not null)
-                        return Path.Combine(generatedFilesOutputFolder, singleFileOutputName);
-                    return Path.Combine(targetedFolder, singleFileOutputName);
+                        return Path.Join(generatedFilesOutputFolder, singleFileOutputName);
+                    return Path.Join(targetedFolder, singleFileOutputName);
                 }
 
                 string outputFilePath = GetPath();

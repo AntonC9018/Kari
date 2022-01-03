@@ -368,7 +368,7 @@ namespace Kari.GeneratorCore.Workflow
             return "default";
         }
 
-        public static string Combine(this string mainPart, string part, string separator = ".")
+        public static string Join(this string mainPart, string part, string separator = ".")
         {
             if (mainPart == "") return part;
             return mainPart + separator + part;

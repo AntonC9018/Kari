@@ -161,7 +161,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 {
                     Directory               = projectDirectory,
                     NamespaceName           = namespaceName,
-                    GeneratedNamespaceName  = namespaceName.Combine(projectNamesInfo.GeneratedNamespaceSuffix),
+                    GeneratedNamespaceName  = namespaceName.Join(projectNamesInfo.GeneratedNamespaceSuffix),
                     RootNamespace           = projectNamespace,
                     Logger                  = new Logger(RootNamespace.Name),
                 };
@@ -186,7 +186,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             // var editorProjectNamespace = projectNamespace.GetNamespaceMembers().FirstOrDefault(n => n.Name == "Editor");
             // if (editorProjectNamespace is null)
             //     continue;
-            // var editorDirectory = Path.Combine(projectDirectory, "Editor");
+            // var editorDirectory = Path.Join(projectDirectory, "Editor");
             // if (!Directory.Exists(editorDirectory))
             // {
             //     Logger.LogWarning($"Found an editor project {namespaceName}, but no `Editor` folder.");
@@ -196,7 +196,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             //     directory:      editorDirectory,
             //     namespaceName:  namespaceName.Combine("Editor"),
             //     rootNamespace:  editorProjectNamespace,
-            //     fileWriter:     RootWriter.GetWriter(Path.Combine(editorDirectory, GeneratedPath)));
+            //     fileWriter:     RootWriter.GetWriter(Path.Join(editorDirectory, GeneratedPath)));
                 
             // AddProject(editorEnvironment);
         }
@@ -204,7 +204,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
     public void InitializePseudoProjects(in ProjectNamesInfo projectNamesInfo)
     {
-        var generatedNamespaceName = Path.Combine(projectNamesInfo.RootNamespaceName, projectNamesInfo.GeneratedNamespaceSuffix);
+        var generatedNamespaceName = projectNamesInfo.RootNamespaceName.Join(projectNamesInfo.GeneratedNamespaceSuffix);
         if (Projects.Count == 0)
         {
             var rootProject = new ProjectEnvironment
@@ -339,8 +339,6 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 // Or it's the long name.
                 || ConflictingNames.Contains(fileName);
         }
-
-        
     }
 
     public static void RemoveNotGeneratedCodeFilesInDirectory(in GeneratedNamesInfo namesInfo, string directory)
@@ -352,6 +350,59 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 File.Delete(filePath);
         }
     }
+
+    internal static async Task<bool> IsFileEqualToContent(SafeFileHandle fileHandle, IEnumerable<ArraySegment<byte>> bytes, CancellationToken cancellationToken)
+    {
+        long length = RandomAccess.GetLength(fileHandle);
+        if (length == 0 || bytes.TryGetNonEnumeratedCount(out int byteCount) && length != byteCount)
+            return false;
+
+        const int bufferSize = 1024 * 4 * 16; 
+        byte[] readBytes = ArrayPool<byte>.Shared.Rent(bufferSize);
+        long offsetInfoFile = 0;
+        int difference = 0;
+        int offsetIntoArraySegment = 0;
+        var enumerator = bytes.GetEnumerator();
+
+        while (true)
+        {
+            int bytesRead = await RandomAccess.ReadAsync(fileHandle, readBytes, offsetInfoFile, cancellationToken);
+            if (bytesRead == 0)
+                goto outer;
+
+            int comparedBytesThisIterationTotal = 0;
+            while (comparedBytesThisIterationTotal < bytesRead)
+            {
+                int slicedBytesCount = Math.Min(enumerator.Current.Count, bytesRead);
+                
+                difference = enumerator.Current.AsSpan()
+                    .Slice((int) offsetInfoFile, slicedBytesCount)
+                    .SequenceCompareTo(
+                        readBytes.AsSpan(offsetIntoArraySegment, slicedBytesCount));
+
+                comparedBytesThisIterationTotal += slicedBytesCount;
+                offsetInfoFile += slicedBytesCount;
+
+                if (offsetIntoArraySegment == enumerator.Current.Count)
+                {
+                    if (!enumerator.MoveNext() && offsetInfoFile < length)
+                    {
+                        difference = 1;
+                        goto outer;
+                    }
+                    offsetIntoArraySegment = 0;
+                }
+                if (difference != 0 || cancellationToken.IsCancellationRequested)
+                    goto outer;
+            }
+        }
+
+        outer:
+        ArrayPool<byte>.Shared.Return(readBytes);
+
+        return difference == 0;
+    }
+
 
     internal static async Task<bool> IsFileEqualToContent(SafeFileHandle fileHandle, ArraySegment<byte> bytes, CancellationToken cancellationToken)
     {
@@ -397,43 +448,142 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             ArrayPool<byte>.Shared.Return(outputBytes.Array);
     }
 
-    public static Task ProcessProjectOutput(string outputDirectory, 
+    /// <summary>
+    /// Make sure the directory exists, before calling this.
+    /// </summary>
+    internal static Task WriteOutCodeFragments(string outputDirectory, 
         ReadOnlySpan<CodeFragment> fragments, 
         Logger logger, CancellationToken cancellationToken)
     {
-        // TODO: test if "" does not make it append /
+        // The directory existing is part of the contract.
         Debug.Assert(Directory.Exists(outputDirectory));
+
         var fileNamesInfo = GeneratedNamesInfo.Create(fragments, logger);
         Task[] writeOutputFileTasks = new Task[fragments.Length];
 
         for (int i = 0; i < fragments.Length; i++)
         {
-            var outputFilePath = Path.Combine(outputDirectory, fileNamesInfo.FileNames[i]);
+            var outputFilePath = Path.Join(outputDirectory, fileNamesInfo.FileNames[i]);
             writeOutputFileTasks[i] = WriteSingleCodeFileAsync(outputFilePath, fragments[i].Bytes, 
                 fragments[i].AreBytesRentedFromArrayPool, cancellationToken);
         }
 
+        // TODO: this one should be done elsewhere.
         RemoveNotGeneratedCodeFilesInDirectory(fileNamesInfo, outputDirectory);
 
         return Task.WhenAll(writeOutputFileTasks);
     }
 
     /// <summary>
+    /// Will also delete the code files that weren't generated by the code generator.
     /// </summary>
     public Task WriteCodeFiles_SplitByProject(string generatedFolderRelativePath)
     {
         Task ProcessProject(ProjectEnvironmentData project)
         {
             // TODO: test if "" does not make it append /
-            var outputDirectory = Path.Combine(project.Directory, generatedFolderRelativePath);
-            var dirInfo = Directory.CreateDirectory(outputDirectory);
+            var outputDirectory = Path.Join(project.Directory, generatedFolderRelativePath);
+            CodeFileCommon.InitializeGeneratedDirectory(outputDirectory);
             var fragments = CollectionsMarshal.AsSpan(project.CodeFragments);
 
-            return ProcessProjectOutput(outputDirectory, fragments, Logger, CancellationToken);
+            return WriteOutCodeFragments(outputDirectory, fragments, Logger, CancellationToken);
         }
 
         return Task.WhenAll(Projects.Append(RootPseudoProject).Select(ProcessProject));
     }
+
+    /// <summary>
+    /// This method assumes:
+    /// 1. The project names correspond to namespaces. 
+    /// 2. The project names are unique.
+    /// </summary>
+    public Task WriteCodeFiles_SingleOutputDirectory_SplitByProject(string generatedFolderFullPath)
+    {
+        // Make sure the project names are unique.
+        // This has to be enforced elsewhere tho, but for now do it here.
+        #if DEBUG
+        {
+            var projectNames = new HashSet<string>();
+            var duplicateNames = new List<string>();
+            foreach (var p in Projects.Append(RootPseudoProject))
+            {
+                if (!projectNames.Add(p.NamespaceName))
+                    duplicateNames.Add(p.NamespaceName);
+            }
+            Debug.Assert(duplicateNames.Count > 0, "There were projects with duplicate names: " + String.Join(", ", duplicateNames));
+        }
+        #endif
+
+        Task ProcessProject(ProjectEnvironmentData project)
+        {
+            var outputDirectory = Path.Join(generatedFolderFullPath, project.NamespaceName);
+            CodeFileCommon.InitializeGeneratedDirectory(outputDirectory);
+            var fragments = CollectionsMarshal.AsSpan(project.CodeFragments);
+
+            return WriteOutCodeFragments(outputDirectory, fragments, Logger, CancellationToken);
+        }
+
+        return Task.WhenAll(Projects.Append(RootPseudoProject).Select(ProcessProject));
+    }
+    
+    // I don't allow this for now, because there are complications in the implementation.
+    #if false
+    public async Task WriteCodeFile_SingleOutputFile(string singleOutputFileFullPath)
+    {
+        var directory = Path.GetDirectoryName(singleOutputFileFullPath);
+        Directory.CreateDirectory(directory);
+        using SafeFileHandle outputFileHandle = File.OpenHandle(singleOutputFileFullPath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
+
+        var allProjects = Projects.Append(RootPseudoProject);
+
+        #if false
+        {
+            // Enforce ascii in names
+            // TODO: should be done somewhere else
+            bool IsAscii(string str) { return str.Any(c => c < 128); }
+            Debug.Assert(
+                allProjects.All(
+                    p => IsAscii(p.NamespaceName) 
+                    && p.CodeFragments.All(
+                        f => IsAscii(f.FileNameHint) && IsAscii(f.NameHint))));
+        }
+        #endif
+
+        // long generatedFileLength = allProjects.Select(p => p.CodeFragments
+        //     .Select(f => (long)
+        //         // The buffer itself
+        //         f.Bytes.Count
+        //         // The "// " (encoded as 3 bytes, because ascii)
+        //         + 3 
+        //         // FileName Name (encoded as 3 bytes, because ascii)
+        //         + Encoding.UTF8.GetByteCount(f.FileNameHint) + 1 + Encoding.UTF8.GetByteCount(f.NameHint)
+        //         // Either 1 or 2
+        //         + Environment.NewLine.Length)
+        //     .Sum()
+        //     // Project name
+        //     + Encoding.UTF8.GetByteCount(p.NamespaceName)).Sum();
+
+        foreach (var project in allProjects)
+        {
+            project.CodeFragments.Sort();
+        }
+
+        // Currently, the bytes output by the code builder contain the header and the footer.
+        IEnumerable<ArraySegment<byte>> GetThings()
+        {
+            var slashesSpace = Encoding.UTF8.GetBytes("// ");
+            var newLine = Encoding.UTF8.GetBytes(Environment.NewLine);
+            var space = Encoding.UTF8.GetBytes(" ");
+
+            foreach (var p in allProjects)
+            {
+                yield return slashesSpace;
+            }
+        }
+
+        // var things = allProjects.SelectMany(p => Encoding.UTF8.GetBytes(""
+    }
+    #endif
 
     public Task GenerateCode()
     {

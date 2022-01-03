@@ -80,7 +80,7 @@ namespace Kari.Generator
 
             var dir = new FileInfo(typeof(object).Assembly.Location).Directory;
             {
-                var path = Path.Combine(dir!.FullName, "netstandard.dll");
+                var path = Path.Join(dir!.FullName, "netstandard.dll");
                 if (File.Exists(path))
                 {
                     metadata.Add(path);
@@ -88,7 +88,7 @@ namespace Kari.Generator
             }
 
             {
-                var path = Path.Combine(dir.FullName, "System.Runtime.dll");
+                var path = Path.Join(dir.FullName, "System.Runtime.dll");
                 if (File.Exists(path))
                 {
                     metadata.Add(path);

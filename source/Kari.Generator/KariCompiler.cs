@@ -90,7 +90,7 @@
             var instance = MSBuildLocator.RegisterDefaults();
             AssemblyLoadContext.Default.Resolving += (assemblyLoadContext, assemblyName) =>
             {
-                var path = Path.Combine(instance.MSBuildPath, assemblyName.Name + ".dll");
+                var path = Path.Join(instance.MSBuildPath, assemblyName.Name + ".dll");
                 Console.WriteLine(path);
                 if (File.Exists(path))
                 {
@@ -328,11 +328,11 @@
                         }
                     }
 
-                    var pluginRootFullPath = Path.Combine(pluginConfigDirectory, packageDirectoryName);
+                    var pluginRootFullPath = Path.Join(pluginConfigDirectory, packageDirectoryName);
                     // We've checked the enumerable above, so this should be true.
                     Assert(Directory.Exists(pluginRootFullPath));
 
-                    string libPath = Path.Combine(pluginRootFullPath, "lib", targetFramework);
+                    string libPath = Path.Join(pluginRootFullPath, "lib", targetFramework);
                     if (!Directory.Exists(libPath))
                     {
                         _logger.LogError($"The plugin `{packageDirectoryName}` had no lib folder, so it's probably not even a plugin, someone messed something up.");
@@ -414,7 +414,7 @@
             
             var outputPath = _ops.generatedName;
             if (!Path.IsPathFullyQualified(outputPath))
-                outputPath = Path.Combine(projectDirectory, _ops.generatedName);
+                outputPath = Path.Join(projectDirectory, _ops.generatedName);
             
             if (_ops.singleFileOutput)
             {

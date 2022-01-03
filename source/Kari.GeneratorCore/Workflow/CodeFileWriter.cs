@@ -48,7 +48,11 @@ namespace Kari.GeneratorCore.Workflow
 
         public int CompareTo(CodeFragment other)
         {
-            return NameHint.CompareTo(other.NameHint);    
+            int file = FileNameHint.CompareTo(other.FileNameHint);
+            if (file != 0)
+                return file;
+                
+            return NameHint.CompareTo(other.NameHint);
         }
         
         public string GetLongName()
@@ -107,7 +111,7 @@ namespace Kari.GeneratorCore.Workflow
         public static void InitializeGeneratedDirectory(string directory)
         {
             Directory.CreateDirectory(directory);
-            var gitignore = Path.Combine(directory, ".gitignore");
+            var gitignore = Path.Join(directory, ".gitignore");
             if (!File.Exists(gitignore) && !Directory.Exists(gitignore))
             {
                 File.WriteAllText(gitignore, "*\n!.gitignore");

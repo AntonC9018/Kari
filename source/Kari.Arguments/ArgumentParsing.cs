@@ -213,7 +213,7 @@ namespace Kari.Arguments
                 return ParseArgumentsJson(jsonName);
 
             var exeDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            var jsonNextToExePath = Path.Combine(exeDirectory, jsonName);
+            var jsonNextToExePath = Path.Join(exeDirectory, jsonName);
             if (Configurations.Any(conf => conf.FileFullPath == jsonNextToExePath))
                 return ParsingResult.Ok;
             if (File.Exists(jsonNextToExePath))

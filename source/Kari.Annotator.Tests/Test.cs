@@ -10,12 +10,12 @@ namespace Kari.Annotator.Tests
         public void IntegrationTestWithDefaults()
         {
             var tempFolderName = "Kari_" + System.Guid.NewGuid().ToString();
-            var tempFolderFullPath = Path.Combine(Path.GetTempPath(), tempFolderName);
+            var tempFolderFullPath = Path.Join(Path.GetTempPath(), tempFolderName);
             Assert.False(Directory.Exists(tempFolderFullPath));
             Directory.CreateDirectory(tempFolderFullPath);
 
             var annotationFileName = "TestAnnotations.cs";
-            var annotationFileFullPath = Path.Combine(tempFolderFullPath, annotationFileName);
+            var annotationFileFullPath = Path.Join(tempFolderFullPath, annotationFileName);
             const string sourceFileContent = @"namespace Hello
 {
     public class AAttribute : System.Attribute
@@ -28,7 +28,7 @@ namespace Kari.Annotator.Tests
             Assert.Equal(0, code);
 
             var expectedFileName = "TestAnnotations.Generated.cs";
-            var expectedFileFullPath = Path.Combine(tempFolderFullPath, expectedFileName);
+            var expectedFileFullPath = Path.Join(tempFolderFullPath, expectedFileName);
             Assert.True(File.Exists(expectedFileFullPath));
             string generatedFileContent = File.ReadAllText(expectedFileFullPath);
             const string expectedContent = @"namespace Hello
