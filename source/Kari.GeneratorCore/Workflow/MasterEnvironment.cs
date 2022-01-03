@@ -283,7 +283,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
     }
 
-    public Task GenerateAndBufferCode()
+    public Task GenerateCodeFragments()
     {
         var managerTasks = Administrators.Select(admin => admin.Generate());
         return Task.WhenAll(managerTasks);
@@ -522,7 +522,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
     /// <summary>
     /// </summary>
-    public SingleDirectoryOutputResult[] WriteCodeFiles_NestedDirectory_ForEachProject(string generatedFolderRelativePath)
+    public IEnumerable<SingleDirectoryOutputResult> WriteCodeFiles_NestedDirectory_ForEachProject(string generatedFolderRelativePath)
     {
         SingleDirectoryOutputResult ProcessProject(ProjectEnvironmentData project)
         {
@@ -538,7 +538,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     outputDirectory, fragments, fileNamesInfo.FileNames, CancellationToken));
         }
 
-        return AllProjects.Select(ProcessProject).ToArray();
+        return AllProjects.Select(ProcessProject);
     }
 
     /// <summary>
@@ -546,7 +546,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// 1. The project names correspond to namespaces. 
     /// 2. The project names are unique.
     /// </summary>
-    public SingleDirectoryOutputResult[] WriteCodeFiles_SingleDirectory_SplitByProject(string generatedFolderFullPath)
+    public IEnumerable<SingleDirectoryOutputResult> WriteCodeFiles_SingleDirectory_SplitByProject(string generatedFolderFullPath)
     {
         // Make sure the project names are unique.
         // This has to be enforced elsewhere tho, but for now do it here.
@@ -576,7 +576,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     outputDirectory, fragments, fileNamesInfo.FileNames, CancellationToken));
         }
 
-        return AllProjects.Select(ProcessProject).ToArray();
+        return AllProjects.Select(ProcessProject);
     }
 
     public void DisposeOfAllCodeFragments()

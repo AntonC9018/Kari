@@ -494,7 +494,7 @@
 
             measurer.Start("Output Generation");
             {
-                await master.GenerateAndBufferCode();
+                await master.GenerateCodeFragments();
                 switch (outputMethod)
                 {
                     case MasterEnvironment.OutputMethod.SingleFile_PerProject:
