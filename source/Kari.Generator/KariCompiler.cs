@@ -39,8 +39,8 @@
                 IsPath = true)]
             public string pluginConfigFilePath = null;
 
-            [Option("The suffix added to each subproject (or the root project) indicating the output folder.")] 
-            public string generatedName = "Generated";
+            [Option("The suffix added to the project namespace to generate the output namespace.")]
+            public string generatedNamespaceName = "Generated";
 
             [Option("Conditional compiler symbols. Ignored if a project file is specified for input. (Currently ignored)")] 
             public string[] conditionalSymbols = null;
@@ -51,9 +51,11 @@
             [Option("Plugin names to be used for code analysis and generation. All plugins are used by default.")]
             public string[] pluginNames = null;
 
-            [Option("Whether to output all code into a single file.",
-                IsFlag = true)]
-            public bool singleFileOutput = false;
+            [Option("The code by default will be generated in a nested folder with this name. If `centralInput` is true, this indicates the central output folder path, relative to `input`. If `singleFileOutput` is set to true, '.cs' may be appended to this name to indicate the output file name.")] 
+            public string generatedName = "Generated";
+
+            [Option("Where to place the generated files.")]
+            public MasterEnvironment.OutputMode outputMode = MasterEnvironment.OutputMode.NestedDirectory;
 
             [Option("Whether to not scan for subprojects and always treat the entire codebase as a single root project. This implies the files will be generated in a single folder. With `singleFileOutput` set to true implies generating all code for the entire project in the single file.",
                 IsFlag = true)]
@@ -412,26 +414,18 @@
                     (workspace, compilation) = OpenMSBuildProjectAsync(_ops.input, token).Result);
             }
             
-            var outputPath = _ops.generatedName;
-            if (!Path.IsPathFullyQualified(outputPath))
-                outputPath = Path.Join(projectDirectory, _ops.generatedName);
-            
-            MasterEnvironment.OutputMethod outputMethod;
-            if (_ops.singleFileOutput)
+            string validOutputPath = _ops.generatedName;
+            if (Path.IsPathRooted(validOutputPath))
             {
-                if (!Path.GetExtension(_ops.generatedName).Equals(".cs", StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogError($"If the option `{nameof(_ops.singleFileOutput)}` is set, the generated path must be relative to a file with the '.cs' extension, got {_ops.generatedName}.");
-                    outputMethod = MasterEnvironment.OutputMethod.Invalid;
-                }
+                if ((_ops.outputMode & MasterEnvironment.OutputMode.Central) != 0)
+                    validOutputPath = Path.Join(_ops.input, validOutputPath);
                 else
-                {
-                    outputMethod = MasterEnvironment.OutputMethod.SingleFile_PerProject;
-                }
+                    _logger.LogError("When the output mode is set to central, the path cannot be absolute.");
             }
-            else
+            if ((_ops.outputMode & MasterEnvironment.OutputMode.File) != 0)
             {
-                outputMethod = MasterEnvironment.OutputMethod.NestedDirectory_ForEachProject;
+                if (!validOutputPath.EndsWith(".cs"))
+                    validOutputPath += ".cs";
             }
 
             await pluginsTask;
@@ -495,23 +489,41 @@
             measurer.Start("Output Generation");
             {
                 await master.GenerateCodeFragments();
-                switch (outputMethod)
+
+                switch (_ops.outputMode)
                 {
-                    case MasterEnvironment.OutputMethod.SingleFile_PerProject:
+                    case MasterEnvironment.OutputMode.NestedFile:
                     {
-                        var result = master.WriteCodeFiles_SingleFile_PerProject(_ops.generatedName);
-                        await result;
+                        await master.WriteCodeFiles_SingleNestedFile(validOutputPath);
                         break;
                     }
-                    case MasterEnvironment.OutputMethod.NestedDirectory_ForEachProject:
+
+                    case MasterEnvironment.OutputMode.CentralFile:
                     {
-                        var result = master.WriteCodeFiles_NestedDirectory_ForEachProject(_ops.generatedName);
-                        var t = Task.WhenAll(result.Select(a => a.WriteOutputTask));
-                        foreach (var a in result)
+                        await master.WriteCodeFiles_CentralFile(validOutputPath);
+                        break;
+                    }
+
+                    case MasterEnvironment.OutputMode.NestedDirectory:
+                    {
+                        foreach (var a in master.WriteCodeFiles_NestedDirectory(validOutputPath))
+                        {
                             a.GeneratedPaths.RemoveCodeFilesThatWereNotGenerated();
-                        await t;
+                            await a.WriteOutputTask;
+                        }
                         break;
                     }
+
+                    case MasterEnvironment.OutputMode.CentralDirectory:
+                    {
+                        foreach (var a in master.WriteCodeFiles_CentralDirectory(validOutputPath))
+                        {
+                            a.GeneratedPaths.RemoveCodeFilesThatWereNotGenerated();
+                            await a.WriteOutputTask;
+                        }
+                        break;
+                    }
+                    
                     default: 
                     {
                         Assert(false); 

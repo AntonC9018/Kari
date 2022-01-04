@@ -23,6 +23,7 @@ namespace Kari.Arguments
     /// <summary>
     /// Mark a field with this attibute for it to be detected and filled in by ArgumentParser.
     /// </summary>
+    [AttributeUsage(AttributeTargets.Field)]
     public class OptionAttribute : System.Attribute
     {
         public string Help;
@@ -62,6 +63,14 @@ namespace Kari.Arguments
         {
             Help = help;
         }
+    }
+
+    /// <summary>
+    /// Hides a given enum member (does not display it among the suggestions).
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Field)]
+    public class HideOptionAttribute : System.Attribute
+    {
     }
 
     /// <summary>
@@ -426,7 +435,8 @@ namespace Kari.Arguments
                     || fieldInfo.FieldType == typeof(string[]) 
                     || fieldInfo.FieldType == typeof(List<string>) 
                     || fieldInfo.FieldType == typeof(int[])
-                    || fieldInfo.FieldType == typeof(HashSet<string>));
+                    || fieldInfo.FieldType == typeof(HashSet<string>)
+                    || fieldInfo.FieldType.IsEnum);
 
                 bool Validate()
                 {
@@ -535,6 +545,31 @@ namespace Kari.Arguments
                         ints[i] = ParseAsInteger(arr[i]);
                     SetValue(ints);
                 }
+                else if (fieldInfo.FieldType.IsEnum)
+                {
+                    // int index = 0;
+                    // bool good = true;
+                    // // skip spaces
+                    // while (option.StringValue.Length < index)
+                    // {
+                    //     if (char.IsWhiteSpace(option.StringValue[index]))
+                    //     {
+                    //         index++;
+                    //         continue;
+                    //     }
+                    //     else if (!char.IsLetter(option.StringValue[index]))
+                    //     {
+                    //         result.Errors.Add($"Enumeration constants must ");
+                    //         good = false;
+                    //         break;
+                    //     }
+                    // }
+                    if (!Enum.TryParse(fieldInfo.FieldType, option.StringValue, true, out object value))
+                    {
+                        result.Errors.Add($"The given enumeration constant {option.StringValue} is not valid.");
+                        SetValue(value);
+                    }
+                }
             }
 
             return result;
@@ -553,7 +588,7 @@ namespace Kari.Arguments
         public string GetHelpFor(object t)
         {
             var type = t.GetType();
-            var sb = new EvenTableBuilder(_Header);
+            var tb = new EvenTableBuilder(_Header);
 
             foreach (var fieldInfo in GetFieldInfos(type))
             foreach (var attr in fieldInfo.GetCustomAttributes(inherit: false))
@@ -571,17 +606,40 @@ namespace Kari.Arguments
                 {
                     if (i == 0)
                     {
-                        sb.Append(column: 0, fieldInfo.Name);
+                        tb.Append(column: 0, fieldInfo.Name);
                         
                         StringBuilder toAppend = new StringBuilder();
 
+                        if (fieldInfo.FieldType.IsEnum)
+                        {
+                            bool wrote = false;
+                            toAppend.Append("{");
+                            foreach (var name in Enum.GetNames(fieldInfo.FieldType))
+                            {
+                                if (fieldInfo.FieldType.GetField(name).GetCustomAttribute(typeof(HideOptionAttribute)) is null)
+                                {
+                                    if (wrote)
+                                        toAppend.Append(", ");
+                                    toAppend.Append(name);
+                                    wrote = true;
+                                }
+                            }
+                            toAppend.Append("}");
+                        }
+                        else
+                        {
+                            toAppend.Append(fieldInfo.FieldType.Name);
+                        }
+
+                        bool wrote2 = false;
                         void AppendProperty(string value)
                         {
-                            if (toAppend.Length == 0)
+                            if (!wrote2)
                                 toAppend.Append(" (");
                             else
                                 toAppend.Append(", ");
                             toAppend.Append(value);
+                            wrote2 = true;
                         }
 
                         if (optionAttribute.IsRequired)
@@ -590,11 +648,13 @@ namespace Kari.Arguments
                         //     AppendProperty("required for help");
                         if (optionAttribute.IsFlag)
                             AppendProperty("flag");
-                        if (toAppend.Length != 0)
-                            toAppend.Append(")");
 
-                        // Required things cannot have default value.
-                        if (toAppend.Length == 0)
+                        if (wrote2)
+                        {
+                            toAppend.Append(")");
+                        }
+                        // Required things cannot have default value, and flags are always false.
+                        else
                         {
                             var value = fieldInfo.GetValue(t);
 
@@ -622,15 +682,15 @@ namespace Kari.Arguments
                             }
                         }
 
-                        sb.Append(column: 1, fieldInfo.FieldType.Name + toAppend.ToString());
+                        tb.Append(column: 1, toAppend.ToString());
                     }
                     else
                     {
                         // Just skip these columns
-                        sb.Append(column: 0, "");
-                        sb.Append(column: 1, "");
+                        tb.Append(column: 0, "");
+                        tb.Append(column: 1, "");
                     }
-                    sb.Append(column: 2, optionAttribute.Help.Substring(i, 
+                    tb.Append(column: 2, optionAttribute.Help.Substring(i, 
                         // It may not go beyond the end
                         Math.Min(chunkLength, optionAttribute.Help.Length - i)));
                 }
@@ -649,7 +709,7 @@ namespace Kari.Arguments
                 return "";
             }
 
-            return GetObjectHelpMessage() + sb.ToString();
+            return GetObjectHelpMessage() + tb.ToString();
         }
 
         /// <summary>

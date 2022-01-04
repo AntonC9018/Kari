@@ -463,7 +463,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         CancellationToken cancellationToken)
     {
         using SafeFileHandle outputFileHandle = File.OpenHandle(outputFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
-
+        WriteLine(outputFilePath);
         if (!await IsFileEqualToContent(outputFileHandle, outputBytes, 
             byteOffsetFromStart:    CodeFileCommon.HeaderBytes.Length,
             byteOffsetFromEnd:      CodeFileCommon.FooterBytes.Length,
@@ -549,7 +549,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
     /// <summary>
     /// </summary>
-    public SingleDirectoryOutputResult[] WriteCodeFiles_NestedDirectory_ForEachProject(string generatedFolderRelativePath)
+    public SingleDirectoryOutputResult[] WriteCodeFiles_NestedDirectory(string generatedFolderRelativePath)
     {
         SingleDirectoryOutputResult ProcessProject(ProjectEnvironmentData project)
         {
@@ -573,7 +573,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// 1. The project names correspond to namespaces. 
     /// 2. The project names are unique.
     /// </summary>
-    public SingleDirectoryOutputResult[] WriteCodeFiles_SingleDirectory_SplitByProject(string generatedFolderFullPath)
+    public SingleDirectoryOutputResult[] WriteCodeFiles_CentralDirectory(string generatedFolderFullPath)
     {
         // Make sure the project names are unique.
         // This has to be enforced elsewhere tho, but for now do it here.
@@ -639,7 +639,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             .Append(CodeFileCommon.FooterBytes); 
     }
     
-    public Task WriteCodeFiles_SingleFile(string singleOutputFileFullPath)
+    public Task WriteCodeFiles_CentralFile(string singleOutputFileFullPath)
     {
         var directory = Path.GetDirectoryName(singleOutputFileFullPath);
         Directory.CreateDirectory(directory);
@@ -656,7 +656,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             CancellationToken);
     }
 
-    public Task WriteCodeFiles_SingleFile_PerProject(string singleOutputFileRelativeToProjectDirectoryPath)
+    public Task WriteCodeFiles_SingleNestedFile(string singleOutputFileRelativeToProjectDirectoryPath)
     {
         Task ProcessProject(ProjectEnvironmentData project)
         {
@@ -672,12 +672,14 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         return Task.WhenAll(AllProjects.Select(ProcessProject));
     }
 
-    public enum OutputMethod
+    public enum OutputMode
     {
-        Invalid = 0,
-        SingleFile = 1, // requires absolute file path
-        SingleDirectory_SplitByProject = 2, // requres dir name
-        NestedDirectory_ForEachProject = 3, // requres dir name
-        SingleFile_PerProject = 4, // requres file name
+        [HideOption] Central = 1,
+        [HideOption] File = 2,
+
+        CentralFile = Central | File, // requires absolute file path
+        CentralDirectory = Central, // requires dir name
+        NestedFile = File, // requires file name
+        NestedDirectory = 0, // requires dir name
     }
 }
