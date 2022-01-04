@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
-using System.IO;
 using System.Threading.Tasks;
+using Spectre.Console;
 
 namespace Kari.Utils
 {
@@ -18,7 +18,7 @@ namespace Kari.Utils
     /// A helper struct that colors output to the stdout.
     /// The logging is thread-safe, but all threads would still dump their data to a single output stream.
     /// </summary>
-    public readonly struct Logger
+    public readonly struct NamedLogger
     {
         private static object _MessageLock = new object();
         private static bool _HasErrors;
@@ -28,12 +28,9 @@ namespace Kari.Utils
         /// </summary>
         public static bool AnyLoggerHasErrors => _HasErrors;
         private readonly string _name;
-        private readonly LogType _defaultLogType;
-        public static readonly Logger Debug = new Logger("DEBUG", LogType.Debug);
 
-        public Logger(string name, LogType defaultLogType = LogType.Message)
+        public NamedLogger(string name)
         {
-            _defaultLogType = defaultLogType;
             _name = name;
         }
 
@@ -50,23 +47,20 @@ namespace Kari.Utils
 
         public void Log(string message)
         {
-            Log(message, _defaultLogType);
+            Log(message, LogType.Message);
         }
 
         public void Log(string message, LogType type)
         {
-            LogNoLock(message, type);
-        }
-
-        public void LogErrorNoLock(string message)
-        {
-            LogNoLock(message, LogType.Error);
-        }
-
-        public void LogNoLock(string message, LogType type = LogType.Message)
-        {
-            Console.ForegroundColor = (ConsoleColor) type;
-            Console.WriteLine($"[{_name}]: {message}");
+            switch (type)
+            {
+                case LogType.Message:     AnsiConsole.Foreground = Color.Grey;      break;
+                case LogType.Error:       AnsiConsole.Foreground = Color.Red;       break;
+                case LogType.Information: AnsiConsole.Foreground = Color.Cyan1;     break;
+                case LogType.Debug:       AnsiConsole.Foreground = Color.DarkRed;   break;
+                case LogType.Warning:     AnsiConsole.Foreground = Color.Yellow;    break;
+            }
+            AnsiConsole.WriteLine(String.Concat("[", _name, "]: ", message));
             _HasErrors = _HasErrors || (type == LogType.Error);
         }
 
@@ -96,44 +90,15 @@ namespace Kari.Utils
             Log(message, LogType.Debug);
         }
     }
-
-    // public struct Measurer : IDisposable
-    // {
-    //     private string _operationName;
-    //     private Logger _logger;
-    //     private long _startTime;
-
-    //     /// <summary>
-    //     /// Use like this: using (Measurer.Start("operation")) { stuff; }
-    //     /// </summary>
-    //     public static Measurer Start(Logger logger, string operationName)
-    //     {
-    //         Measurer result;
-    //         result._logger = logger;
-    //         result._operationName = operationName;
-    //         result._startTime = Stopwatch.GetTimestamp();
-            
-    //         logger.Log(operationName + " Started.", LogType.Information);
-            
-    //         return result;
-    //     }
-
-    //     public void Dispose()
-    //     {
-    //         var elapsed = new TimeSpan(Stopwatch.GetTimestamp() - _startTime);
-    //         _logger.Log(_operationName + " Ended. Elapsed time: " + elapsed.ToString(), LogType.Information);
-    //     }
-
-    //     public void Stop() { Dispose(); }
-    // }
+    
 
     public struct Measurer
     {
         private string _operationName;
         private long _startTime;
-        private Logger _logger;
+        private NamedLogger _logger;
 
-        public Measurer(Logger logger)
+        public Measurer(NamedLogger logger)
         { 
             _startTime = -1;
             _logger = logger;

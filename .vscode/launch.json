@@ -7,7 +7,7 @@
             "request": "launch",
             "preLaunchTask": "build_kari_debug",
             "program": "${workspaceFolder}/build_folder/bin/Kari.Generator/Debug/net6.0/Kari.Generator.dll",
-            "args": [],
+            "args": ["-help"],
             "cwd": "${workspaceFolder}/../Stuff",
             "console": "internalConsole",
             "stopAtEntry": false

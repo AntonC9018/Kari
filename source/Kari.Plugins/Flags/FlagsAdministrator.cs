@@ -7,7 +7,7 @@ namespace Kari.Plugins.Flags
     public class FlagsAdministrator : IAdministrator
     {
         public FlagsAnalyzer[] _slaves;
-        private readonly Logger _logger = new Logger("FlagsPlugin");
+        private readonly NamedLogger _logger = new NamedLogger("FlagsPlugin");
 
         public void Initialize() 
         {

@@ -12,11 +12,11 @@ namespace Kari.Plugins.Terminal
         internal ParsersAnalyzer[] _parserAnalyzers;
         internal CommandsAnalyzer[] _commandAnalyzers;
         internal static ProjectEnvironmentData TerminalProject { get; private set; }
-        private Logger _logger;
+        private NamedLogger _logger;
 
         public void Initialize()
         {
-            _logger = new Logger("TerminalPlugin");
+            _logger = new NamedLogger("TerminalPlugin");
 
             TerminalProject = MasterEnvironment.Instance.Projects.Find(
                 project => project.RootNamespace.Name == terminalProject);

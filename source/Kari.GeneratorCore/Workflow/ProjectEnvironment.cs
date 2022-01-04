@@ -18,7 +18,7 @@ namespace Kari.GeneratorCore.Workflow
     /// </summary>
     public class ProjectEnvironmentData
     {
-        public Logger Logger { get; init; }
+        public NamedLogger Logger { get; init; }
 
         /// <summary>
         /// Directory with the source files, including the source code and the project files.

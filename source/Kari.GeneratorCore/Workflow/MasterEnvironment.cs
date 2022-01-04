@@ -66,7 +66,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// </summary>
     public Compilation Compilation { get; private set; }
 
-    public readonly Logger Logger;
+    public readonly NamedLogger Logger;
     public readonly CancellationToken CancellationToken;
     public readonly List<ProjectEnvironment> Projects = new List<ProjectEnvironment>();
     public IEnumerable<ProjectEnvironmentData> AllProjects => Projects;
@@ -75,7 +75,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// <summary>
     /// Initializes the MasterEnvironment and replaces the global singleton instance.
     /// </summary>
-    public MasterEnvironment(CancellationToken cancellationToken, Logger logger)
+    public MasterEnvironment(CancellationToken cancellationToken, NamedLogger logger)
     {
         CancellationToken = cancellationToken;
         Logger = logger;
@@ -100,8 +100,8 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     {
         foreach (var admin in Administrators)
         {
-            Logger.LogPlain($"\nShowing help for `{admin}`.");
-            Logger.LogPlain(parser.GetHelpFor(admin.GetArgumentObject()));
+            NamedLogger.LogPlain($"\nShowing help for `{admin}`.");
+            parser.LogHelpFor(admin.GetArgumentObject());
         }
     }
 
@@ -182,7 +182,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     NamespaceName           = namespaceName,
                     GeneratedNamespaceName  = namespaceName.Join(projectNamesInfo.GeneratedNamespaceSuffix),
                     RootNamespace           = projectNamespace,
-                    Logger                  = new Logger(RootNamespace.Name),
+                    Logger                  = new NamedLogger(RootNamespace.Name),
                 };
                 // TODO: Assume no duplicates for now, but this will have to be error-checked.
                 AddProject(environment, projectNamesInfo.CommonProjectNamespaceName);
@@ -232,7 +232,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 NamespaceName          = projectNamesInfo.RootNamespaceName,
                 GeneratedNamespaceName = generatedNamespaceName,
                 RootNamespace          = RootNamespace,
-                Logger                 = new Logger(RootNamespace.Name),
+                Logger                 = new NamedLogger(RootNamespace.Name),
             };
             AddProject(rootProject, projectNamesInfo.CommonProjectNamespaceName);
             RootPseudoProject = rootProject;
@@ -244,7 +244,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 Directory              = projectNamesInfo.ProjectRootDirectory,
                 NamespaceName          = projectNamesInfo.RootNamespaceName,
                 GeneratedNamespaceName = generatedNamespaceName,
-                Logger                 = new Logger("Root"),
+                Logger                 = new NamedLogger("Root"),
             };
         }
 
@@ -316,7 +316,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     {
         const int USE_LONG_NAME = -1;
 
-        public static GeneratedFileNamesInfo Create(ReadOnlySpan<CodeFragment> fragments, Logger logger)
+        public static GeneratedFileNamesInfo Create(ReadOnlySpan<CodeFragment> fragments, NamedLogger logger)
         {
             string[] fileNames = new string[fragments.Length];
             Dictionary<string, int> existingFileNamesToIndices = new();

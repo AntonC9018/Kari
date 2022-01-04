@@ -7,6 +7,8 @@ using System.Reflection;
 using System.Text;
 using Kari.Utils;
 using Newtonsoft.Json.Linq;
+using Spectre.Console;
+using Spectre.Console.Rendering;
 using static System.Diagnostics.Debug;
 
 namespace Kari.Arguments
@@ -580,15 +582,25 @@ namespace Kari.Arguments
             return type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
         }
 
-        private static readonly string[] _Header = new string[] { "Option", "Type", "Description" };  
+        private static readonly TableColumn[] _Header = new TableColumn[] 
+        { 
+            new TableColumn("Option").Centered(),
+            new TableColumn("Type").Centered(),
+            new TableColumn("Default").Centered(),
+            new TableColumn("Description").LeftAligned(),
+        };
+        private static readonly IRenderable[] _TableRowTemp = new IRenderable[4];
+
 
         /// <summary>
         /// Returns an even table willed with the information about options a given object takes.
         /// </summary>
-        public string GetHelpFor(object t)
+        public Table GetHelpFor(object t)
         {
             var type = t.GetType();
-            var tb = new EvenTableBuilder(_Header);
+            var table = new Table();
+            table.AddColumns(_Header);
+            table.Width = 140;
 
             foreach (var fieldInfo in GetFieldInfos(type))
             foreach (var attr in fieldInfo.GetCustomAttributes(inherit: false))
@@ -601,101 +613,85 @@ namespace Kari.Arguments
 
                 // Split the help in manageable pieces that all could sort of wrap in the third column,
                 // but we're emulating wrapping by appending spaces.
-                const int chunkLength = 64;
-                for (int i = 0; i < optionAttribute.Help.Length; i += chunkLength)
+
+                var typeBuilder = new StringBuilder();
+
+                if (fieldInfo.FieldType.IsEnum)
                 {
-                    if (i == 0)
+                    var items = new List<string>(); 
+                    foreach (var name in Enum.GetNames(fieldInfo.FieldType))
                     {
-                        tb.Append(column: 0, fieldInfo.Name);
-                        
-                        StringBuilder toAppend = new StringBuilder();
-
-                        if (fieldInfo.FieldType.IsEnum)
+                        if (fieldInfo.FieldType.GetField(name).GetCustomAttribute(typeof(HideOptionAttribute)) is null)
                         {
-                            bool wrote = false;
-                            toAppend.Append("{");
-                            foreach (var name in Enum.GetNames(fieldInfo.FieldType))
-                            {
-                                if (fieldInfo.FieldType.GetField(name).GetCustomAttribute(typeof(HideOptionAttribute)) is null)
-                                {
-                                    if (wrote)
-                                        toAppend.Append(", ");
-                                    toAppend.Append(name);
-                                    wrote = true;
-                                }
-                            }
-                            toAppend.Append("}");
+                            items.Add(name);
                         }
-                        else
-                        {
-                            toAppend.Append(fieldInfo.FieldType.Name);
-                        }
+                    }
+                    typeBuilder.Append("{");
+                    typeBuilder.Append(string.Join(",\n", items));
+                    typeBuilder.Append("}");
+                }
+                else if (optionAttribute.IsPath)
+                {
+                    typeBuilder.Append("Path");
+                }
+                else
+                {
+                    typeBuilder.Append(fieldInfo.FieldType.Name);
+                }
 
-                        bool wrote2 = false;
-                        void AppendProperty(string value)
-                        {
-                            if (!wrote2)
-                                toAppend.Append(" (");
-                            else
-                                toAppend.Append(", ");
-                            toAppend.Append(value);
-                            wrote2 = true;
-                        }
+                var otherThings = new List<string>();
+                if (optionAttribute.IsRequired)
+                    otherThings.Add("required");
+                // if (optionAttribute.IsRequiredForHelp)
+                //     AppendProperty("required for help");
+                if (optionAttribute.IsFlag)
+                    otherThings.Add("flag");
 
-                        if (optionAttribute.IsRequired)
-                            AppendProperty("required");
-                        // if (optionAttribute.IsRequiredForHelp)
-                        //     AppendProperty("required for help");
-                        if (optionAttribute.IsFlag)
-                            AppendProperty("flag");
+                if (otherThings.Count > 0)
+                {
+                    typeBuilder.Append(" (");
+                    typeBuilder.Append(string.Join(", ", otherThings));
+                    typeBuilder.Append(")");
+                }
+                
+                var defaultBuilder = new StringBuilder();
 
-                        if (wrote2)
-                        {
-                            toAppend.Append(")");
-                        }
-                        // Required things cannot have default value, and flags are always false.
-                        else
-                        {
-                            var value = fieldInfo.GetValue(t);
+                // Required things cannot have default value, and flags are always false.
+                if (otherThings.Count == 0)
+                {
+                    var value = fieldInfo.GetValue(t);
 
-                            if (value is string[] arr)
-                            {
-                                toAppend.Append(" = [");
-                                toAppend.Append(String.Join(",", arr));
-                                toAppend.Append("]");
-                            }
-                            else if (value is HashSet<string> set)
-                            {
-                                toAppend.Append(" = [");
-                                toAppend.Append(String.Join(",", set));
-                                toAppend.Append("]");
-                            }
-                            else if (value is int[] intArr)
-                            {
-                                toAppend.Append(" = [");
-                                toAppend.Append(String.Join(",", intArr));
-                                toAppend.Append("]");
-                            }
-                            else
-                            {
-                                toAppend.Append($" = {value}");
-                            }
-                        }
-
-                        tb.Append(column: 1, toAppend.ToString());
+                    if (value is IEnumerable<string> arr)
+                    {
+                        defaultBuilder.Append("[");
+                        defaultBuilder.Append(string.Join(",", arr));
+                        defaultBuilder.Append("]");
+                    }
+                    else if (value is null)
+                    {
+                        defaultBuilder.Append("---");
                     }
                     else
                     {
-                        // Just skip these columns
-                        tb.Append(column: 0, "");
-                        tb.Append(column: 1, "");
+                        defaultBuilder.Append(value);
                     }
-                    tb.Append(column: 2, optionAttribute.Help.Substring(i, 
-                        // It may not go beyond the end
-                        Math.Min(chunkLength, optionAttribute.Help.Length - i)));
                 }
+
+
+                // Option
+                _TableRowTemp[0] = new Text(fieldInfo.Name);
+                // Type
+                _TableRowTemp[1] = new Text(typeBuilder.ToString());
+                // Default
+                _TableRowTemp[2] = new Text(defaultBuilder.ToString());
+                // Description
+                _TableRowTemp[3] = new Text(optionAttribute.Help);
+
+                table.AddRow(_TableRowTemp);
+                table.AddEmptyRow();
             }
 
+            
             string GetObjectHelpMessage()
             {
                 // No reason for it to be stored as a field.
@@ -704,13 +700,19 @@ namespace Kari.Arguments
                 {
                     var message = helpMessageProperty.GetMethod.Invoke(t, null);
                     if (message is string messageString)
-                        return messageString + "\n\n";
+                        return messageString;
                 }
                 return "";
             }
 
-            return GetObjectHelpMessage() + tb.ToString();
+            var style = new Style(Color.White, null, Decoration.Italic, 
+                // Link is interesting. Could use this for documentation.
+                link: null);
+            table.Title = new TableTitle(GetObjectHelpMessage(), style);
+
+            return table;
         }
+
 
         /// <summary>
         /// Returns the options that have not been assigned to fields of any objects
@@ -765,6 +767,16 @@ namespace Kari.Arguments
         {
             return $"File {Configurations[option.OriginConfigurationFileIndex].FileFullPath}, at {option.Property.Path}";
         }
+    }
 
+    public static class ParserExtensions
+    {
+        public static void LogHelpFor(this ArgumentParser parser, object obj)
+        {
+            var t = parser.GetHelpFor(obj);
+            t.Expand();
+            AnsiConsole.ResetColors();
+            AnsiConsole.Write(t);
+        }
     }
 }

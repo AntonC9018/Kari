@@ -16,7 +16,7 @@ namespace Kari.Plugins.UnityHelpers
         string engineCommon = "EngineCommon";
 
         public ProjectEnvironmentData _engineCommon;
-        private Logger _logger = new Logger("UnityHelpers admin");
+        private NamedLogger _logger = new NamedLogger("UnityHelpers");
 
         public void Initialize() 
         {

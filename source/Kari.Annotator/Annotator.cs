@@ -45,7 +45,7 @@ namespace Kari.Annotator
 
         internal static int Main(string[] args)
         {
-            var argumentLogger = new Logger("Arguments");
+            var argumentLogger = new NamedLogger("Arguments");
             var parser = new ArgumentParser();
             var result = parser.ParseArguments(args);
             if (result.IsError)
@@ -64,7 +64,7 @@ namespace Kari.Annotator
             var annotator = new Annotator();
             if (parser.IsHelpSet)
             {
-                argumentLogger.Log(parser.GetHelpFor(annotator), LogType.Information);
+                parser.LogHelpFor(annotator);
                 return 0;
             }
 
@@ -92,7 +92,7 @@ namespace Kari.Annotator
 
         public int Run()
         {
-            Logger logger = new Logger("Annotator");
+            var logger = new NamedLogger("Annotator");
             targetedFolder = targetedFolder.WithNormalizedDirectorySeparators();
             generatedFilesOutputFolder = generatedFilesOutputFolder?.WithNormalizedDirectorySeparators();
             singleFileOutputName = singleFileOutputName?.WithNormalizedDirectorySeparators();

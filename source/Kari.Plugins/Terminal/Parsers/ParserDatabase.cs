@@ -65,7 +65,7 @@ namespace Kari.Plugins.Terminal
         internal const int CheckPriority = 1;
         private readonly Dictionary<ITypeSymbol, BuiltinParser> _builtinParsers = new Dictionary<ITypeSymbol, BuiltinParser>();
         private readonly Dictionary<ITypeSymbol, CustomParserInfo> _customParsersTypeMap = new Dictionary<ITypeSymbol, CustomParserInfo>();
-        private readonly Logger _logger = new Logger("Parsers");
+        private readonly NamedLogger _logger = new NamedLogger("Parsers");
 
         internal static string GetFullyQualifiedParsersClassNameForProject(ProjectEnvironmentData environment)
         {

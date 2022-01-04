@@ -71,7 +71,7 @@
             public bool treatEditorAsSubproject = true;
         }
         private KariOptions _ops;
-        private Logger _logger;
+        private NamedLogger _logger;
 
         public enum ExitCode
         {
@@ -105,7 +105,7 @@
             var tokenSource = new CancellationTokenSource();
             CancellationToken token = tokenSource.Token;
 
-            Logger argumentLogger = new Logger("Arguments");
+            var argumentLogger = new NamedLogger("Arguments");
 
             ArgumentParser parser = new ArgumentParser();
             var result = parser.ParseArguments(args);
@@ -124,11 +124,11 @@
 
             var compiler = new KariCompiler();
             compiler._ops = new KariOptions();
-            compiler._logger = new Logger("Master");
+            compiler._logger = new NamedLogger("Master");
 
             if (parser.IsEmpty)
             {
-                argumentLogger.Log(parser.GetHelpFor(compiler._ops), LogType.Information);
+                parser.LogHelpFor(compiler._ops);
                 return 0;
             }
 
@@ -199,7 +199,7 @@
 
             bool ShouldExit()
             {
-                return Logger.AnyLoggerHasErrors || token.IsCancellationRequested;
+                return NamedLogger.AnyLoggerHasErrors || token.IsCancellationRequested;
             }
 
             var entireGenerationMeasurer = new Measurer(_logger);
@@ -209,7 +209,7 @@
 
             if (parser.IsHelpSet && _ops.pluginPaths is null && _ops.pluginConfigFilePath is null)
             {
-                Logger.LogPlain(parser.GetHelpFor(this));
+                parser.LogHelpFor(_ops);
                 return ExitCode.Ok;
             }
             if (ShouldExit())
@@ -391,7 +391,7 @@
             {
                 await pluginsTask;
 
-                Logger.LogPlain(parser.GetHelpFor(this));
+                parser.LogHelpFor(_ops);
                 master.LogHelpForEachAdministrator(parser);
                 return ExitCode.Ok;
             }

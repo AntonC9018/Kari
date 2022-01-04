@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using Cysharp.Text;
 using Humanizer;
-using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
-using Kari.Plugins.Terminal;
 using Kari.Utils;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -17,7 +15,7 @@ namespace Kari.Plugins.Terminal
         private readonly HashSet<string> _names = new HashSet<string>();
         public readonly List<CommandMethodInfo> _infos = new List<CommandMethodInfo>();
         public readonly List<FrontCommandMethodInfo> _frontInfos = new List<FrontCommandMethodInfo>();
-        private Logger _logger;
+        private NamedLogger _logger;
 
         private void RegisterCommandName(string name)
         {
@@ -97,28 +95,36 @@ namespace Kari.Plugins.Terminal
             List<ArgumentInfo> positionalArguments = info.PositionalArguments;
             List<ArgumentInfo> optionLikeArguments = info.OptionLikeArguments;
 
-            var usageBuilder = new StringBuilder();
-            var argsBuilder = new EvenTableBuilder("Argument/Option", "Type", "Description");
+            using var usageBuilder = ZString.CreateUtf8StringBuilder(notNested: true);
             
-            usageBuilder.Append($"Usage: {info.Name} ");
+            // TODO: this info should be available at runtime for it to print the thing.
+            // It should not be in the help message, because then the format is bad.
+            // var header = new string[3] { "Argument/Option", "Type", "Description" };
+            // var argsBuilder = new Table();
+            // argsBuilder.AddColumns(header);
+
+            usageBuilder.AppendFormat("Usage: {0}", info.Name);
             for (int i = 0; i < positionalArguments.Count; i++)
             {
                 var arg = positionalArguments[i];
-                usageBuilder.Append($"{arg.Name} ");
-                
-                argsBuilder.Append(column: 0, arg.Symbol.Name);
-                argsBuilder.Append(column: 1, arg.Parser.Name);
-                argsBuilder.Append(column: 2, arg.Attribute.Help);
+                usageBuilder.Append(arg.Name);
+                usageBuilder.Append(" ");
+
+                // row[0] = arg.Symbol.Name;
+                // row[1] = arg.Parser.Name;
+                // row[2] = arg.Attribute.Help;
+                // argsBuilder.AddRow(row);
             }
 
             for (int i = 0; i < optionLikeArguments.Count; i++)
             {
                 var arg = optionLikeArguments[i];
-                usageBuilder.Append($"{arg.Attribute.Name}|-{arg.Attribute.Name}=value ");
+                usageBuilder.AppendFormat("{0}|-{1}=value ", arg.Attribute.Name, arg.Attribute.Name);
 
-                argsBuilder.Append(column: 0, $"{arg.Attribute.Name}|-{arg.Attribute.Name}");
-                argsBuilder.Append(column: 1, arg.Parser.Name);
-                argsBuilder.Append(column: 2, arg.Attribute.Help);
+                // row[0] = $"{arg.Attribute.Name}|-{arg.Attribute.Name}";
+                // row[1] = arg.Parser.Name;
+                // row[2] = arg.Attribute.Help;
+                // argsBuilder.AddRow(row);
             }
             
             for (int i = 0; i < options.Count; i++)
@@ -150,20 +156,19 @@ namespace Kari.Plugins.Terminal
                     typeString += $", ={option.DefaultValueText}";
                 }
 
-                argsBuilder.Append(column: 0, "-" + option.Name);
-                argsBuilder.Append(column: 1, typeString);
-                argsBuilder.Append(column: 2, option.Attribute.Help);
+                // argsBuilder.Append(column: 0, "-" + option.Name);
+                // argsBuilder.Append(column: 1, typeString);
+                // argsBuilder.Append(column: 2, option.Attribute.Help);
             }
 
-            var helpMessageBuilder = new StringBuilder();
-            helpMessageBuilder.AppendLine(usageBuilder.ToString());
+            var helpMessageBuilder = usageBuilder;
             helpMessageBuilder.AppendLine();
             if (!string.IsNullOrEmpty(info.Attribute.Help))
             {
                 helpMessageBuilder.AppendLine(info.Attribute.Help);
                 helpMessageBuilder.AppendLine();
             }
-            helpMessageBuilder.AppendLine(argsBuilder.ToString());
+            // helpMessageBuilder.AppendLine(argsBuilder.ToString());
 
             executeBuilder.AppendLine("// Take in all the positional arguments.");
             for (int i = 0; i < positionalArguments.Count; i++)
@@ -249,7 +254,7 @@ namespace Kari.Plugins.Terminal
             executeBuilder.Indent();
             if (info.Symbol.ReturnsVoid)
             {
-                executeBuilder.Append(info.Symbol.GetFullyQualifiedName() + "(");
+                executeBuilder.Append(info.Symbol.GetFullyQualifiedName(), "(");
             }
             else
             {
@@ -276,7 +281,6 @@ namespace Kari.Plugins.Terminal
                     $"{options[i].Symbol.Name} : __{options[i].Name}");
             }
 
-            executeBuilder.Append(parameters.ToString());
             executeBuilder.Append(")");
 
             if (!info.Symbol.ReturnsVoid)
@@ -291,14 +295,14 @@ namespace Kari.Plugins.Terminal
             classBuilder.AppendLine($"public {className}() : base(_MinimumNumberOfArguments, _MaximumNumberOfArguments, {info.Attribute.ShortHelp.AsVerbatimSyntax()}, _HelpMessage) {{}}");
             classBuilder.Indent();
             classBuilder.Append("public const string _HelpMessage = @\"");
-            classBuilder.Append(helpMessageBuilder.ToString().EscapeVerbatim());
+            classBuilder.AppendEscapeVerbatim(helpMessageBuilder.AsArraySegment());
             classBuilder.Append("\";");
             classBuilder.AppendLine();
             // TODO: Allow default values for arguments
             classBuilder.AppendLine($"public const int _MinimumNumberOfArguments = {positionalArguments.Count};");
             classBuilder.AppendLine($"public const int _MaximumNumberOfArguments = {positionalArguments.Count + optionLikeArguments.Count};");
             classBuilder.AppendLine();
-            classBuilder.Append(executeBuilder.ToString());
+            classBuilder.AppendLiteral(executeBuilder.AsArraySegment());
             classBuilder.AppendLine();
             classBuilder.EndBlock();
         }
@@ -492,7 +496,7 @@ namespace Kari.Plugins.Terminal
             var root = xml.FirstChild;
             var nodes = root.ChildNodes;
 
-            var sb = new StringBuilder();
+            var sb = new System.Text.StringBuilder();
             for (int i = 0; i < nodes.Count; i++)
             {
                 if (i > 0) sb.AppendLine("\n");
