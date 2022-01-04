@@ -1,8 +1,6 @@
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Text;
 using Cysharp.Text;
 using static System.Diagnostics.Debug;
@@ -49,10 +47,6 @@ namespace Kari.Utils
         /// </summary>
         public byte[] IndentationBytes { get; }
 
-        /// Won't be needed when this gets merged.
-        /// https://github.com/Cysharp/ZString/pull/71
-        private string ib { get; }
-
         /// <summary>
         /// A utility string builder with indentation support.
         /// </summary>
@@ -65,7 +59,6 @@ namespace Kari.Utils
             StringBuilder = ZString.CreateUtf8StringBuilder(notNested: utfStringBuilderNotNested);
             CurrentIndentationCount = initialIndentationCount;
             IndentationBytes = indentationBytes;
-            ib = Encoding.UTF8.GetString(IndentationBytes);
         }
 
         /// <summary>
@@ -97,8 +90,7 @@ namespace Kari.Utils
         public void Indent()
         {
             for (int i = 0; i < CurrentIndentationCount; i++)
-                StringBuilder.Append(ib);
-                // StringBuilder.Append(IndentationBytes);
+                StringBuilder.AppendLiteral(IndentationBytes);
         }
 
         /// <summary>
@@ -170,13 +162,11 @@ namespace Kari.Utils
     {
         public bool HasWritten;
         public readonly byte[] _separator;
-        private readonly string ib; // look at ib in CodeBuilder
 
         public CodeListBuilder(byte[] separator)
         {
             HasWritten = false;
             _separator = separator;
-            ib = Encoding.UTF8.GetString(separator);
         }
 
         /// <summary>
@@ -188,10 +178,9 @@ namespace Kari.Utils
             return new CodeListBuilder(Encoding.UTF8.GetBytes(separator));
         }
 
-        private void MaybeAppendSeparator(ref CodeBuilder builder)
+        private void AppendSeparator(ref CodeBuilder builder)
         {
-            if (!HasWritten)
-                builder.Append(ib);
+            builder.StringBuilder.AppendLiteral(_separator);
         }
 
         /// <summary>
@@ -207,7 +196,7 @@ namespace Kari.Utils
                 builder.IncreaseIndent();
                 builder.Indent();
                 builder.DecreaseIndent();
-                builder.Append(ib);
+                AppendSeparator(ref builder);
             }
             builder.Append(a);
             HasWritten = true;
@@ -221,54 +210,9 @@ namespace Kari.Utils
         public void AppendOnSameLine(ref CodeBuilder builder, ReadOnlySpan<char> a)
         {
             if (HasWritten)
-            {
-                builder.Append(ib);
-            }
+                AppendSeparator(ref builder);
             builder.Append(a);
             HasWritten = true;
-        }
-    }
-
-    /// <summary>
-    /// A helper for building text lists, e.g. the parameters of a function call like "a, b, c".
-    /// </summary>
-    public readonly struct ListBuilder0
-    {
-        private readonly Utf8ValueStringBuilder _stringBuilder;
-        private readonly byte[] _separator;
-
-        /// <summary>
-        /// Creates a list builder.
-        /// The separator indicates the string used to concatenate the added elements.
-        /// For e.g. a list of parameters, one may use ", " as the separator, in to get e.g. "a, b, c".
-        /// </summary>
-        public ListBuilder0(string separator)
-        {
-            _stringBuilder = new Utf8ValueStringBuilder();
-            _separator = Encoding.UTF8.GetBytes(separator);
-        }
-
-        /// <summary>
-        /// Adds the given element to the result, concatenating it using the separator.
-        /// </summary>
-        public void Append(string element)
-        {
-            _stringBuilder.Append(element);
-            _stringBuilder.Append(_separator);
-        }
-
-        // public override string ToString()
-        // {
-        //     if (_stringBuilder.Length == 0)
-        //     {
-        //         return "";
-        //     }
-        //     return _stringBuilder.ToString(0, _stringBuilder.Length - _separator.Length);
-        // }
-
-        public void Clear()
-        {
-            _stringBuilder.Clear();
         }
     }
 
