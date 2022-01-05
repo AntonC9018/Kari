@@ -27,6 +27,7 @@ namespace Kari.Utils
         /// Whether a message with the type of error has been reported so far.
         /// </summary>
         public static bool AnyLoggerHasErrors => _HasErrors;
+        public bool AnyHasErrors => AnyLoggerHasErrors;
         private readonly string _name;
 
         public NamedLogger(string name)

@@ -569,6 +569,9 @@ namespace Kari.Arguments
                     if (!Enum.TryParse(fieldInfo.FieldType, option.StringValue, true, out object value))
                     {
                         result.Errors.Add($"The given enumeration constant {option.StringValue} is not valid.");
+                    }
+                    else
+                    {
                         SetValue(value);
                     }
                 }
@@ -769,7 +772,7 @@ namespace Kari.Arguments
         }
     }
 
-    public static class ParserExtensions
+    public static class ParserHelpers
     {
         public static void LogHelpFor(this ArgumentParser parser, object obj)
         {
@@ -777,6 +780,62 @@ namespace Kari.Arguments
             t.Expand();
             AnsiConsole.ResetColors();
             AnsiConsole.Write(t);
+        }
+
+        public static ArgumentParser DoSimpleParsing(object optionsObject, string[] args, NamedLogger logger, string configurationName = null)
+        {
+            var parser = new ArgumentParser();
+            var result = parser.ParseArguments(args);
+            if (result.IsError)
+            {
+                logger.LogError(result.Error);
+                return parser;
+            }
+
+            if (configurationName is not null)
+            {
+                result = parser.MaybeParseConfiguration(configurationName);
+                if (result.IsError)
+                {
+                    logger.LogError(result.Error);
+                    return parser;
+                }
+            }
+
+            if (parser.IsHelpSet)
+            {
+                parser.LogHelpFor(optionsObject);
+                return parser;
+            }
+            var result2 = parser.FillObjectWithOptionValues(optionsObject);
+            if (result2.IsError)
+            {
+                // TODO: enhance this check here, maybe
+                if (parser.IsEmpty)
+                {
+                    parser.LogHelpFor(optionsObject);
+                    return parser;
+                }
+
+                foreach (var error in result2.Errors)
+                    logger.LogError(error);
+                return parser;
+            }
+
+            var unrecognizedOptions = parser.GetUnrecognizedOptions();
+            var unrecognizedOptionsFromConfiguration = parser.GetUnrecognizedOptionsFromConfigurations();
+
+            if (unrecognizedOptions.Any() || unrecognizedOptionsFromConfiguration.Any())
+            {
+                parser.LogHelpFor(optionsObject);
+
+                foreach (var opt in unrecognizedOptionsFromConfiguration)
+                    logger.LogError($"Unrecognized configuration option {parser.GetPropertyPathOfOption(opt)}.");
+                if (unrecognizedOptions.Any())
+                    logger.LogError($"Unrecognized options: {String.Join(", ", unrecognizedOptions)}");
+            }
+
+            return parser;
         }
     }
 }
