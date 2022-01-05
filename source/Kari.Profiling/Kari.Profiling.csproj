@@ -4,12 +4,6 @@
     <AssemblyName>Kari.Test</AssemblyName>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Build.Locator" Version="1.4.1" />
-    <PackageReference Include="Microsoft.Build.Framework" Version="17.0.0" ExcludeAssets="runtime" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="4.1.0-1.final" />
-  </ItemGroup>
   
   <ItemGroup>
     <ProjectReference Include="$(KariRootPath)Kari.GeneratorCore\Kari.GeneratorCore.csproj" />
