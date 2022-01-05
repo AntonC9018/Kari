@@ -1,3 +1,14 @@
+/*
+
+This file exists to check out how fast Roslyn processes source files.
+On my machine, it processes all Kari source files (105 symbols, 6.8k LOC)
+in 1 to 2 seconds (the sync version being slower than the async one by ~35%).
+
+Now, I feel like this is too slow and I must be doing something wrong at
+a more fundamental / API level.
+
+*/
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,9 +23,9 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Kari.Test;
 
-public class KariTest
+class KariTest
 {
-    public class Options
+    class Options
     {
         [Option("Path to root directory to analyze all source files in.",
             IsRequired = true,
@@ -34,7 +45,8 @@ public class KariTest
         [Option("Whether to print all found types.")]
         public bool printTypes = false;
     }
-    public static async Task<int> Main(string[] args)
+
+    static async Task<int> Main(string[] args)
     {
         var logger = new NamedLogger("Test");
         var options = new Options();
