@@ -7,6 +7,8 @@ in 1 to 2 seconds (the sync version being slower than the async one by ~35%).
 Now, I feel like this is too slow and I must be doing something wrong at
 a more fundamental / API level.
 
+`CSharpCompilation` comes from `System.CodeDom`.
+
 */
 
 using System;
@@ -89,18 +91,15 @@ class KariTest
             reportSuppressedDiagnostics: false, 
             generalDiagnosticOption: ReportDiagnostic.Suppress);
 
-    
-
-    record struct TypeLists(List<INamedTypeSymbol>[] Symbols);
-
-
     static Compilation DoCompilation(IEnumerable<SyntaxTree> trees)
     {
         // Creating the compilation takes no time.
-        // Speaking of metadata references, I have tested it without them yet.
+        // Speaking of metadata references, I test it without them for now.
         var c = CSharpCompilation.Create("Test", trees, null, CompilationOptions);
         return c;
     }
+
+    record struct TypeLists(List<INamedTypeSymbol>[] Symbols);
 
     // This function is nice because in the end the syntax trees, and the resulting symbols
     // end up organized in arrays, so I think I will go for this one.
