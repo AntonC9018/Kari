@@ -35,6 +35,7 @@ namespace Kari.Utils
             }
         }
 
+        // TODO: Check if this is actually faster than filtering an array
         public static IEnumerable<string> EnumerateFilesIgnoringSingleDirectory(
             string rootDirectory, string ignoredDirectoryFullPath, string fileSearchPattern = "*")
         {

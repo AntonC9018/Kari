@@ -24,23 +24,11 @@ namespace Kari.GeneratorCore.Workflow
         /// Directory with the source files, including the source code and the project files.
         /// </summary>
         public string Directory { get; init; }
-
-        /// <summary>
-        /// The fully qualified namespace name, as it is in the source code.
-        /// This has nothing to do with the generated namespace.
-        /// </summary>
-        public string NamespaceName { get; init; }
         
         /// <summary>
         /// The name of the namespace that the generated code will end up in.
         /// </summary>
         public string GeneratedNamespaceName { get; init; }
-
-        /// <summary>
-        /// Shorthand for the MasterEnvironment singleton instance.
-        /// </summary>
-        public MasterEnvironment Master => MasterEnvironment.Instance;
-
         public readonly List<CodeFragment> CodeFragments = new();
 
         
@@ -75,9 +63,8 @@ namespace Kari.GeneratorCore.Workflow
     /// </summary>
     public class ProjectEnvironment : ProjectEnvironmentData
     {
-        // Any registered resources, like small pieces of data common to the project
-        public readonly Resources<object> Resources = new Resources<object>(5);
         public INamespaceSymbol RootNamespace { get; init; }
+
 
         // Cached symbols
         public readonly List<INamedTypeSymbol> Types = new List<INamedTypeSymbol>();
@@ -87,7 +74,7 @@ namespace Kari.GeneratorCore.Workflow
         /// <summary>
         /// Asynchronously collects and caches relevant symbols.
         /// </summary>
-        internal Task Collect(HashSet<string> independentNamespaceNames)
+        internal async Task Collect()
         {
             // THOUGHT: For monolithic projects, this effectively runs on 1 core.
             return Task.Run(() => {

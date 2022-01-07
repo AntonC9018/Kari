@@ -16,15 +16,27 @@ using static System.Diagnostics.Debug;
 using System.Runtime.InteropServices;
 using System.Buffers;
 using System.Reflection;
+using System.Collections;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Kari.GeneratorCore.Workflow;
 
-public readonly struct ProjectNamesInfo
+public record ProjectNamesInfo
 {
     public string CommonProjectNamespaceName { get; init; } = "Common";
     public string GeneratedNamespaceSuffix { get; init; } = "Generated";
     public string RootNamespaceName { get; init; } = "";
     public string ProjectRootDirectory { get; init; } = "";
+    public string GeneratedName { get; init; } = "Generated"; // can be effectively determined from OutputMode
+    public MasterEnvironment.OutputMode OutputMode { get; init; } // 
+    /// <summary>
+    /// Should include the generated directory name, if the output mode is set to nested.
+    /// </summary>
+    public List<string> IgnoredNames { get; init; }
+    /// <summary>
+    /// Should include the generated directory name, if the output mode is set to central.
+    /// </summary>
+    public List<string> IgnoredFullPaths { get; init; }
 }
 
 public static class ReflectedFileStreamHelpers
@@ -44,8 +56,27 @@ public static class ReflectedFileStreamHelpers
     }
 }
 
+public record struct OutputInfo(object GeneratedNames, MasterEnvironment.OutputMode OutputMode)
+{
+    // Contains the generated directory names / generated file names for each project.
+    // If this is a list, then the output mode is per project,
+    // if this is a string, then it is central, and the name indicates the file name / dir name.
+}
+
 public class MasterEnvironment : Singleton<MasterEnvironment>
 {
+    [System.Flags]
+    public enum OutputMode
+    {
+        [HideOption] Central = 1,
+        [HideOption] File = 2,
+
+        CentralFile = Central | File, // requires absolute file path
+        CentralDirectory = Central, // requires dir name
+        NestedFile = File, // requires file name
+        NestedDirectory = 0, // requires dir name
+    }
+
     /// <summary>
     /// Holds the agnostic code, without dependencies.
     /// You should output agnostic code into this project.
@@ -68,7 +99,10 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
     public readonly NamedLogger Logger;
     public readonly CancellationToken CancellationToken;
-    public readonly List<ProjectEnvironment> Projects = new List<ProjectEnvironment>();
+    public ProjectEnvironment[] Projects { get; private set; }
+    public OutputInfo OutputInfo { get; private set; }
+
+
     public IEnumerable<ProjectEnvironmentData> AllProjects => Projects;
     public readonly List<IAdministrator> Administrators = new List<IAdministrator>(5);
 
@@ -105,8 +139,188 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
     }
 
-    public void InitializeCompilation(ref Compilation compilation, string rootNamespaceName)
+    private static readonly CSharpParseOptions ParseOptions = new CSharpParseOptions(LanguageVersion.Latest, 
+        DocumentationMode.None, SourceCodeKind.Regular);
+    private static readonly CSharpCompilationOptions CompilationOptions = new CSharpCompilationOptions(
+            outputKind: OutputKind.DynamicallyLinkedLibrary, 
+            reportSuppressedDiagnostics: false, 
+            generalDiagnosticOption: ReportDiagnostic.Suppress);
+
+    private class ShouldIgnoreDirectoryHashSet : FileSystem.IShouldIgnoreDirectory
     {
+        public HashSet<string> Set { get; init; }
+        public bool ShouldIgnoreDirectory(string fullFilePath)
+        {
+            return Set.Contains(fullFilePath);
+        }
+    }
+
+    private class ShouldIgnoreDirectoryAndDirectory : FileSystem.IShouldIgnoreDirectory
+    {
+        public FileSystem.IShouldIgnoreDirectory Base { get; init; }
+        public string IgnoredDirectory { get; init; }
+        public bool ShouldIgnoreDirectory(string fullFilePath)
+        {
+            return Base.ShouldIgnoreDirectory(fullFilePath) || fullFilePath == IgnoredDirectory;
+        }
+    }
+
+    private class SymbolNameComparer : IComparer<INamedTypeSymbol>
+    {
+        public static SymbolNameComparer Instance = new SymbolNameComparer();
+        private StringComparer comparer = StringComparer.Ordinal;
+        public int Compare(INamedTypeSymbol x, INamedTypeSymbol y)
+        {
+            return comparer.Compare(x.Name, y.Name);
+        }
+    }
+
+    public async Task InitializeCompilation(ProjectNamesInfo projectNamesInfo, OutputMode outputMode)
+    {
+        // 1. msbuild input (ignore for now)
+        // 2. simple directory based input (generate just a single directory, at least for now)
+        // 3. unity (asmdefs)
+
+        static Task<SyntaxTree>[] LoadSyntaxTrees(string[] filePaths)
+        {
+            var result = new Task<SyntaxTree>[filePaths.Length];
+            for (int i = 0; i < result.Length; i++)
+                result[i] = LoadSyntaxTree(filePaths[i]);
+            return result;
+
+            static async Task<SyntaxTree> LoadSyntaxTree(string filePath)
+            {
+                var t = await File.ReadAllTextAsync(filePath);
+                var tree = CSharpSyntaxTree.ParseText(t, ParseOptions, filePath);
+                return tree;
+            }
+        }
+
+        bool unity = true; // directory (default), 
+                           // unity (detected by looking for asmdefs), 
+                           // msbuild (detected by looking for slns/csproj), ??? maybe not allow this one ???
+                           // Allow override too
+        if (unity)
+        {
+            var asmdefs = Directory.GetFiles(projectNamesInfo.ProjectRootDirectory, "*.asmdef", SearchOption.AllDirectories);
+            int projectCount = asmdefs.Length;
+            Assert(projectCount > 0);
+
+            // An array of X for every asmdef
+            // X = a list of syntax trees for every source file.
+
+            var syntaxTreeTasksLists = new List<Task<SyntaxTree>>[projectCount];
+
+            static Task<SyntaxTree> Parse(string text, string filePath, CancellationToken token)
+            {
+                return Task.Run(() => CSharpSyntaxTree.ParseText(text, ParseOptions, filePath), token);
+            }
+
+            for (int i = 0; i < projectCount; i++)
+            {
+                var listOfTasks = new List<Task<SyntaxTree>>();
+                syntaxTreeTasksLists[i] = listOfTasks;
+                var directoryPath = Path.GetDirectoryName(asmdefs[i]);
+                var pathPrefixLength = directoryPath.Length + 1;
+
+                foreach (var filePath in Directory.EnumerateFiles(directoryPath, "*.cs", SearchOption.AllDirectories))
+                {
+                    if (CancellationToken.IsCancellationRequested)
+                        return;
+                    if (ShouldIgnore(filePath, pathPrefixLength, projectNamesInfo.IgnoredNames, projectNamesInfo.IgnoredFullPaths))
+                        continue;
+
+                    var text = await File.ReadAllTextAsync(filePath);
+                    var task = Parse(text, filePath, CancellationToken);
+                    listOfTasks.Add(task);
+
+                    static bool ShouldIgnore(
+                        ReadOnlySpan<char> fullFilePath, int pathPrefixLength, 
+                        List<string> ignoredNames, List<string> ignoredFullPaths)
+                    {
+                        var len = fullFilePath.Length - pathPrefixLength;
+                        var relativeFilePath = fullFilePath.Slice(pathPrefixLength, len);
+                        foreach (var ignoredName in ignoredNames)
+                        {
+                            if (relativeFilePath.StartsWith(ignoredName, StringComparison.Ordinal))
+                                return true;
+                        }
+                        foreach (var ignoredFullPath in ignoredFullPaths)
+                        {
+                            if (fullFilePath.StartsWith(ignoredFullPath, StringComparison.Ordinal))
+                                return true;
+                        }
+                        return false;
+                    }
+                }
+            }
+            var annotationSyntaxTreeTasks = new Task<SyntaxTree>[Administrators.Count];
+            for (int i = 0; i < Administrators.Count; i++)
+            {
+                var text = Administrators[i].GetAnnotations();
+                var task = Parse(text, filePath: null, CancellationToken);
+                annotationSyntaxTreeTasks[i] = task;
+            }
+
+
+            int numSyntaxTrees = syntaxTreeTasksLists.Sum(a => a.Count);
+            SyntaxTree[] syntaxTrees = new SyntaxTree[numSyntaxTrees + Administrators.Count];
+
+
+            int syntaxTreeGlobalIndex = 0;
+            foreach (var syntaxTreeTasks in syntaxTreeTasksLists)
+            foreach (var syntaxTreeTask in syntaxTreeTasks)
+            {
+                syntaxTrees[syntaxTreeGlobalIndex] = await syntaxTreeTask;
+                syntaxTreeGlobalIndex++;
+            }
+            foreach (var annotationTask in annotationSyntaxTreeTasks)
+            {
+                syntaxTrees[syntaxTreeGlobalIndex] = await annotationTask;
+                syntaxTreeGlobalIndex++;
+            }
+
+            var compilation = CSharpCompilation.Create("Kari", syntaxTrees, null, CompilationOptions);
+
+            var collectedSymbols = new INamedTypeSymbol[projectCount][];
+            var symbolCollectionTasks = new Task<INamedTypeSymbol[]>[projectCount];
+            int currentSyntaxTreeStartIndex = 0;
+
+            for (int projectIndex = 0; projectIndex < projectCount; projectIndex++)
+            {
+                var syntaxTreeCount = syntaxTreeTasksLists[projectIndex].Count;
+                var trees = new ArraySegment<SyntaxTree>(syntaxTrees, currentSyntaxTreeStartIndex, syntaxTreeCount);
+                symbolCollectionTasks[projectIndex] = Task.Run(() => Collect(trees, compilation));
+                
+                static async Task<INamedTypeSymbol[]> Collect(
+                    ArraySegment<SyntaxTree> syntaxTrees, Compilation compilation)
+                {
+                    var result = new HashSet<INamedTypeSymbol>();
+                    foreach (var syntaxTree in syntaxTrees)
+                    {
+                        var root = await syntaxTree.GetRootAsync();
+                        var model = compilation.GetSemanticModel(syntaxTree, ignoreAccessibility: true);
+                        foreach (var tds in root.DescendantNodes().OfType<TypeDeclarationSyntax>())
+                        {
+                            var s = model.GetDeclaredSymbol(tds);
+                            result.Add(s);
+                        }
+                    }
+                    var list = result.ToArray();
+                    Array.Sort(list, SymbolNameComparer.Instance);
+                    return list;
+                }
+            }
+
+            for (int projectIndex = 0; projectIndex < projectCount; projectIndex++)
+            {
+                collectedSymbols[projectIndex] = await symbolCollectionTasks[projectIndex];
+            }
+        }
+
+
+
+
         Compilation = compilation.AddSyntaxTrees(
             Administrators.Select(a => CSharpSyntaxTree.ParseText(a.GetAnnotations())));
 
@@ -129,7 +343,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
     }
 
-    public void FindProjects(in ProjectNamesInfo projectNamesInfo, bool treatEditorAsSubproject)
+    public OutputInfo[] FindProjects(in ProjectNamesInfo projectNamesInfo, bool treatEditorAsSubproject)
     {
         // Assert(RootWriter is not null, "The file writer must have been set by now.");
 
@@ -152,7 +366,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 namespaceName = nameToken.Value<string>();
                 if (namespaceName is null)
                 {
-                    Logger.LogError($"Not found the namespace name of the project at {asmdef}");
+                    Logger.LogError($"The namespace defined by {asmdef} must be a string.");
                     continue;
                 }
             }
@@ -164,12 +378,6 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
             // Even the editor project will have this namespace, because of the convention.
             INamespaceSymbol projectNamespace = Compilation.TryGetNamespace(namespaceName);
-            
-            if (projectNamespace is null)
-            {
-                Logger.LogWarning($"The namespace {namespaceName} deduced from project at {asmdef} could not be found in the compilation.");
-                continue;
-            }
 
             // Check if any script files exist in the root
             if (Directory.EnumerateFiles(projectDirectory, "*.cs", SearchOption.TopDirectoryOnly).Any()
@@ -187,37 +395,6 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 // TODO: Assume no duplicates for now, but this will have to be error-checked.
                 AddProject(environment, projectNamesInfo.CommonProjectNamespaceName);
             }
-
-            // !!! 
-            // Actually, it does not work like I supposed it works
-            // You have to have a separate asmdef for all editor projects, which is fair, I guess.
-
-            // Check if "Editor" is in the array of included platforms.
-            // TODO: I'm not sure if not-editor-only projects need this string here.
-            // if (!asmdefJson.TryGetValue("includePlatforms", out JToken platformsToken)
-            //     || !platformsToken.Children().Any(token => token.Value<string>() == "Editor"))
-            // {
-            //     continue;
-            // }
-
-            // if (!treatEditorAsSubproject) 
-            //     continue;
-            // var editorProjectNamespace = projectNamespace.GetNamespaceMembers().FirstOrDefault(n => n.Name == "Editor");
-            // if (editorProjectNamespace is null)
-            //     continue;
-            // var editorDirectory = Path.Join(projectDirectory, "Editor");
-            // if (!Directory.Exists(editorDirectory))
-            // {
-            //     Logger.LogWarning($"Found an editor project {namespaceName}, but no `Editor` folder.");
-            //     continue;
-            // }
-            // var editorEnvironment = new ProjectEnvironment(
-            //     directory:      editorDirectory,
-            //     namespaceName:  namespaceName.Combine("Editor"),
-            //     rootNamespace:  editorProjectNamespace,
-            //     fileWriter:     RootWriter.GetWriter(Path.Join(editorDirectory, GeneratedPath)));
-                
-            // AddProject(editorEnvironment);
         }
     }
 
@@ -670,16 +847,5 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
 
         return Task.WhenAll(AllProjects.Select(ProcessProject));
-    }
-
-    public enum OutputMode
-    {
-        [HideOption] Central = 1,
-        [HideOption] File = 2,
-
-        CentralFile = Central | File, // requires absolute file path
-        CentralDirectory = Central, // requires dir name
-        NestedFile = File, // requires file name
-        NestedDirectory = 0, // requires dir name
     }
 }
