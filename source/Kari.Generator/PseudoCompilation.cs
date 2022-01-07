@@ -59,18 +59,6 @@ namespace Kari.Generator
             {
                 typeof(object),
                 typeof(Attribute),
-                typeof(Enumerable),
-                typeof(Task<>),
-                typeof(IgnoreDataMemberAttribute),
-                typeof(System.Collections.Hashtable),
-                typeof(System.Collections.Generic.List<>),
-                typeof(System.Collections.Generic.HashSet<>),
-                typeof(System.Collections.Immutable.IImmutableList<>),
-                typeof(System.Linq.ILookup<,>),
-                typeof(System.Tuple<>),
-                typeof(System.ValueTuple<>),
-                typeof(System.Collections.Concurrent.ConcurrentDictionary<,>),
-                typeof(System.Collections.ObjectModel.ObservableCollection<>),
             };
 
             var metadata = standardMetadataType

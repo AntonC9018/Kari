@@ -21,7 +21,8 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Kari.GeneratorCore.Workflow;
 
-public record ProjectNamesInfo
+// Class because we use it in an async context, and those do not work with the in parameter.
+public record class ProjectNamesInfo
 {
     public string CommonProjectNamespaceName { get; init; } = "Common";
     public string GeneratedNamespaceSuffix { get; init; } = "Generated";
@@ -75,6 +76,16 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         CentralDirectory = Central, // requires dir name
         NestedFile = File, // requires file name
         NestedDirectory = 0, // requires dir name
+    }
+
+    [System.Flags]
+    public enum InputType
+    {
+        Autodetect,
+        MSBuild,
+        UnityAsmdefs,
+        Monolithic,
+        ByDirectory,
     }
 
     /// <summary>
@@ -139,31 +150,15 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
     }
 
-    private static readonly CSharpParseOptions ParseOptions = new CSharpParseOptions(LanguageVersion.Latest, 
-        DocumentationMode.None, SourceCodeKind.Regular);
+    // TODO: maybe allow specifying the lang version??
+    private static readonly CSharpParseOptions ParseOptions = new CSharpParseOptions(
+        LanguageVersion.Latest, DocumentationMode.Parse, SourceCodeKind.Regular);
     private static readonly CSharpCompilationOptions CompilationOptions = new CSharpCompilationOptions(
             outputKind: OutputKind.DynamicallyLinkedLibrary, 
-            reportSuppressedDiagnostics: false, 
+            allowUnsafe: true,
+            reportSuppressedDiagnostics: false,
+            concurrentBuild: true,
             generalDiagnosticOption: ReportDiagnostic.Suppress);
-
-    private class ShouldIgnoreDirectoryHashSet : FileSystem.IShouldIgnoreDirectory
-    {
-        public HashSet<string> Set { get; init; }
-        public bool ShouldIgnoreDirectory(string fullFilePath)
-        {
-            return Set.Contains(fullFilePath);
-        }
-    }
-
-    private class ShouldIgnoreDirectoryAndDirectory : FileSystem.IShouldIgnoreDirectory
-    {
-        public FileSystem.IShouldIgnoreDirectory Base { get; init; }
-        public string IgnoredDirectory { get; init; }
-        public bool ShouldIgnoreDirectory(string fullFilePath)
-        {
-            return Base.ShouldIgnoreDirectory(fullFilePath) || fullFilePath == IgnoredDirectory;
-        }
-    }
 
     private class SymbolNameComparer : IComparer<INamedTypeSymbol>
     {
@@ -175,98 +170,214 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
     }
 
-    public async Task InitializeCompilation(ProjectNamesInfo projectNamesInfo, OutputMode outputMode)
+    private readonly record struct DirectoriesAndNames(string[] Directories, string[] Names);
+
+    public async Task InitializeCompilation(ProjectNamesInfo projectNamesInfo, OutputMode outputMode, InputType inputType)
     {
         // 1. msbuild input (ignore for now)
         // 2. simple directory based input (generate just a single directory, at least for now)
         // 3. unity (asmdefs)
 
-        static Task<SyntaxTree>[] LoadSyntaxTrees(string[] filePaths)
+        // directory (default), 
+        // unity (detected by looking for asmdefs), 
+        // msbuild (detected by looking for slns/csproj), ??? maybe not allow this one ???
+        // Allow override too
+
+        (string[] projectDirectories, string[] projectNames) = GetProjectDirectoriesAndNames(projectNamesInfo, Logger, ref inputType);
+        // This is essentially error code error checking.
+        if (Logger.AnyHasErrors)
+            return;
+
+        // The function should always return at least one directory
+        Assert(projectDirectories is not null && projectNames is not null);
+
+        int projectCount = projectDirectories.Length;
+
+        // We keep at least the given directory in any case.
+        Assert(projectCount > 0 
+            // 1 name per project too.
+            && projectNames.Length == projectCount);
+
+        static DirectoriesAndNames GetProjectDirectoriesAndNames(
+            ProjectNamesInfo projectNamesInfo, NamedLogger logger, ref InputType inputType)
         {
-            var result = new Task<SyntaxTree>[filePaths.Length];
-            for (int i = 0; i < result.Length; i++)
-                result[i] = LoadSyntaxTree(filePaths[i]);
-            return result;
-
-            static async Task<SyntaxTree> LoadSyntaxTree(string filePath)
+            switch (inputType)
             {
-                var t = await File.ReadAllTextAsync(filePath);
-                var tree = CSharpSyntaxTree.ParseText(t, ParseOptions, filePath);
-                return tree;
-            }
-        }
-
-        bool unity = true; // directory (default), 
-                           // unity (detected by looking for asmdefs), 
-                           // msbuild (detected by looking for slns/csproj), ??? maybe not allow this one ???
-                           // Allow override too
-        if (unity)
-        {
-            var asmdefs = Directory.GetFiles(projectNamesInfo.ProjectRootDirectory, "*.asmdef", SearchOption.AllDirectories);
-            int projectCount = asmdefs.Length;
-            Assert(projectCount > 0);
-
-            // An array of X for every asmdef
-            // X = a list of syntax trees for every source file.
-
-            var syntaxTreeTasksLists = new List<Task<SyntaxTree>>[projectCount];
-
-            static Task<SyntaxTree> Parse(string text, string filePath, CancellationToken token)
-            {
-                return Task.Run(() => CSharpSyntaxTree.ParseText(text, ParseOptions, filePath), token);
-            }
-
-            for (int i = 0; i < projectCount; i++)
-            {
-                var listOfTasks = new List<Task<SyntaxTree>>();
-                syntaxTreeTasksLists[i] = listOfTasks;
-                var directoryPath = Path.GetDirectoryName(asmdefs[i]);
-                var pathPrefixLength = directoryPath.Length + 1;
-
-                foreach (var filePath in Directory.EnumerateFiles(directoryPath, "*.cs", SearchOption.AllDirectories))
+                case InputType.Autodetect:
                 {
-                    if (CancellationToken.IsCancellationRequested)
-                        return;
-                    if (ShouldIgnore(filePath, pathPrefixLength, projectNamesInfo.IgnoredNames, projectNamesInfo.IgnoredFullPaths))
-                        continue;
-
-                    var text = await File.ReadAllTextAsync(filePath);
-                    var task = Parse(text, filePath, CancellationToken);
-                    listOfTasks.Add(task);
-
-                    static bool ShouldIgnore(
-                        ReadOnlySpan<char> fullFilePath, int pathPrefixLength, 
-                        List<string> ignoredNames, List<string> ignoredFullPaths)
+                    var asmdefs = Directory.GetFiles(projectNamesInfo.ProjectRootDirectory, "*.asmdef", SearchOption.AllDirectories);
+                
+                    if (asmdefs.Length > 0)
                     {
-                        var len = fullFilePath.Length - pathPrefixLength;
-                        var relativeFilePath = fullFilePath.Slice(pathPrefixLength, len);
-                        foreach (var ignoredName in ignoredNames)
-                        {
-                            if (relativeFilePath.StartsWith(ignoredName, StringComparison.Ordinal))
-                                return true;
-                        }
-                        foreach (var ignoredFullPath in ignoredFullPaths)
-                        {
-                            if (fullFilePath.StartsWith(ignoredFullPath, StringComparison.Ordinal))
-                                return true;
-                        }
-                        return false;
+                        inputType = InputType.UnityAsmdefs;
+                        return GetDirectoriesAndNamesUnity(asmdefs, logger);
+                    }
+                    // If there are files at root, we assume it's a monolithic project
+                    else if (Directory.EnumerateFiles(projectNamesInfo.ProjectRootDirectory, "*.cs", SearchOption.TopDirectoryOnly)
+                        // Filter out the files that are ignored (in case it's a single generated file in root)
+                        // TODO: think of all potential edge cases here to maybe simplify this logic.
+                        // NOTE: We can ignore the generated names, because it's not a nested directory.
+                        .Where(fileFullPath => !projectNamesInfo.IgnoredFullPaths.Any(t => fileFullPath.StartsWith(t)))
+                        // The presense of even a single file forces this to use one-project mode.
+                        .Any())
+                    {
+                        logger.LogInfo("The project has root cs files, hence it will be considered monolithic.");
+                        inputType = InputType.Monolithic;
+                        return GetDirectoriesAndNamesMonolithic(projectNamesInfo.ProjectRootDirectory);
+                    }
+                    // 
+                    else
+                    {
+                        inputType = InputType.ByDirectory;
+                        return GetDirectoriesSplitByDirectory(projectNamesInfo.ProjectRootDirectory);
                     }
                 }
+
+                case InputType.UnityAsmdefs:
+                {
+                    var asmdefs = Directory.GetFiles(projectNamesInfo.ProjectRootDirectory, "*.asmdef", SearchOption.AllDirectories);
+                    return GetDirectoriesAndNamesUnity(asmdefs, logger);
+                }
+
+                case InputType.Monolithic:
+                {
+                    // The input type specified explicitly, hence we don't inform here.
+                    return GetDirectoriesAndNamesMonolithic(projectNamesInfo.ProjectRootDirectory);
+                }
+
+                case InputType.ByDirectory:
+                // For now don't do anything special for msbuild. 
+                // But ideally, use the Rolsyn API's that parse their files properly (maybe).
+                case InputType.MSBuild:
+                {
+                    return GetDirectoriesSplitByDirectory(projectNamesInfo.ProjectRootDirectory);
+                }
+
+                default:
+                {
+                    Assert(false);
+                    throw null;
+                }
             }
-            var annotationSyntaxTreeTasks = new Task<SyntaxTree>[Administrators.Count];
-            for (int i = 0; i < Administrators.Count; i++)
+
+            static ReadOnlySpan<char> DeduceProjectNameFromDirectory(ReadOnlySpan<char> directoryFullPath)
             {
-                var text = Administrators[i].GetAnnotations();
-                var task = Parse(text, filePath: null, CancellationToken);
-                annotationSyntaxTreeTasks[i] = task;
+                var a = directoryFullPath.LastIndexOf(Path.DirectorySeparatorChar);
+                Assert(a != -1, "Path must not be relative, hence at least one slash must be present.");
+                return directoryFullPath.Slice(a + 1, directoryFullPath.Length - a);
             }
 
+            static string[] DeduceProjectNamesDefault(string[] directoryFullPaths)
+            {
+                var result = new string[directoryFullPaths.Length];
+                for (int i = 0; i < result.Length; i++)
+                    result[i] = DeduceProjectNameFromDirectory(directoryFullPaths[i]).ToString();
+                return result;
+            }
 
-            int numSyntaxTrees = syntaxTreeTasksLists.Sum(a => a.Count);
-            SyntaxTree[] syntaxTrees = new SyntaxTree[numSyntaxTrees + Administrators.Count];
+            static DirectoriesAndNames GetDirectoriesAndNamesUnity(string[] asmdefs, NamedLogger logger)
+            {
+                var directories = new string[asmdefs.Length];
+                for (int i = 0; i < asmdefs.Length; i++)
+                    directories[i] = Path.GetDirectoryName(asmdefs[i]);
+                
+                // Nesting asmdefs is never allowed
+                if (directories.Distinct().Count() == directories.Length)
+                {
+                    logger.LogError("Duplicate project folders were detected. Cannot continue.");
+                }
 
+                string[] names = new string[asmdefs.Length];
+                for (int i = 0; i < names.Length; i++)
+                {
+                    // TODO: Can it have a project name field?? or is it encoded in the file name??
+                    // Not sure if needed
+                    // var asmdefJson = Object.Parse(File.ReadAllText(asmdef));
 
+                    // So just get the name of the file ??????
+                    names[i] = Path.GetFileNameWithoutExtension(asmdefs[i]);
+                }
+
+                return new DirectoriesAndNames(directories, names);
+            }
+
+            static DirectoriesAndNames GetDirectoriesAndNamesMonolithic(string projectRootDirectory)
+            {
+                return new DirectoriesAndNames(new[] { projectRootDirectory }, new[] { "Root" });
+            }
+
+            static DirectoriesAndNames GetDirectoriesSplitByDirectory(string projectRootDirectory)
+            {
+                var dirs = Directory.GetDirectories(projectRootDirectory, "*", SearchOption.TopDirectoryOnly);
+                return new DirectoriesAndNames(dirs, DeduceProjectNamesDefault(dirs));
+            }
+        }
+        
+        // An array of X for every asmdef
+        // X = a list of syntax trees for every source file.
+
+        var syntaxTreeTasksLists = new List<Task<SyntaxTree>>[projectCount];
+
+        static Task<SyntaxTree> StartParseTask(string text, string filePath, CancellationToken token)
+        {
+            return Task.Run(() => CSharpSyntaxTree.ParseText(text, ParseOptions, filePath), token);
+        }
+
+        for (int i = 0; i < projectCount; i++)
+        {
+            var listOfTasks = new List<Task<SyntaxTree>>();
+            syntaxTreeTasksLists[i] = listOfTasks;
+            var directoryPath = projectDirectories[i];
+            var pathPrefixLength = directoryPath.Length + 1;
+
+            foreach (var filePath in Directory.EnumerateFiles(directoryPath, "*.cs", SearchOption.AllDirectories))
+            {
+                if (CancellationToken.IsCancellationRequested)
+                    return;
+                if (ShouldIgnoreFile(filePath, pathPrefixLength, projectNamesInfo.IgnoredNames, projectNamesInfo.IgnoredFullPaths))
+                    continue;
+
+                var text = await File.ReadAllTextAsync(filePath);
+                var task = StartParseTask(text, filePath, CancellationToken);
+                listOfTasks.Add(task);
+
+                static bool ShouldIgnoreFile(
+                    ReadOnlySpan<char> fullFilePath, int pathPrefixLength, 
+                    List<string> ignoredNames, List<string> ignoredFullPaths)
+                {
+                    var len = fullFilePath.Length - pathPrefixLength;
+                    var relativeFilePath = fullFilePath.Slice(pathPrefixLength, len);
+                    // TODO: 
+                    // This ignores both directories and files.
+                    // So like adding `bin` to the ignore list also implicitly adds `bin.cs` to the ignore list.
+                    // I'm not sure if this is how it should be. 
+                    // It's unlikely anyone would name files the same though.
+                    // But I also doubt anyone would want to ignore anything but directories... so idk.
+                    foreach (var ignoredName in ignoredNames)
+                    {
+                        if (relativeFilePath.StartsWith(ignoredName, StringComparison.Ordinal))
+                            return true;
+                    }
+                    foreach (var ignoredFullPath in ignoredFullPaths)
+                    {
+                        if (fullFilePath.StartsWith(ignoredFullPath, StringComparison.Ordinal))
+                            return true;
+                    }
+                    return false;
+                }
+            }
+        }
+        var annotationSyntaxTreeTasks = new Task<SyntaxTree>[Administrators.Count];
+        for (int i = 0; i < Administrators.Count; i++)
+        {
+            var text = Administrators[i].GetAnnotations();
+            var task = StartParseTask(text, filePath: null, CancellationToken);
+            annotationSyntaxTreeTasks[i] = task;
+        }
+
+        int numSyntaxTrees = syntaxTreeTasksLists.Sum(a => a.Count);
+        SyntaxTree[] syntaxTrees = new SyntaxTree[numSyntaxTrees + Administrators.Count];
+        {
             int syntaxTreeGlobalIndex = 0;
             foreach (var syntaxTreeTasks in syntaxTreeTasksLists)
             foreach (var syntaxTreeTask in syntaxTreeTasks)
@@ -279,11 +390,22 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 syntaxTrees[syntaxTreeGlobalIndex] = await annotationTask;
                 syntaxTreeGlobalIndex++;
             }
+        }
 
-            var compilation = CSharpCompilation.Create("Kari", syntaxTrees, null, CompilationOptions);
+        var standardMetadataType = new[]
+        {
+            typeof(object),
+            typeof(Attribute),
+        };
+        var metadata = standardMetadataType
+            .Select(t => t.Assembly.Location)
+            .Distinct()
+            .Select(t => MetadataReference.CreateFromFile(t));
 
-            var collectedSymbols = new INamedTypeSymbol[projectCount][];
-            var symbolCollectionTasks = new Task<INamedTypeSymbol[]>[projectCount];
+        var compilation = CSharpCompilation.Create("Kari", syntaxTrees, metadata, CompilationOptions);
+
+        var symbolCollectionTasks = new Task<INamedTypeSymbol[]>[projectCount];
+        {
             int currentSyntaxTreeStartIndex = 0;
 
             for (int projectIndex = 0; projectIndex < projectCount; projectIndex++)
@@ -311,25 +433,20 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     return list;
                 }
             }
-
-            for (int projectIndex = 0; projectIndex < projectCount; projectIndex++)
-            {
-                collectedSymbols[projectIndex] = await symbolCollectionTasks[projectIndex];
-            }
         }
 
-
-
-
-        Compilation = compilation.AddSyntaxTrees(
-            Administrators.Select(a => CSharpSyntaxTree.ParseText(a.GetAnnotations())));
+        var collectedSymbols = new INamedTypeSymbol[projectCount][];
+        for (int projectIndex = 0; projectIndex < projectCount; projectIndex++)
+        {
+            collectedSymbols[projectIndex] = await symbolCollectionTasks[projectIndex];
+        }
 
         Symbols.Initialize(Compilation);
         Compilation = Compilation;
-        RootNamespace = Compilation.TryGetNamespace(rootNamespaceName);
+        RootNamespace = Compilation.TryGetNamespace(projectNamesInfo.RootNamespaceName);
 
         if (RootNamespace is null)
-            Logger.LogError($"No such root namespace `{rootNamespaceName}`");
+            Logger.LogError($"No such root namespace `{projectNamesInfo.RootNamespaceName}`");
     }
 
     private void AddProject(in ProjectEnvironment project, string commonProjectNamespaceName)
