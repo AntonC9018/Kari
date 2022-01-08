@@ -70,7 +70,7 @@
             public string rootProjectName = "";
 
             [Option("The directories, sources files in which will be ignored. The generated source files are always ignored.")]
-            public List<string> ignoredDirectoryNames = new List<string> { "Editor", "Tests" };
+            public List<string> ignoredNames = new List<string> { "Editor", "Tests" };
 
             [Option("The full directory or file paths which will be ignored when reading source files. The generated source files are always ignored.")]
             public List<string> ignoredFullPaths = new List<string> {};
@@ -227,14 +227,26 @@
                     // Preprocess and validate the output path.
                     {
                         validOutputPath = _ops.generatedName;
-                        if (Path.IsPathRooted(validOutputPath))
+                        if (_ops.outputMode.HasFlag(MasterEnvironment.OutputMode.Central))
                         {
-                            if ((_ops.outputMode & MasterEnvironment.OutputMode.Central) != 0)
+                            if (!Path.IsPathRooted(validOutputPath))
+                            {
                                 validOutputPath = Path.Join(_ops.inputFolder, validOutputPath);
-                            else
-                                _logger.LogError("When the output mode is set to central, the path cannot be absolute.");
+                            }
+                            _ops.ignoredFullPaths.Add(validOutputPath);
                         }
-                        if ((_ops.outputMode & MasterEnvironment.OutputMode.File) != 0)
+                        else
+                        {
+                            if (Path.IsPathRooted(validOutputPath))
+                            {
+                                _logger.LogError("When the output mode is not set to central, the path cannot be absolute.");
+                            }
+                            else
+                            {
+                                _ops.ignoredNames.Add(validOutputPath);
+                            }
+                        }
+                        if (_ops.outputMode.HasFlag(MasterEnvironment.OutputMode.File))
                         {
                             if (!validOutputPath.EndsWith(".cs"))
                                 validOutputPath += ".cs";
@@ -426,17 +438,19 @@
             // TODO: Is this profiling thing even useful? I mean, we already get the stats for the whole function. 
             var measurer = new Measurer(_logger);
 
-            var projectNamesInfo = new ProjectNamesInfo
-            {
-                RootNamespaceName        = _ops.rootNamespace,
-                RootPseudoProjectName    = _ops.rootProjectName,
-                CommonPseudoProjectName  = _ops.commonProjectName,
-                GeneratedNamespaceSuffix = _ops.generatedNamespaceSuffix,
-                ProjectRootDirectory     = _ops.inputFolder
-            };
-
             measurer.Start("Environment Initialization");
             {
+                var projectNamesInfo = new ProjectNamesInfo
+                {
+                    RootNamespaceName        = _ops.rootNamespace,
+                    RootPseudoProjectName    = _ops.rootProjectName,
+                    CommonPseudoProjectName  = _ops.commonProjectName,
+                    GeneratedNamespaceSuffix = _ops.generatedNamespaceSuffix,
+                    ProjectRootDirectory     = _ops.inputFolder,
+                    IgnoredFullPaths         = _ops.ignoredFullPaths,
+                    IgnoredNames             = _ops.ignoredNames,
+                };
+                
                 await master.InitializeCompilation(projectNamesInfo, _ops.inputMode);
 
                 if (ShouldExit())
