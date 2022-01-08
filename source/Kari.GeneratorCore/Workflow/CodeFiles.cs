@@ -23,11 +23,13 @@ namespace Kari.GeneratorCore.Workflow
 
         /// <summary>
         /// The identification name of the entity that has produced the content.
-        /// Using the class name is ok.
+        /// Using the class or the plugin name is ok.
+        /// This may be used to disambiguate files with the same `FileNameHint`.
         /// </summary>
         public string NameHint { get; init; }
 
         /// <summary>
+        /// UTF8 encoded byte array of characters.
         /// </summary>
         public ArraySegment<byte> Bytes { get; init; }
 
@@ -35,6 +37,8 @@ namespace Kari.GeneratorCore.Workflow
         /// </summary>
         public bool AreBytesRentedFromArrayPool { get; init; }
 
+        /// <summary>
+        /// </summary>
         public static CodeFragment CreateFromBuilder(string fileNameHint, string nameHint, CodeBuilder builder)
         {
             return new CodeFragment
@@ -46,6 +50,9 @@ namespace Kari.GeneratorCore.Workflow
             };
         }
 
+        /// <summary>
+        /// Orders fragments by name.
+        /// </summary>
         public int CompareTo(CodeFragment other)
         {
             int file = FileNameHint.CompareTo(other.FileNameHint);
@@ -55,11 +62,15 @@ namespace Kari.GeneratorCore.Workflow
             return NameHint.CompareTo(other.NameHint);
         }
         
+        /// <summary>
+        /// Function used to produce a disambiguated name.
+        /// </summary>
         public string GetLongName()
         {
             return FileNameHint + "__" + NameHint;
         }
 
+        // I used this to see the bytes as text in the debugger
         #if DEBUG
             public string BytesAsString => Encoding.UTF8.GetString(Bytes);
         #endif

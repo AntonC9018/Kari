@@ -28,12 +28,70 @@ public record class ProjectNamesInfo
     public string GeneratedNamespaceSuffix { get; init; } = "Generated";
     public string RootNamespaceName { get; init; } = "";
     public string ProjectRootDirectory { get; init; } = "";
-    public string GeneratedName { get; init; } = "Generated"; // can be effectively determined from OutputMode
-    public MasterEnvironment.OutputMode OutputMode { get; init; } // 
+
+
+    /*
+        Scenarios: 
+        
+        - Unity + generate directly into project root + this set to default.
+
+            Creates either one cs file that will be ignored due to the output mode, or
+            Creates a Generated directory with the output files, that will not affect it.
+
+
+            Caveat: 
+            
+            Need to consider the pseudoproject, whether it is among other projects already.
+
+            If RootPseudoProjectDirectory is not "", then it should point to a folder into 
+            which the files will go, or which would contain the asmdef for the root project.
+            In case it points to a folder, we should consider it a project, otherwise we should not.
+            So we need a bool to tell whether it is generated or not.
+            Or even better, store an index, which would be -1 if it is not within projects.
+
+            If it is "", we need to always consider it separately. It won't be within other folders.
+
+
+        - Directory-based.
+
+            If this is set to default, same thing as with unity, that is,
+            it is considered separately from other projects, and the code is generated separately also.
+
+            If this is not the default, it is searched within the other projects,
+            that is, it is not separate. 
+            And the root project is scanned for types too (but the generated files are not loaded).
+
+
+        - Monolithic.
+
+            If set to default, find within projects.
+
+            If not default, generate into that folder.
+            An edge-case here is the generated files being considered as source files, in case this directory
+            is not ignored, so it must be explicitly ignored. (This whole directory).
+
+    */
+    /// <summary>
+    /// Where to generate the root files, in case a root project is not found.
+    /// You do not have to add it into the IgnoredNames list, it will add it 
+    /// there automatically if the InputType is set to Adaptive or Monolithic.
+    /// 
+    /// If such a project with such a name is not found, it will use a folder with this name instead.
+    ///
+    /// It is in most cases ok leaving this at default.
+    /// </summary>
+    public string RootPseudoProjectName { get; init; } = "";
+
+    /// <summary>
+    /// Same story as with `RootPseudoProjectName`, see that one.
+    /// </summary>
+    public string CommonPseudoProjectName { get; init; } = "";
+
     /// <summary>
     /// Should include the generated directory name, if the output mode is set to nested.
     /// </summary>
     public List<string> IgnoredNames { get; init; }
+
     /// <summary>
     /// Should include the generated directory name, if the output mode is set to central.
     /// </summary>
@@ -93,6 +151,11 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// You should output agnostic code into this project.
     /// </summary>
     public ProjectEnvironmentData CommonPseudoProject { get; private set; }
+
+    /// <summary>
+    /// Is -1 if it is not a real project within the Project list.
+    /// </summary>
+    public int CommonPseudoProjectIndex { get; private set; }
     
     /// <summary>
     /// Holds any "master" or "runner" code.
@@ -101,24 +164,45 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// like registering classes in a central registry, giving them id's etc.
     /// </summary>
     public ProjectEnvironmentData RootPseudoProject { get; private set; }
-    public INamespaceSymbol RootNamespace { get; private set; }
-    
+
+    /// <summary>
+    /// Is -1 if it is not a real project within the Project list.
+    /// If it is not -1, you can get the cached symbols for the given project
+    /// by indexing the Projects list with this.
+    /// </summary>
+    public int RootPseudoProjectIndex { get; private set; }
+
     /// <summary>
     /// All symbols must come from this central compilation.
     /// </summary>
     public Compilation Compilation { get; private set; }
 
-    public readonly NamedLogger Logger;
+
+    private readonly NamedLogger Logger;
     public readonly CancellationToken CancellationToken;
-    public ProjectEnvironment[] Projects { get; private set; }
-    public OutputInfo OutputInfo { get; private set; }
 
+    
+    // public readonly record struct ProjectInfos(
+    //     string[] Names,
+    //     string[] GeneratedNamespaceNames,
+    //     string[] Directories,
+    //     SyntaxTree[][] SyntaxTreeArrays,
+    //     SyntaxTree[] AnnotationsSyntaxTrees,
+    //     List<CodeFragment>[] CodeFragments)
+    // {
+    // }
 
-    public IEnumerable<ProjectEnvironmentData> AllProjects => Projects;
-    public readonly List<IAdministrator> Administrators = new List<IAdministrator>(5);
 
     /// <summary>
-    /// Initializes the MasterEnvironment and replaces the global singleton instance.
+    /// Projects whose code will be analysed.
+    /// Set these with `InitializeCompilation`.
+    /// </summary>
+    public ProjectEnvironment[] Projects { get; private set; }
+
+    public IEnumerable<ProjectEnvironmentData> AllProjectData => Projects.Select(p => p.Data);
+    public readonly List<IAdministrator> Administrators = new List<IAdministrator>(8);
+
+    /// <summary>
     /// </summary>
     public MasterEnvironment(CancellationToken cancellationToken, NamedLogger logger)
     {
@@ -170,9 +254,18 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
     }
 
-    private readonly record struct DirectoriesAndNames(string[] Directories, string[] Names);
-
-    public async Task InitializeCompilation(ProjectNamesInfo projectNamesInfo, OutputMode outputMode, InputType inputType)
+    private readonly record struct ProjectDataAndIndex(ProjectEnvironmentData Data, int Index);
+    private readonly record struct ProjectDatas(
+        ProjectEnvironmentData[] Projects, 
+        ProjectDataAndIndex Root, 
+        ProjectDataAndIndex Common);
+    
+    /// <summary>
+    /// Resolves projects given by `projectNamesInfo`, using InputType.
+    /// Returns a Task that resolves when all the source file have been loaded, 
+    /// and all the essential symbols have been cached. 
+    /// </summary>
+    public async Task InitializeCompilation(ProjectNamesInfo projectNamesInfo, InputType inputType)
     {
         // 1. msbuild input (ignore for now)
         // 2. simple directory based input (generate just a single directory, at least for now)
@@ -183,20 +276,69 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         // msbuild (detected by looking for slns/csproj), ??? maybe not allow this one ???
         // Allow override too
 
-        (string[] projectDirectories, string[] projectNames) = GetProjectDirectoriesAndNames(projectNamesInfo, Logger, ref inputType);
+        ProjectDatas projectDatas = GetProjectDirectoriesAndNames(projectNamesInfo, Logger, ref inputType);
         // This is essentially error code error checking.
         if (Logger.AnyHasErrors)
             return;
 
         // The function should always return at least one directory
-        Assert(projectDirectories is not null && projectNames is not null);
+        Assert(projectDatas.Projects is not null);
 
-        int projectCount = projectDirectories.Length;
+        int projectCount = projectDatas.Projects.Length;
 
         // We keep at least the given directory in any case.
-        Assert(projectCount > 0 
-            // 1 name per project too.
-            && projectNames.Length == projectCount);
+        Assert(projectCount > 0);
+
+        
+        {
+            for (int projectIndex = 0; projectIndex < projectCount; projectIndex++)
+            {
+                var data = new ProjectEnvironmentData(
+                    projectNames[projectIndex],
+                    projectDirectories[projectIndex],
+                    // TODO: Take the namespace from project info maybe
+                    projectNames[projectIndex].Join(projectNamesInfo.GeneratedNamespaceSuffix)); 
+            }
+
+            // Monolithic = Create if not default name. 
+            // Unity/MSBuild/ByDirectory = If not default name, search, then create if not found. Create if default name.
+            int rootProjectDataIndex;
+            ProjectEnvironmentData rootProjectData;
+            int commonProjectDataIndex;
+            ProjectEnvironmentData commonProjectData;
+
+            switch (inputType)
+            {
+                case InputType.Monolithic:
+                {
+                    if (projectNamesInfo.RootPseudoProjectName != "" 
+                        && projectNamesInfo.RootPseudoProjectName != projects[0].Data.Name)
+                    {
+                        rootProjectDataIndex = -1;
+                        rootProjectData = new ProjectEnvironmentData(
+                            projectNamesInfo.RootPseudoProjectName,
+
+                    }
+                }
+            }
+        }
+
+        if (inputType == InputType.Monolithic)
+        {
+            Assert(projectCount == 1);
+            if (projectNamesInfo.RootPseudoProjectName != "")
+            {
+                var folder = Path.Join(projectDirectories[0], projectNamesInfo.RootPseudoProjectName);
+                // Ignore this folder.
+                Logger.Log($"The folder {folder} will be ignored, because it is the root pseudo project (output only).");
+            }
+            if (projectNamesInfo.CommonPseudoProjectName != "")
+            {
+                var folder = Path.Join(projectDirectories[0], projectNamesInfo.CommonPseudoProjectName);
+                // Ignore this folder.
+                Logger.Log($"The folder {folder} will be ignored, because it is the root pseudo project (output only).");
+            }
+        }
 
         static DirectoriesAndNames GetProjectDirectoriesAndNames(
             ProjectNamesInfo projectNamesInfo, NamedLogger logger, ref InputType inputType)
@@ -215,10 +357,10 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     // If there are files at root, we assume it's a monolithic project
                     else if (Directory.EnumerateFiles(projectNamesInfo.ProjectRootDirectory, "*.cs", SearchOption.TopDirectoryOnly)
                         // Filter out the files that are ignored (in case it's a single generated file in root)
-                        // TODO: think of all potential edge cases here to maybe simplify this logic.
-                        // NOTE: We can ignore the generated names, because it's not a nested directory.
+                        // TODO: Think of all potential edge cases here to maybe simplify this logic.
+                        // NOTE: We can disregard the generated names, because it's not a nested directory.
                         .Where(fileFullPath => !projectNamesInfo.IgnoredFullPaths.Any(t => fileFullPath.StartsWith(t)))
-                        // The presense of even a single file forces this to use one-project mode.
+                        // The presence of even a single file forces this to use one-project mode.
                         .Any())
                     {
                         logger.LogInfo("The project has root cs files, hence it will be considered monolithic.");
@@ -250,6 +392,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 // But ideally, use the Rolsyn API's that parse their files properly (maybe).
                 case InputType.MSBuild:
                 {
+                    inputType = InputType.ByDirectory;
                     return GetDirectoriesSplitByDirectory(projectNamesInfo.ProjectRootDirectory);
                 }
 
@@ -317,78 +460,83 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         // X = a list of syntax trees for every source file.
 
         var syntaxTreeTasksLists = new List<Task<SyntaxTree>>[projectCount];
+        var annotationSyntaxTreeTasks = new Task<SyntaxTree>[Administrators.Count];
 
-        static Task<SyntaxTree> StartParseTask(string text, string filePath, CancellationToken token)
+        // Read all source files + start the parse tasks.
         {
-            return Task.Run(() => CSharpSyntaxTree.ParseText(text, ParseOptions, filePath), token);
-        }
-
-        for (int i = 0; i < projectCount; i++)
-        {
-            var listOfTasks = new List<Task<SyntaxTree>>();
-            syntaxTreeTasksLists[i] = listOfTasks;
-            var directoryPath = projectDirectories[i];
-            var pathPrefixLength = directoryPath.Length + 1;
-
-            foreach (var filePath in Directory.EnumerateFiles(directoryPath, "*.cs", SearchOption.AllDirectories))
+            static Task<SyntaxTree> StartParseTask(string text, string filePath, CancellationToken token)
             {
-                if (CancellationToken.IsCancellationRequested)
-                    return;
-                if (ShouldIgnoreFile(filePath, pathPrefixLength, projectNamesInfo.IgnoredNames, projectNamesInfo.IgnoredFullPaths))
-                    continue;
+                return Task.Run(() => CSharpSyntaxTree.ParseText(text, ParseOptions, filePath), token);
+            }
 
-                var text = await File.ReadAllTextAsync(filePath);
-                var task = StartParseTask(text, filePath, CancellationToken);
-                listOfTasks.Add(task);
+            for (int i = 0; i < projectCount; i++)
+            {
+                var listOfTasks = new List<Task<SyntaxTree>>();
+                syntaxTreeTasksLists[i] = listOfTasks;
+                var directoryPath = projectDirectories[i];
+                var pathPrefixLength = directoryPath.Length + 1;
 
-                static bool ShouldIgnoreFile(
-                    ReadOnlySpan<char> fullFilePath, int pathPrefixLength, 
-                    List<string> ignoredNames, List<string> ignoredFullPaths)
+                foreach (var filePath in Directory.EnumerateFiles(directoryPath, "*.cs", SearchOption.AllDirectories))
                 {
-                    var len = fullFilePath.Length - pathPrefixLength;
-                    var relativeFilePath = fullFilePath.Slice(pathPrefixLength, len);
-                    // TODO: 
-                    // This ignores both directories and files.
-                    // So like adding `bin` to the ignore list also implicitly adds `bin.cs` to the ignore list.
-                    // I'm not sure if this is how it should be. 
-                    // It's unlikely anyone would name files the same though.
-                    // But I also doubt anyone would want to ignore anything but directories... so idk.
-                    foreach (var ignoredName in ignoredNames)
+                    if (CancellationToken.IsCancellationRequested)
+                        return;
+                    if (ShouldIgnoreFile(filePath, pathPrefixLength, projectNamesInfo.IgnoredNames, projectNamesInfo.IgnoredFullPaths))
+                        continue;
+
+                    var text = await File.ReadAllTextAsync(filePath);
+                    var task = StartParseTask(text, filePath, CancellationToken);
+                    listOfTasks.Add(task);
+
+                    static bool ShouldIgnoreFile(
+                        ReadOnlySpan<char> fullFilePath, int pathPrefixLength, 
+                        List<string> ignoredNames, List<string> ignoredFullPaths)
                     {
-                        if (relativeFilePath.StartsWith(ignoredName, StringComparison.Ordinal))
-                            return true;
+                        var len = fullFilePath.Length - pathPrefixLength;
+                        var relativeFilePath = fullFilePath.Slice(pathPrefixLength, len);
+                        // TODO: 
+                        // This ignores both directories and files.
+                        // So like adding `bin` to the ignore list also implicitly adds `bin.cs` to the ignore list.
+                        // I'm not sure if this is how it should be. 
+                        // It's unlikely anyone would name files the same though.
+                        // But I also doubt anyone would want to ignore anything but directories... so idk.
+                        foreach (var ignoredName in ignoredNames)
+                        {
+                            if (relativeFilePath.StartsWith(ignoredName, StringComparison.Ordinal))
+                                return true;
+                        }
+                        foreach (var ignoredFullPath in ignoredFullPaths)
+                        {
+                            if (fullFilePath.StartsWith(ignoredFullPath, StringComparison.Ordinal))
+                                return true;
+                        }
+                        return false;
                     }
-                    foreach (var ignoredFullPath in ignoredFullPaths)
-                    {
-                        if (fullFilePath.StartsWith(ignoredFullPath, StringComparison.Ordinal))
-                            return true;
-                    }
-                    return false;
                 }
             }
-        }
-        var annotationSyntaxTreeTasks = new Task<SyntaxTree>[Administrators.Count];
-        for (int i = 0; i < Administrators.Count; i++)
-        {
-            var text = Administrators[i].GetAnnotations();
-            var task = StartParseTask(text, filePath: null, CancellationToken);
-            annotationSyntaxTreeTasks[i] = task;
+            for (int i = 0; i < Administrators.Count; i++)
+            {
+                var text = Administrators[i].GetAnnotations();
+                var task = StartParseTask(text, filePath: null, CancellationToken);
+                annotationSyntaxTreeTasks[i] = task;
+            }
         }
 
-        int numSyntaxTrees = syntaxTreeTasksLists.Sum(a => a.Count);
-        SyntaxTree[] syntaxTrees = new SyntaxTree[numSyntaxTrees + Administrators.Count];
+        SyntaxTree[][] syntaxTreesArrays = new SyntaxTree[projectCount][];
+        SyntaxTree[] annotationSyntaxTrees = new SyntaxTree[projectCount];   
         {
-            int syntaxTreeGlobalIndex = 0;
-            foreach (var syntaxTreeTasks in syntaxTreeTasksLists)
-            foreach (var syntaxTreeTask in syntaxTreeTasks)
+            for (int syntaxTreeListIndex = 0; syntaxTreeListIndex < projectCount; syntaxTreeListIndex++)
             {
-                syntaxTrees[syntaxTreeGlobalIndex] = await syntaxTreeTask;
-                syntaxTreeGlobalIndex++;
+                var syntaxTreeTasksList = syntaxTreeTasksLists[syntaxTreeListIndex];
+                var length = syntaxTreeTasksList.Count;
+                var syntaxTrees = new SyntaxTree[length];
+                syntaxTreesArrays[syntaxTreeListIndex] = syntaxTrees;
+                for (int i = 0; i < length; i++)
+                    syntaxTrees[i] = await syntaxTreeTasksList[i];
             }
-            foreach (var annotationTask in annotationSyntaxTreeTasks)
+
             {
-                syntaxTrees[syntaxTreeGlobalIndex] = await annotationTask;
-                syntaxTreeGlobalIndex++;
+                for (int adminIndex = 0; adminIndex < projectCount; adminIndex++)
+                    annotationSyntaxTrees[adminIndex] = await annotationSyntaxTreeTasks[adminIndex];
             }
         }
 
@@ -402,28 +550,29 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             .Distinct()
             .Select(t => MetadataReference.CreateFromFile(t));
 
-        var compilation = CSharpCompilation.Create("Kari", syntaxTrees, metadata, CompilationOptions);
+
+        var compilation = CSharpCompilation.Create("Kari", 
+            syntaxTreesArrays.SelectMany(t => t).Concat(annotationSyntaxTrees), metadata, CompilationOptions);
 
         var symbolCollectionTasks = new Task<INamedTypeSymbol[]>[projectCount];
         {
-            int currentSyntaxTreeStartIndex = 0;
-
             for (int projectIndex = 0; projectIndex < projectCount; projectIndex++)
             {
-                var syntaxTreeCount = syntaxTreeTasksLists[projectIndex].Count;
-                var trees = new ArraySegment<SyntaxTree>(syntaxTrees, currentSyntaxTreeStartIndex, syntaxTreeCount);
+                var trees = syntaxTreesArrays[projectIndex];
                 symbolCollectionTasks[projectIndex] = Task.Run(() => Collect(trees, compilation));
                 
-                static async Task<INamedTypeSymbol[]> Collect(
-                    ArraySegment<SyntaxTree> syntaxTrees, Compilation compilation)
+                static async Task<INamedTypeSymbol[]> Collect(SyntaxTree[] syntaxTrees, Compilation compilation)
                 {
                     var result = new HashSet<INamedTypeSymbol>();
                     foreach (var syntaxTree in syntaxTrees)
                     {
                         var root = await syntaxTree.GetRootAsync();
                         var model = compilation.GetSemanticModel(syntaxTree, ignoreAccessibility: true);
-                        foreach (var tds in root.DescendantNodes().OfType<TypeDeclarationSyntax>())
+                        foreach (var node in root.DescendantNodes())
                         {
+                            if (node is not TypeDeclarationSyntax tds)
+                                continue;
+
                             var s = model.GetDeclaredSymbol(tds);
                             result.Add(s);
                         }
@@ -435,18 +584,47 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             }
         }
 
-        var collectedSymbols = new INamedTypeSymbol[projectCount][];
-        for (int projectIndex = 0; projectIndex < projectCount; projectIndex++)
+        // var collectedSymbols = new INamedTypeSymbol[projectCount][];
+        // for (int projectIndex = 0; projectIndex < projectCount; projectIndex++)
+        //     collectedSymbols[projectIndex] = await symbolCollectionTasks[projectIndex];
+
+        
+        // Sets up Projects and PseudoProjects
         {
-            collectedSymbols[projectIndex] = await symbolCollectionTasks[projectIndex];
+            var projects = new ProjectEnvironment[projectCount];
+            for (int projectIndex = 0; projectIndex < projectCount; projectIndex++)
+            {
+                var data = new ProjectEnvironmentData(
+                        projectNames[projectIndex], 
+                        projectDirectories[projectIndex],
+                        // TODO: Take the namespace from project info maybe
+                        projectNames[projectIndex].Join(projectNamesInfo.GeneratedNamespaceSuffix)); 
+
+                // TODO: copying the data seems wasteful, should probably create these first, but then... idk.
+                projects[projectIndex] = new ProjectEnvironment(
+                    data, 
+                    syntaxTreesArrays[projectIndex],
+                    annotationSyntaxTrees[projectIndex],
+                    await symbolCollectionTasks[projectIndex]); 
+            }
+
+            
+
+            var rootProjectDataIndex = projects.IndexOfFirst(
+                p => String.Equals(p.Data.Name, projectNamesInfo.CommonPseudoProjectName, StringComparison.Ordinal));
+            ProjectEnvironmentData rootProjectData;
+            if (rootProjectDataIndex == -1)
+            {
+
+            }
+            {
+                rootProjectData = projects[rootProjectDataIndex];
+            }
         }
 
-        Symbols.Initialize(Compilation);
-        Compilation = Compilation;
-        RootNamespace = Compilation.TryGetNamespace(projectNamesInfo.RootNamespaceName);
 
-        if (RootNamespace is null)
-            Logger.LogError($"No such root namespace `{projectNamesInfo.RootNamespaceName}`");
+        this.Compilation = compilation;
+        Symbols.Initialize(compilation);
     }
 
     private void AddProject(in ProjectEnvironment project, string commonProjectNamespaceName)
@@ -535,7 +713,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         {
             RootPseudoProject = new ProjectEnvironmentData
             {
-                Directory              = projectNamesInfo.ProjectRootDirectory,
+                DirectoryFullPath              = projectNamesInfo.ProjectRootDirectory,
                 NamespaceName          = projectNamesInfo.RootNamespaceName,
                 GeneratedNamespaceName = generatedNamespaceName,
                 Logger                 = new NamedLogger("Root"),
@@ -848,7 +1026,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         SingleDirectoryOutputResult ProcessProject(ProjectEnvironmentData project)
         {
             // TODO: test if "" does not make it append /
-            var outputDirectory = Path.Join(project.Directory, generatedFolderRelativePath);
+            var outputDirectory = Path.Join(project.DirectoryFullPath, generatedFolderRelativePath);
             CodeFileCommon.InitializeGeneratedDirectory(outputDirectory);
             var fragments = CollectionsMarshal.AsSpan(project.CodeFragments);
             var fileNamesInfo = GeneratedFileNamesInfo.Create(fragments, Logger);
@@ -859,7 +1037,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     outputDirectory, fragments, fileNamesInfo.FileNames, CancellationToken));
         }
 
-        return AllProjects.Select(ProcessProject).ToArray();
+        return AllProjectData.Select(ProcessProject).ToArray();
     }
 
     /// <summary>
@@ -897,7 +1075,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     outputDirectory, fragments, fileNamesInfo.FileNames, CancellationToken));
         }
 
-        return AllProjects.Select(ProcessProject).ToArray();
+        return AllProjectData.Select(ProcessProject).ToArray();
     }
 
     public void DisposeOfAllCodeFragments()
@@ -938,7 +1116,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         var directory = Path.GetDirectoryName(singleOutputFileFullPath);
         Directory.CreateDirectory(directory);
 
-        foreach (var project in AllProjects)
+        foreach (var project in AllProjectData)
         {
             project.CodeFragments.Sort();
         }
@@ -946,7 +1124,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         return WriteArraySegmentsToCodeFileAsync(
             singleOutputFileFullPath, 
             WrapArraySegmentsWithHeaderAndFooter(
-                AllProjects.SelectMany(GetProjectArraySegmentsForSingleFileOutput)), 
+                AllProjectData.SelectMany(GetProjectArraySegmentsForSingleFileOutput)), 
             CancellationToken);
     }
 
@@ -955,7 +1133,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         Task ProcessProject(ProjectEnvironmentData project)
         {
             project.CodeFragments.Sort();
-            string outputFilePath = Path.Join(project.Directory, singleOutputFileRelativeToProjectDirectoryPath);
+            string outputFilePath = Path.Join(project.DirectoryFullPath, singleOutputFileRelativeToProjectDirectoryPath);
             Directory.CreateDirectory(Path.GetDirectoryName(outputFilePath));
             return WriteArraySegmentsToCodeFileAsync(
                 outputFilePath,
@@ -963,6 +1141,6 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 CancellationToken);
         }
 
-        return Task.WhenAll(AllProjects.Select(ProcessProject));
+        return Task.WhenAll(AllProjectData.Select(ProcessProject));
     }
 }

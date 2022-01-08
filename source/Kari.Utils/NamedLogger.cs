@@ -28,11 +28,11 @@ namespace Kari.Utils
         /// </summary>
         public static bool AnyLoggerHasErrors => _HasErrors;
         public bool AnyHasErrors => AnyLoggerHasErrors;
-        private readonly string _name;
+        public string Name { get; }
 
         public NamedLogger(string name)
         {
-            _name = name;
+            Name = name;
         }
 
         /// <summary>
@@ -61,7 +61,7 @@ namespace Kari.Utils
                 case LogType.Debug:       AnsiConsole.Foreground = Color.DarkRed;   break;
                 case LogType.Warning:     AnsiConsole.Foreground = Color.Yellow;    break;
             }
-            AnsiConsole.WriteLine(String.Concat("[", _name, "]: ", message));
+            AnsiConsole.WriteLine(String.Concat("[", Name, "]: ", message));
             _HasErrors = _HasErrors || (type == LogType.Error);
         }
 

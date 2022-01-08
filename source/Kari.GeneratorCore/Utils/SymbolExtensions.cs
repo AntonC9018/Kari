@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Xml;
 using Microsoft.CodeAnalysis;
@@ -163,12 +164,14 @@ namespace Kari.GeneratorCore.Workflow
             return String.Join(", ", ParamTypeNames(parameters));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int IndexOfFirst<T>(this IEnumerable<T> e, Predicate<T> predicate)
         {
             int i = 0;
             foreach (var el in e)
             {
-                if (predicate(el)) return i;
+                if (predicate(el)) 
+                    return i;
                 i++;
             }
             return -1;
