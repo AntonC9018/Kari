@@ -283,7 +283,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         // msbuild (detected by looking for slns/csproj), ??? maybe not allow this one ???
         // Allow override too
 
-        ProjectDatas projectDatas = GetProjectDirectoriesAndNames(projectNamesInfo, Logger, ref inputMode);
+        ProjectDatas projectDatas = GetProjects(projectNamesInfo, Logger, ref inputMode);
         // This is essentially error code error checking.
         if (Logger.AnyHasErrors)
             return;
@@ -297,10 +297,10 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         Assert(projectCount > 0);
 
 
-        static ProjectDatas GetProjectDirectoriesAndNames(
-            ProjectNamesInfo projectNamesInfo, NamedLogger logger, ref InputMode inputType)
+        static ProjectDatas GetProjects(
+            ProjectNamesInfo projectNamesInfo, NamedLogger logger, ref InputMode inputMode)
         {
-            switch (inputType)
+            switch (inputMode)
             {
                 case InputMode.Autodetect:
                 {
@@ -308,7 +308,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 
                     if (asmdefs.Length > 0)
                     {
-                        inputType = InputMode.UnityAsmdefs;
+                        inputMode = InputMode.UnityAsmdefs;
                         return GetProjectsUnity(projectNamesInfo, asmdefs, logger);
                     }
                     // If there are files at root, we assume it's a monolithic project
@@ -321,13 +321,13 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                         .Any())
                     {
                         logger.LogInfo("The project has root cs files, hence it will be considered monolithic.");
-                        inputType = InputMode.Monolithic;
+                        inputMode = InputMode.Monolithic;
                         return GetProjectsMonolithic(projectNamesInfo);
                     }
                     // 
                     else
                     {
-                        inputType = InputMode.ByDirectory;
+                        inputMode = InputMode.ByDirectory;
                         return GetProjectsByDirectory(projectNamesInfo);
                     }
                 }
@@ -349,7 +349,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 // But ideally, use the Rolsyn API's that parse their files properly (maybe).
                 case InputMode.MSBuild:
                 {
-                    inputType = InputMode.ByDirectory;
+                    inputMode = InputMode.ByDirectory;
                     return GetProjectsByDirectory(projectNamesInfo);
                 }
 
