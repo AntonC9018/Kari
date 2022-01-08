@@ -15,7 +15,6 @@
     using Microsoft.Build.Locator;
     using Microsoft.Build.Logging;
     using Microsoft.CodeAnalysis;
-    using Microsoft.CodeAnalysis.CSharp;
     using Microsoft.CodeAnalysis.MSBuild;
     using static System.Diagnostics.Debug;
 
@@ -70,7 +69,7 @@
             public string rootProjectName = "";
 
             [Option("The directories, sources files in which will be ignored. The generated source files are always ignored.")]
-            public List<string> ignoredNames = new List<string> { "Editor", "Tests" };
+            public List<string> ignoredNames = new List<string> { "obj", "bin" };
 
             [Option("The full directory or file paths which will be ignored when reading source files. The generated source files are always ignored.")]
             public List<string> ignoredFullPaths = new List<string> {};
@@ -96,6 +95,7 @@
             FailedEnvironmentInitialization = 7,
             FailedSymbolCollection = 8,
             FailedOutputGeneration = 9,
+            NoPlugins = 10,
         }
         
         private static async Task<int> Main(string[] args)
@@ -187,15 +187,16 @@
                 return NamedLogger.AnyLoggerHasErrors || token.IsCancellationRequested;
             }
 
-            var entireGenerationMeasurer = new Measurer(_logger);
-            entireGenerationMeasurer.Start("The entire generation process");
-
             string validOutputPath = "";
             
             // Option preprocessing and validation.
             {
                 if (_ops.pluginConfigFilePath is not null)
                     _ops.pluginConfigFilePath = Path.GetFullPath(_ops.pluginConfigFilePath);
+
+                // Since there is a default value, this may actually still not be a full path at this point.
+                if (!Path.IsPathRooted(_ops.inputFolder))
+                    _ops.inputFolder = Path.GetFullPath(_ops.inputFolder);
 
                 if (!parser.IsHelpSet)
                 {
@@ -207,12 +208,12 @@
                         }
                     }
 
-                    {
-                        var namespacePrefixRoot = string.IsNullOrEmpty(_ops.rootNamespace) 
-                            ? "" : _ops.rootNamespace + '.';
+                    // {
+                    //     var namespacePrefixRoot = string.IsNullOrEmpty(_ops.rootNamespace) 
+                    //         ? "" : _ops.rootNamespace + '.';
 
-                        _ops.commonProjectName = _ops.commonProjectName.Replace("$Root.", namespacePrefixRoot);
-                    }
+                    //     _ops.commonProjectName = _ops.commonProjectName.Replace("$Root.", namespacePrefixRoot);
+                    // }
 
                     if (_ops.pluginConfigFilePath is not null && !File.Exists(_ops.pluginConfigFilePath))
                     {
@@ -226,12 +227,12 @@
 
                     // Preprocess and validate the output path.
                     {
-                        validOutputPath = _ops.generatedName;
+                        validOutputPath = _ops.generatedName.WithNormalizedDirectorySeparators();
                         if (_ops.outputMode.HasFlag(MasterEnvironment.OutputMode.Central))
                         {
                             if (!Path.IsPathRooted(validOutputPath))
                             {
-                                validOutputPath = Path.Join(_ops.inputFolder, validOutputPath);
+                                validOutputPath = Path.GetFullPath(Path.Join(_ops.inputFolder, validOutputPath));
                             }
                             _ops.ignoredFullPaths.Add(validOutputPath);
                         }
@@ -388,6 +389,14 @@
                 }
             }
 
+            
+            var pluginPaths = Enumerable.Concat(GetDllPathsFromUserGivenPaths(), GetNugetPluginPaths());
+            if (!pluginPaths.Any())
+            {
+                _logger.LogError("Kari won't generate any code if it were given no plugins.");
+                return ExitCode.NoPlugins;
+            }
+
             // It is fine to not have master entirely globally initialized at this point.
             // The plugin loading only needs the administrator list.
             Task pluginsTask = _logger.MeasureAsync("Load Plugins", 
@@ -434,10 +443,11 @@
                     return ExitCode.Other;
             }
 
-            // The code is a bit less ugly now, but still pretty ugly.
+            var entireGenerationMeasurer = new Measurer(_logger);
+            entireGenerationMeasurer.Start("The entire generation process");
+
             // TODO: Is this profiling thing even useful? I mean, we already get the stats for the whole function. 
             var measurer = new Measurer(_logger);
-
             measurer.Start("Environment Initialization");
             {
                 var projectNamesInfo = new ProjectNamesInfo
@@ -588,28 +598,6 @@
                         _logger.LogError($"Invalid administrator name: {name}");
                     }
                 }
-            }
-        }
-
-        private async Task<(Workspace, Compilation)> OpenMSBuildProjectAsync(string projectPath, CancellationToken cancellationToken)
-        {
-            var workspace = MSBuildWorkspace.Create();
-            try
-            {
-                var logger = new ConsoleLogger(Microsoft.Build.Framework.LoggerVerbosity.Quiet);
-                var project = await workspace.OpenProjectAsync(projectPath, logger, null, cancellationToken);
-                var compilation = await project.GetCompilationAsync(cancellationToken);
-                if (compilation is null)
-                {
-                    _logger.LogError($"The input project {projectPath} does not support compilation.");
-                }
-
-                return (workspace, compilation);
-            }
-            catch
-            {
-                workspace.Dispose();
-                throw;
             }
         }
     }

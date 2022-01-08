@@ -82,7 +82,6 @@ namespace Kari.GeneratorCore.Workflow
     public record class ProjectEnvironment(
         ProjectEnvironmentData Data, 
         SyntaxTree[] SourceFilesSyntaxTrees,
-        SyntaxTree AnnotationsSyntaxTree,
         INamedTypeSymbol[] Types)
     {
         public NamedLogger Logger => Data.Logger;

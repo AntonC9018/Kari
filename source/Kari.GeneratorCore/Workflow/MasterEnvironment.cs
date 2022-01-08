@@ -272,7 +272,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// Returns a Task that resolves when all the source file have been loaded, 
     /// and all the essential symbols have been cached. 
     /// </summary>
-    public async Task InitializeCompilation(ProjectNamesInfo projectNamesInfo, InputMode inputType)
+    public async Task InitializeCompilation(ProjectNamesInfo projectNamesInfo, InputMode inputMode)
     {
         // 1. msbuild input (ignore for now)
         // 2. simple directory based input (generate just a single directory, at least for now)
@@ -283,7 +283,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         // msbuild (detected by looking for slns/csproj), ??? maybe not allow this one ???
         // Allow override too
 
-        ProjectDatas projectDatas = GetProjectDirectoriesAndNames(projectNamesInfo, Logger, ref inputType);
+        ProjectDatas projectDatas = GetProjectDirectoriesAndNames(projectNamesInfo, Logger, ref inputMode);
         // This is essentially error code error checking.
         if (Logger.AnyHasErrors)
             return;
@@ -410,22 +410,60 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     // TODO: somehow use readonly spans??
                     HashSet<string> starts = new HashSet<string>();
                     int rootDirLength = projectNamesInfo.ProjectRootDirectory.Length;
+
+                    static ReadOnlySpan<char> GetDirectoryPath(string fullDirectoryPath, int skipLength)
+                    {
+                        if (fullDirectoryPath.Length == skipLength)
+                            return "";
+                        
+                        return fullDirectoryPath.AsSpan((skipLength + 1), 
+                            fullDirectoryPath.Length - (skipLength + 1));
+                    }
+
+                    // We need to do 2 passes for this, otherwise it is order-dependent
                     for (int i = 0; i < projects.Length; i++)
                     {
-                        var project = projects[i];
-                        var relative = project.DirectoryFullPath.AsSpan(rootDirLength, project.DirectoryFullPath.Length - rootDirLength);
-                        var indexOfSlash = relative.LastIndexOf(Path.DirectorySeparatorChar);
+                        var relative = GetDirectoryPath(projects[i].DirectoryFullPath, rootDirLength);
+                        
+                        // If it's in the root directory, this will be empty.
+                        // Already reported this one above.
+                        if (relative == "")
+                            continue;
+
+                        bool found = !starts.Add(relative.ToString());
+                        if (found)
+                        {
+                            logger.LogError($"Nested project detected at {projects[i].DirectoryFullPath} (nested within NOT_IMPLEMENTED).");
+                        }
+                    }
+                    for (int i = 0; i < projects.Length; i++)
+                    {
+                        var relative = GetDirectoryPath(projects[i].DirectoryFullPath, rootDirLength);
                         
                         // If it's in the root directory, this will be empty.
                         // Already reported this above.
-                        if (indexOfSlash != -1)
+                        if (relative == "")
                             continue;
-                        
-                        var directoriesSubstring = relative.Slice(0, indexOfSlash).ToString();
-                        
-                        if (!starts.Add(directoriesSubstring))
+
+                        int currentStart = 0;
+                        bool found = false;
+                        do
                         {
-                            logger.LogError($"Nested project detected at {project.DirectoryFullPath} (nested within {directoriesSubstring}).");
+                            int indexOfSlash = relative.Slice(currentStart, relative.Length - currentStart)
+                                .IndexOf(Path.DirectorySeparatorChar);
+                            if (indexOfSlash == -1)
+                                break;
+                            
+                            var span = relative.Slice(0, indexOfSlash);
+                            if (starts.Contains(span.ToString()))
+                                found = true;
+                            currentStart = indexOfSlash + 1;
+                        }
+                        while (currentStart != -1);
+
+                        if (found)
+                        {
+                            logger.LogError($"Nested project detected at {projects[i].DirectoryFullPath} (nested within NOT_IMPLEMENTED).");
                         }
                     }
                 }
@@ -498,9 +536,10 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             {
                 var root = GetOrCreateRootProject();
                 var common =
-                    (projectNamesInfo.RootPseudoProjectName == projectNamesInfo.CommonPseudoProjectName)
-                        ? root
-                        : GetOrCreateCommonProject();
+                    (projectNamesInfo.RootPseudoProjectName == projectNamesInfo.CommonPseudoProjectName 
+                        && projectNamesInfo.CommonPseudoProjectName != "")
+                            ? root
+                            : GetOrCreateCommonProject();
 
                 return (common, root);
 
@@ -618,7 +657,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
 
         SyntaxTree[][] syntaxTreesArrays = new SyntaxTree[projectCount][];
-        SyntaxTree[] annotationSyntaxTrees = new SyntaxTree[projectCount];   
+        SyntaxTree[] annotationSyntaxTrees = new SyntaxTree[Administrators.Count];   
         {
             for (int syntaxTreeListIndex = 0; syntaxTreeListIndex < projectCount; syntaxTreeListIndex++)
             {
@@ -631,7 +670,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             }
 
             {
-                for (int adminIndex = 0; adminIndex < projectCount; adminIndex++)
+                for (int adminIndex = 0; adminIndex < Administrators.Count; adminIndex++)
                     annotationSyntaxTrees[adminIndex] = await annotationSyntaxTreeTasks[adminIndex];
             }
         }
@@ -693,8 +732,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 projects[projectIndex] = new ProjectEnvironment(
                     projectDatas.Projects[projectIndex],
                     syntaxTreesArrays[projectIndex],
-                    annotationSyntaxTrees[projectIndex],
-                    await symbolCollectionTasks[projectIndex]); 
+                    await symbolCollectionTasks[projectIndex]);
             }
 
             // Here we finally assign the things.
