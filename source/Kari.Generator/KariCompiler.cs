@@ -25,9 +25,9 @@
         {
             public string HelpMessage => "Use Kari to generate code for a C# project.";
 
-            [Option("Input path to MSBuild project file or to the directory containing source files.", 
+            [Option("Input path to the directory containing source files or projects.", 
                 IsPath = true)] 
-            public string input = ".";
+            public string inputFolder = ".";
 
             [Option("Plugins folder or paths to individual plugin dlls.",
                 // Can be sometimes inferred from input, aka NuGet's packages.config
@@ -40,7 +40,7 @@
             public string pluginConfigFilePath = null;
 
             [Option("The suffix added to the project namespace to generate the output namespace.")]
-            public string generatedNamespaceName = "Generated";
+            public string generatedNamespaceSuffix = "Generated";
 
             [Option("Conditional compiler symbols. Ignored if a project file is specified for input. (Currently ignored)")] 
             public string[] conditionalSymbols = null;
@@ -57,18 +57,29 @@
             [Option("Where to place the generated files.")]
             public MasterEnvironment.OutputMode outputMode = MasterEnvironment.OutputMode.NestedDirectory;
 
-            [Option("Whether to not scan for subprojects and always treat the entire codebase as a single root project. This implies the files will be generated in a single folder. With `singleFileOutput` set to true implies generating all code for the entire project in the single file.",
-                IsFlag = true)]
-            public bool monolithicProject = false;
+            [Option(@"`UnityAsmdefs` means it will search for asmdefs.
+`MSBuild` and `ByDirectory` are equivalent: they assume the given path is a root folder, where each subfolder is a separate project. Nested projects are currently not allowed.
+`Monolithic` there are source files to be analysed in the root folder, as well as in nested folders.
+`Autodetect` means that the input will be selected by looking at the file system's entries. If there are asmdefs, Unity will be guessed, if there are source files in root, Monolithic. At last, it will default to `ByDirectory` if none of the above were true.")]
+            public MasterEnvironment.InputMode inputMode = MasterEnvironment.InputMode.Autodetect;
 
-            [Option("The common project namespace name (use $Root to mean the root namespace). This is the project where all the attributes and other things common to all projects will end up. Ignored when `monolithicProject` is set to true.")]
-            public string commonNamespace = "$Root.Common";
+            [Option("The name of the common project. Corresponds either to the directory name (`ByDirectory`) or the project file name (`Unity`). Leave at default to let it autodetect.")]
+            public string commonProjectName = "";
 
-            [Option("The subnamespaces ignored for the particular project, but which are treated as a separate project, even if they sit in the same root namespace.")]
-            public HashSet<string> independentNamespaceParts = new HashSet<string> { "Editor", "Tests" };
+            [Option("The name of the root project. Corresponds either to the directory name (`ByDirectory`) or the project file name (`Unity`). By default, it would generate in the root directory. You can either pass a name of one of the projects that you want to be root here, or just give it the folder name relative to the root directory and it would generate into that folder.")]
+            public string rootProjectName = "";
 
-            [Option("Whether to treat 'Editor' folders as separate subprojects, even if they contain no asmdef. Only the editor folder that is at root of a folder with asmdef is regarded this way, nested Editor folders are ignored.")]
-            public bool treatEditorAsSubproject = true;
+            [Option("The directories, sources files in which will be ignored. The generated source files are always ignored.")]
+            public List<string> ignoredDirectoryNames = new List<string> { "Editor", "Tests" };
+
+            [Option("The full directory or file paths which will be ignored when reading source files. The generated source files are always ignored.")]
+            public List<string> ignoredFullPaths = new List<string> {};
+
+            [Option("Which projects to generate code for. (Unimplemented)")]
+            public HashSet<string> whitelistGeneratedCodeForProjects = null;
+
+            [Option("Which projects to read the code of. (Unimplemented)")]
+            public HashSet<string> whitelistAnalyzedProjects = null;
         }
         private KariOptions _ops;
         private NamedLogger _logger;
@@ -187,7 +198,7 @@
             var namespacePrefixRoot = string.IsNullOrEmpty(_ops.rootNamespace) 
                 ? "" : _ops.rootNamespace + '.';
 
-            _ops.commonNamespace = _ops.commonNamespace.Replace("$Root.", namespacePrefixRoot);
+            _ops.commonProjectName = _ops.commonProjectName.Replace("$Root.", namespacePrefixRoot);
         }
 
         private async Task<ExitCode> RunAsync(ArgumentParser parser, CancellationToken token)
@@ -224,26 +235,26 @@
                 {
                     _logger.LogError($"Plugin config file {_ops.pluginConfigFilePath} does not exist");
                 }
-                if (Directory.Exists(_ops.input))
+                if (Directory.Exists(_ops.inputFolder))
                 {
-                    projectDirectory = _ops.input;
+                    projectDirectory = _ops.inputFolder;
                     isProjectADirectory = true;
                 }
-                else if (File.Exists(_ops.input))
+                else if (File.Exists(_ops.inputFolder))
                 {
-                    projectDirectory = Path.GetDirectoryName(_ops.input);
+                    projectDirectory = Path.GetDirectoryName(_ops.inputFolder);
                     isProjectADirectory = false;
                 }
                 else
                 {
-                    _logger.LogError($"No such input file or directory {_ops.input}.");
+                    _logger.LogError($"No such input file or directory {_ops.inputFolder}.");
                 }
                 if (ShouldExit())
                     return ExitCode.BadOptionValue;
             }
             
             // This means no subprojects
-            if (!_ops.monolithicProject && _ops.commonNamespace == "")
+            if (!_ops.monolithicProject && _ops.commonProjectName == "")
             {
                 _logger.LogError($"The common project name cannot be empty. If you wish to treat the entire code base as one monolithic project, use that option instead.");
             }
@@ -251,7 +262,7 @@
             var projectNamesInfo = new ProjectNamesInfo
             {
                 RootNamespaceName = _ops.rootNamespace,
-                CommonProjectNamespaceName = _ops.monolithicProject ? null : _ops.commonNamespace,
+                CommonProjectNamespaceName = _ops.monolithicProject ? null : _ops.commonProjectName,
                 GeneratedNamespaceSuffix = "Generated", // TODO
                 ProjectRootDirectory = projectDirectory
             };
@@ -406,19 +417,19 @@
             if (isProjectADirectory)
             {
                 compileTask = _logger.MeasureAsync("Pseudo Compilation", () =>
-                    compilation = PseudoCompilation.CreateFromDirectory(_ops.input, _ops.generatedName, token));
+                    compilation = PseudoCompilation.CreateFromDirectory(_ops.inputFolder, _ops.generatedName, token));
             }
             else
             {
                 compileTask = _logger.MeasureAsync("MSBuild Compilation", () =>
-                    (workspace, compilation) = OpenMSBuildProjectAsync(_ops.input, token).Result);
+                    (workspace, compilation) = OpenMSBuildProjectAsync(_ops.inputFolder, token).Result);
             }
             
             string validOutputPath = _ops.generatedName;
             if (Path.IsPathRooted(validOutputPath))
             {
                 if ((_ops.outputMode & MasterEnvironment.OutputMode.Central) != 0)
-                    validOutputPath = Path.Join(_ops.input, validOutputPath);
+                    validOutputPath = Path.Join(_ops.inputFolder, validOutputPath);
                 else
                     _logger.LogError("When the output mode is set to central, the path cannot be absolute.");
             }
@@ -460,16 +471,13 @@
             var measurer = new Measurer(_logger);
 
             measurer.Start("Environment Initialization");
-                master.InitializeCompilation(ref compilation, projectNamesInfo.RootNamespaceName);
+                await master.InitializeCompilation(ref compilation, projectNamesInfo.RootNamespaceName);
             measurer.Stop();
 
             measurer.Start("Environment Initialization2");
             {
                 if (ShouldExit())
                     return ExitCode.FailedEnvironmentInitialization;
-                if (!_ops.monolithicProject) 
-                    master.FindProjects(projectNamesInfo, _ops.treatEditorAsSubproject);
-                master.InitializePseudoProjects(projectNamesInfo);
                 master.InitializeAdministrators();
 
                 if (ShouldExit())

@@ -68,8 +68,8 @@ namespace Kari.GeneratorCore.Workflow
         public static void Initialize<T>(ref T[] collectors) where T : ICollectSymbols, new()
         {
             var projects = MasterEnvironment.Instance.Projects;
-            collectors = new T[projects.Count]; 
-            for (int i = 0; i < projects.Count; i++)
+            collectors = new T[projects.Length]; 
+            for (int i = 0; i < projects.Length; i++)
             {
                 collectors[i] = new T();
             }
@@ -98,9 +98,9 @@ namespace Kari.GeneratorCore.Workflow
             {
                 var builder = CodeBuilder.Create();
 
-                generators[i].GenerateCode(projects[i], ref builder);
+                generators[i].GenerateCode(projects[i].Data, ref builder);
                 
-                projects[i].AddCodeFragment(new CodeFragment
+                projects[i].Data.AddCodeFragment(new CodeFragment
                 {
                     FileNameHint = fileName,
                     NameHint = typeof(T).Name,

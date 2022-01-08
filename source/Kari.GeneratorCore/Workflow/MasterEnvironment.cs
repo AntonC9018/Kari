@@ -137,7 +137,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     }
 
     [System.Flags]
-    public enum InputType
+    public enum InputMode
     {
         Autodetect,
         MSBuild,
@@ -199,7 +199,18 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// </summary>
     public ProjectEnvironment[] Projects { get; private set; }
 
-    public IEnumerable<ProjectEnvironmentData> AllProjectData => Projects.Select(p => p.Data);
+    public IEnumerable<ProjectEnvironmentData> AllProjectData {
+        get
+        {
+            foreach (var p in Projects)
+                yield return p.Data;
+            if (RootPseudoProjectIndex == -1)
+                yield return RootPseudoProject;
+            if (CommonPseudoProjectIndex == -1 && !ReferenceEquals(RootPseudoProject, CommonPseudoProject))
+                yield return CommonPseudoProject;
+        }   
+    }
+
     public readonly List<IAdministrator> Administrators = new List<IAdministrator>(8);
 
     /// <summary>
@@ -254,25 +265,15 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
     }
 
-    private record struct ProjectDataAndIndex
-    {
-        public ProjectEnvironmentData Data;
-        public int Index;
-    }
+    private record struct ProjectDataAndIndex(ProjectEnvironmentData Data, int Index);
+    private record struct ProjectDatas(ProjectEnvironmentData[] Projects, ProjectDataAndIndex Root, ProjectDataAndIndex Common);
 
-    private record struct ProjectDatas
-    {
-        public ProjectEnvironmentData[] Projects; 
-        public ProjectDataAndIndex Root;
-        public ProjectDataAndIndex Common;
-    }
-    
     /// <summary>
     /// Resolves projects given by `projectNamesInfo`, using InputType.
     /// Returns a Task that resolves when all the source file have been loaded, 
     /// and all the essential symbols have been cached. 
     /// </summary>
-    public async Task InitializeCompilation(ProjectNamesInfo projectNamesInfo, InputType inputType)
+    public async Task InitializeCompilation(ProjectNamesInfo projectNamesInfo, InputMode inputType)
     {
         // 1. msbuild input (ignore for now)
         // 2. simple directory based input (generate just a single directory, at least for now)
@@ -297,35 +298,18 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         Assert(projectCount > 0);
 
 
-        if (inputType == InputType.Monolithic)
-        {
-            Assert(projectCount == 1);
-            if (projectNamesInfo.RootPseudoProjectName != "")
-            {
-                var folder = Path.Join(projectDirectories[0], projectNamesInfo.RootPseudoProjectName);
-                // Ignore this folder.
-                Logger.Log($"The folder {folder} will be ignored, because it is the root pseudo project (output only).");
-            }
-            if (projectNamesInfo.CommonPseudoProjectName != "")
-            {
-                var folder = Path.Join(projectDirectories[0], projectNamesInfo.CommonPseudoProjectName);
-                // Ignore this folder.
-                Logger.Log($"The folder {folder} will be ignored, because it is the root pseudo project (output only).");
-            }
-        }
-
         static ProjectDatas GetProjectDirectoriesAndNames(
-            ProjectNamesInfo projectNamesInfo, NamedLogger logger, ref InputType inputType)
+            ProjectNamesInfo projectNamesInfo, NamedLogger logger, ref InputMode inputType)
         {
             switch (inputType)
             {
-                case InputType.Autodetect:
+                case InputMode.Autodetect:
                 {
                     var asmdefs = Directory.GetFiles(projectNamesInfo.ProjectRootDirectory, "*.asmdef", SearchOption.AllDirectories);
                 
                     if (asmdefs.Length > 0)
                     {
-                        inputType = InputType.UnityAsmdefs;
+                        inputType = InputMode.UnityAsmdefs;
                         return GetProjectsUnity(projectNamesInfo, asmdefs, logger);
                     }
                     // If there are files at root, we assume it's a monolithic project
@@ -338,35 +322,35 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                         .Any())
                     {
                         logger.LogInfo("The project has root cs files, hence it will be considered monolithic.");
-                        inputType = InputType.Monolithic;
+                        inputType = InputMode.Monolithic;
                         return GetProjectsMonolithic(projectNamesInfo);
                     }
                     // 
                     else
                     {
-                        inputType = InputType.ByDirectory;
+                        inputType = InputMode.ByDirectory;
                         return GetProjectsByDirectory(projectNamesInfo);
                     }
                 }
 
-                case InputType.UnityAsmdefs:
+                case InputMode.UnityAsmdefs:
                 {
                     var asmdefs = Directory.GetFiles(projectNamesInfo.ProjectRootDirectory, "*.asmdef", SearchOption.AllDirectories);
                     return GetProjectsUnity(projectNamesInfo, asmdefs, logger);
                 }
 
-                case InputType.Monolithic:
+                case InputMode.Monolithic:
                 {
                     // The input type specified explicitly, hence we don't inform here.
                     return GetProjectsMonolithic(projectNamesInfo);
                 }
 
-                case InputType.ByDirectory:
+                case InputMode.ByDirectory:
                 // For now don't do anything special for msbuild. 
                 // But ideally, use the Rolsyn API's that parse their files properly (maybe).
-                case InputType.MSBuild:
+                case InputMode.MSBuild:
                 {
-                    inputType = InputType.ByDirectory;
+                    inputType = InputMode.ByDirectory;
                     return GetProjectsByDirectory(projectNamesInfo);
                 }
 
@@ -386,7 +370,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
             static ProjectDatas GetProjectsUnity(ProjectNamesInfo projectNamesInfo, string[] asmdefs, NamedLogger logger)
             {
-                ProjectDatas result;
+                var result = new ProjectDatas();
 
                 var projects = asmdefs
                     .Select(asmdefFullPath => 
@@ -457,7 +441,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
             static ProjectDatas GetProjectsMonolithic(ProjectNamesInfo projectNamesInfo)
             {
-                ProjectDatas result;
+                var result = new ProjectDatas();
 
                 string projectName = "Root";
                 if (projectNamesInfo.RootPseudoProjectName != "")
@@ -469,12 +453,12 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     projectNamesInfo.GeneratedNamespaceSuffix);
 
                 result.Projects = new[] { project };
-                result.Root = new() { Data = project, Index = 0 };
+                result.Root = new (project, 0);
                 
                 if (projectNamesInfo.CommonPseudoProjectName == "" ||
                     projectNamesInfo.CommonPseudoProjectName == projectName)
                 {
-                    result.Common = new() { Data = project, Index = 0 };
+                    result.Common = new (project, 0);
                 }
                 else
                 {
@@ -484,7 +468,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                         directory,
                         projectNamesInfo.GeneratedNamespaceSuffix);
                         
-                    result.Common = new() { Data = commonProject, Index = -1 };
+                    result.Common = new (commonProject, -1);
 
                     // The common project is an output-only project.
                     // projectNamesInfo.IgnoredFullPaths.Add(directory);
@@ -495,7 +479,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
             static ProjectDatas GetProjectsByDirectory(ProjectNamesInfo projectNamesInfo)
             {
-                ProjectDatas result;
+                var result = new ProjectDatas();
 
                 var projects = Directory.EnumerateDirectories(projectNamesInfo.ProjectRootDirectory, "*", SearchOption.TopDirectoryOnly)
                     .Select(directory =>
@@ -529,7 +513,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                             "Root",
                             projectNamesInfo.ProjectRootDirectory,
                             projectNamesInfo.GeneratedNamespaceSuffix);
-                        return new() { Data = rootProject, Index = -1 };
+                        return new (rootProject,-1);
                     }
                     int indexOfRootProject = projects.IndexOfFirst(p => p.Name == projectNamesInfo.RootPseudoProjectName);
                     if (indexOfRootProject == -1)
@@ -539,10 +523,10 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                             Path.Join(projectNamesInfo.ProjectRootDirectory, projectNamesInfo.RootPseudoProjectName),
                             projectNamesInfo.GeneratedNamespaceSuffix);
 
-                        return new() { Data = rootProject, Index = -1 };
+                        return new (rootProject, -1);
                     }
                     // Found the project within the project list.
-                    return new() { Data = projects[indexOfRootProject], Index = indexOfRootProject };
+                    return new (projects[indexOfRootProject], indexOfRootProject);
                 }
 
                 ProjectDataAndIndex GetOrCreateCommonProject()
@@ -561,10 +545,10 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                             Path.Join(projectNamesInfo.ProjectRootDirectory, projectNamesInfo.RootPseudoProjectName),
                             projectNamesInfo.GeneratedNamespaceSuffix);
 
-                        return new() { Data = rootProject, Index = -1 };
+                        return new (rootProject, -1);
                     }
                     // Found the project within the project list.
-                    return new() { Data = projects[indexOfRootProject], Index = indexOfRootProject };
+                    return new (projects[indexOfRootProject], indexOfRootProject);
                 }
             }
         }
@@ -586,7 +570,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             {
                 var listOfTasks = new List<Task<SyntaxTree>>();
                 syntaxTreeTasksLists[i] = listOfTasks;
-                var directoryPath = projectDirectories[i];
+                var directoryPath = projectDatas.Projects[i].DirectoryFullPath;
                 var pathPrefixLength = directoryPath.Length + 1;
 
                 foreach (var filePath in Directory.EnumerateFiles(directoryPath, "*.cs", SearchOption.AllDirectories))
@@ -707,141 +691,21 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             var projects = new ProjectEnvironment[projectCount];
             for (int projectIndex = 0; projectIndex < projectCount; projectIndex++)
             {
-                var data = new ProjectEnvironmentData(
-                        projectNames[projectIndex], 
-                        projectDirectories[projectIndex],
-                        // TODO: Take the namespace from project info maybe
-                        projectNames[projectIndex].Join(projectNamesInfo.GeneratedNamespaceSuffix)); 
-
-                // TODO: copying the data seems wasteful, should probably create these first, but then... idk.
                 projects[projectIndex] = new ProjectEnvironment(
-                    data, 
+                    projectDatas.Projects[projectIndex],
                     syntaxTreesArrays[projectIndex],
                     annotationSyntaxTrees[projectIndex],
                     await symbolCollectionTasks[projectIndex]); 
             }
 
-            
-
-            var rootProjectDataIndex = projects.IndexOfFirst(
-                p => String.Equals(p.Data.Name, projectNamesInfo.CommonPseudoProjectName, StringComparison.Ordinal));
-            ProjectEnvironmentData rootProjectData;
-            if (rootProjectDataIndex == -1)
-            {
-
-            }
-            {
-                rootProjectData = projects[rootProjectDataIndex];
-            }
+            // Here we finally assign the things.
+            this.Projects = projects;
+            (this.RootPseudoProject, this.RootPseudoProjectIndex) = projectDatas.Root;
+            (this.CommonPseudoProject, this.CommonPseudoProjectIndex) = projectDatas.Common;
         }
-
 
         this.Compilation = compilation;
         Symbols.Initialize(compilation);
-    }
-
-    private void AddProject(in ProjectEnvironment project, string commonProjectNamespaceName)
-    {
-        Logger.Log($"Adding project `{project.NamespaceName}`");
-        Projects.Add(project);
-        if (project.NamespaceName == commonProjectNamespaceName)
-        {
-            Logger.Log($"Found the common project `{project.NamespaceName}`");
-            CommonPseudoProject = project;
-        }
-    }
-
-    public OutputInfo[] FindProjects(in ProjectNamesInfo projectNamesInfo, bool treatEditorAsSubproject)
-    {
-        // Assert(RootWriter is not null, "The file writer must have been set by now.");
-
-        Logger.Log($"Searching for asmdef's in {projectNamesInfo.ProjectRootDirectory}");
-
-        // find asmdef's
-        foreach (var asmdef in Directory.EnumerateFiles(projectNamesInfo.ProjectRootDirectory, "*.asmdef", SearchOption.AllDirectories))
-        {
-            Logger.Log($"Found an asmdef file at {asmdef}");
-            
-            var projectDirectory = Path.GetDirectoryName(asmdef);
-            var fileName = Path.GetFileNameWithoutExtension(asmdef);
-
-            // We in fact have a bunch more info here that we could use.
-            var asmdefJson = JObject.Parse(File.ReadAllText(asmdef));
-
-            string namespaceName;
-            if (asmdefJson.TryGetValue("rootNamespace", out JToken nameToken))
-            {
-                namespaceName = nameToken.Value<string>();
-                if (namespaceName is null)
-                {
-                    Logger.LogError($"The namespace defined by {asmdef} must be a string.");
-                    continue;
-                }
-            }
-            else
-            {
-                // Assume such naming convention.
-                namespaceName = fileName;
-            }
-
-            // Even the editor project will have this namespace, because of the convention.
-            INamespaceSymbol projectNamespace = Compilation.TryGetNamespace(namespaceName);
-
-            // Check if any script files exist in the root
-            if (Directory.EnumerateFiles(projectDirectory, "*.cs", SearchOption.TopDirectoryOnly).Any()
-                // Check if any folders exist besides the Editor folder
-                || Directory.EnumerateDirectories(projectDirectory).Any(path => !path.EndsWith("Editor")))
-            {
-                var environment = new ProjectEnvironment
-                {
-                    Directory               = projectDirectory,
-                    NamespaceName           = namespaceName,
-                    GeneratedNamespaceName  = namespaceName.Join(projectNamesInfo.GeneratedNamespaceSuffix),
-                    RootNamespace           = projectNamespace,
-                    Logger                  = new NamedLogger(RootNamespace.Name),
-                };
-                // TODO: Assume no duplicates for now, but this will have to be error-checked.
-                AddProject(environment, projectNamesInfo.CommonProjectNamespaceName);
-            }
-        }
-    }
-
-    public void InitializePseudoProjects(in ProjectNamesInfo projectNamesInfo)
-    {
-        var generatedNamespaceName = projectNamesInfo.RootNamespaceName.Join(projectNamesInfo.GeneratedNamespaceSuffix);
-        if (Projects.Count == 0)
-        {
-            var rootProject = new ProjectEnvironment
-            {
-                Directory              = projectNamesInfo.ProjectRootDirectory,
-                NamespaceName          = projectNamesInfo.RootNamespaceName,
-                GeneratedNamespaceName = generatedNamespaceName,
-                RootNamespace          = RootNamespace,
-                Logger                 = new NamedLogger(RootNamespace.Name),
-            };
-            AddProject(rootProject, projectNamesInfo.CommonProjectNamespaceName);
-            RootPseudoProject = rootProject;
-        }
-        else
-        {
-            RootPseudoProject = new ProjectEnvironmentData
-            {
-                DirectoryFullPath              = projectNamesInfo.ProjectRootDirectory,
-                NamespaceName          = projectNamesInfo.RootNamespaceName,
-                GeneratedNamespaceName = generatedNamespaceName,
-                Logger                 = new NamedLogger("Root"),
-            };
-        }
-
-        if (CommonPseudoProject is null) 
-        {
-            if (projectNamesInfo.CommonProjectNamespaceName is not null)
-            {
-                Logger.LogWarning($"No common project `{projectNamesInfo.CommonProjectNamespaceName}`. The common files will be generated into root.");
-            }
-
-            CommonPseudoProject = RootPseudoProject;
-        }
     }
 
     public void InitializeAdministrators()
@@ -854,11 +718,6 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
     public async Task CollectSymbols(HashSet<string> independentNamespaceNames)
     {
-        var cachingTasks = Projects.Select(project => project.Collect(independentNamespaceNames));
-        await Task.WhenAll(cachingTasks);
-        if (CancellationToken.IsCancellationRequested)
-            return;
-
         var managerTasks = Administrators.Select(admin => admin.Collect());
         await Task.WhenAll(managerTasks);
         if (CancellationToken.IsCancellationRequested)
@@ -1160,24 +1019,9 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// </summary>
     public SingleDirectoryOutputResult[] WriteCodeFiles_CentralDirectory(string generatedFolderFullPath)
     {
-        // Make sure the project names are unique.
-        // This has to be enforced elsewhere tho, but for now do it here.
-        #if DEBUG
-        {
-            var projectNames = new HashSet<string>();
-            var duplicateNames = new List<string>();
-            foreach (var p in Projects.Append(RootPseudoProject))
-            {
-                if (!projectNames.Add(p.NamespaceName))
-                    duplicateNames.Add(p.NamespaceName);
-            }
-            Debug.Assert(duplicateNames.Count > 0, "There were projects with duplicate names: " + String.Join(", ", duplicateNames));
-        }
-        #endif
-
         SingleDirectoryOutputResult ProcessProject(ProjectEnvironmentData project)
         {
-            var outputDirectory = Path.Join(generatedFolderFullPath, project.NamespaceName);
+            var outputDirectory = Path.Join(generatedFolderFullPath, project.Name);
             CodeFileCommon.InitializeGeneratedDirectory(outputDirectory);
             var fragments = CollectionsMarshal.AsSpan(project.CodeFragments);
             var fileNamesInfo = GeneratedFileNamesInfo.Create(fragments, Logger);
@@ -1193,15 +1037,14 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
     public void DisposeOfAllCodeFragments()
     {
-        foreach (var p in Projects)
+        foreach (var p in AllProjectData)
             p.DisposeOfCodeFragments();
-        RootPseudoProject.DisposeOfCodeFragments();
     }
 
     internal static IEnumerable<ArraySegment<byte>> GetProjectArraySegmentsForSingleFileOutput(ProjectEnvironmentData project)
     {
         yield return CodeFileCommon.SlashesSpaceBytes;
-        yield return Encoding.UTF8.GetBytes(project.NamespaceName);
+        yield return Encoding.UTF8.GetBytes(project.Name);
         yield return CodeFileCommon.NewLineBytes;
         yield return CodeFileCommon.NewLineBytes;
 
