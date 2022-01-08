@@ -254,11 +254,18 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
     }
 
-    private readonly record struct ProjectDataAndIndex(ProjectEnvironmentData Data, int Index);
-    private readonly record struct ProjectDatas(
-        ProjectEnvironmentData[] Projects, 
-        ProjectDataAndIndex Root, 
-        ProjectDataAndIndex Common);
+    private record struct ProjectDataAndIndex
+    {
+        public ProjectEnvironmentData Data;
+        public int Index;
+    }
+
+    private record struct ProjectDatas
+    {
+        public ProjectEnvironmentData[] Projects; 
+        public ProjectDataAndIndex Root;
+        public ProjectDataAndIndex Common;
+    }
     
     /// <summary>
     /// Resolves projects given by `projectNamesInfo`, using InputType.
@@ -289,39 +296,6 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         // We keep at least the given directory in any case.
         Assert(projectCount > 0);
 
-        
-        {
-            for (int projectIndex = 0; projectIndex < projectCount; projectIndex++)
-            {
-                var data = new ProjectEnvironmentData(
-                    projectNames[projectIndex],
-                    projectDirectories[projectIndex],
-                    // TODO: Take the namespace from project info maybe
-                    projectNames[projectIndex].Join(projectNamesInfo.GeneratedNamespaceSuffix)); 
-            }
-
-            // Monolithic = Create if not default name. 
-            // Unity/MSBuild/ByDirectory = If not default name, search, then create if not found. Create if default name.
-            int rootProjectDataIndex;
-            ProjectEnvironmentData rootProjectData;
-            int commonProjectDataIndex;
-            ProjectEnvironmentData commonProjectData;
-
-            switch (inputType)
-            {
-                case InputType.Monolithic:
-                {
-                    if (projectNamesInfo.RootPseudoProjectName != "" 
-                        && projectNamesInfo.RootPseudoProjectName != projects[0].Data.Name)
-                    {
-                        rootProjectDataIndex = -1;
-                        rootProjectData = new ProjectEnvironmentData(
-                            projectNamesInfo.RootPseudoProjectName,
-
-                    }
-                }
-            }
-        }
 
         if (inputType == InputType.Monolithic)
         {
@@ -340,7 +314,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             }
         }
 
-        static DirectoriesAndNames GetProjectDirectoriesAndNames(
+        static ProjectDatas GetProjectDirectoriesAndNames(
             ProjectNamesInfo projectNamesInfo, NamedLogger logger, ref InputType inputType)
         {
             switch (inputType)
@@ -352,7 +326,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     if (asmdefs.Length > 0)
                     {
                         inputType = InputType.UnityAsmdefs;
-                        return GetDirectoriesAndNamesUnity(asmdefs, logger);
+                        return GetProjectsUnity(projectNamesInfo, asmdefs, logger);
                     }
                     // If there are files at root, we assume it's a monolithic project
                     else if (Directory.EnumerateFiles(projectNamesInfo.ProjectRootDirectory, "*.cs", SearchOption.TopDirectoryOnly)
@@ -365,26 +339,26 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     {
                         logger.LogInfo("The project has root cs files, hence it will be considered monolithic.");
                         inputType = InputType.Monolithic;
-                        return GetDirectoriesAndNamesMonolithic(projectNamesInfo.ProjectRootDirectory);
+                        return GetProjectsMonolithic(projectNamesInfo);
                     }
                     // 
                     else
                     {
                         inputType = InputType.ByDirectory;
-                        return GetDirectoriesSplitByDirectory(projectNamesInfo.ProjectRootDirectory);
+                        return GetProjectsByDirectory(projectNamesInfo);
                     }
                 }
 
                 case InputType.UnityAsmdefs:
                 {
                     var asmdefs = Directory.GetFiles(projectNamesInfo.ProjectRootDirectory, "*.asmdef", SearchOption.AllDirectories);
-                    return GetDirectoriesAndNamesUnity(asmdefs, logger);
+                    return GetProjectsUnity(projectNamesInfo, asmdefs, logger);
                 }
 
                 case InputType.Monolithic:
                 {
                     // The input type specified explicitly, hence we don't inform here.
-                    return GetDirectoriesAndNamesMonolithic(projectNamesInfo.ProjectRootDirectory);
+                    return GetProjectsMonolithic(projectNamesInfo);
                 }
 
                 case InputType.ByDirectory:
@@ -393,7 +367,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 case InputType.MSBuild:
                 {
                     inputType = InputType.ByDirectory;
-                    return GetDirectoriesSplitByDirectory(projectNamesInfo.ProjectRootDirectory);
+                    return GetProjectsByDirectory(projectNamesInfo);
                 }
 
                 default:
@@ -410,49 +384,188 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 return directoryFullPath.Slice(a + 1, directoryFullPath.Length - a);
             }
 
-            static string[] DeduceProjectNamesDefault(string[] directoryFullPaths)
+            static ProjectDatas GetProjectsUnity(ProjectNamesInfo projectNamesInfo, string[] asmdefs, NamedLogger logger)
             {
-                var result = new string[directoryFullPaths.Length];
-                for (int i = 0; i < result.Length; i++)
-                    result[i] = DeduceProjectNameFromDirectory(directoryFullPaths[i]).ToString();
+                ProjectDatas result;
+
+                var projects = asmdefs
+                    .Select(asmdefFullPath => 
+                    {
+                        var directory = Path.GetDirectoryName(asmdefFullPath);
+
+                        // TODO: Can it have a project name field?? or is it encoded in the file name??
+                        // Not sure if needed
+                        // var asmdefJson = Object.Parse(File.ReadAllText(asmdef));
+                        // So just get the name of the file ??????
+                        var name = Path.GetFileNameWithoutExtension(asmdefFullPath);
+
+                        return CreateProjectWithDefaultNamespace(name, directory, projectNamesInfo.GeneratedNamespaceSuffix); 
+                    })
+                    .ToArray();
+
+                result.Projects = projects;
+                (result.Common, result.Root) = FindOrCreateCommonAndRootProjects(projectNamesInfo, projects);
+                
+                // Error checking
+                // TODO: 
+                // Make this optional, controlled with a flag.
+                // Reasoning: this is enforced by unity already.
+                {
+                    foreach (var p in projects)
+                    {
+                        if (p.DirectoryFullPath == projectNamesInfo.ProjectRootDirectory)
+                        {
+                            logger.LogError($"The asmdef at {p.DirectoryFullPath} is in the root directory, which is not allowed.");
+                        }
+                    }
+
+                    // TODO: Nesting asmdefs is never allowed
+                    // if (directories.Distinct().Count() == directories.Length)
+                    // {
+                    //     logger.LogError("Duplicate project folders were detected. Cannot continue.");
+                    // }
+                    // TODO: somehow use readonly spans??
+                    HashSet<string> starts = new HashSet<string>();
+                    int rootDirLength = projectNamesInfo.ProjectRootDirectory.Length;
+                    for (int i = 0; i < projects.Length; i++)
+                    {
+                        var project = projects[i];
+                        var relative = project.DirectoryFullPath.AsSpan(rootDirLength, project.DirectoryFullPath.Length - rootDirLength);
+                        var indexOfSlash = relative.LastIndexOf(Path.DirectorySeparatorChar);
+                        
+                        // If it's in the root directory, this will be empty.
+                        // Already reported this above.
+                        if (indexOfSlash != -1)
+                            continue;
+                        
+                        var directoriesSubstring = relative.Slice(0, indexOfSlash).ToString();
+                        
+                        if (!starts.Add(directoriesSubstring))
+                        {
+                            logger.LogError($"Nested project detected at {project.DirectoryFullPath} (nested within {directoriesSubstring}).");
+                        }
+                    }
+                }
+
                 return result;
             }
 
-            static DirectoriesAndNames GetDirectoriesAndNamesUnity(string[] asmdefs, NamedLogger logger)
+            static ProjectEnvironmentData CreateProjectWithDefaultNamespace(string name, string path, string suffix)
             {
-                var directories = new string[asmdefs.Length];
-                for (int i = 0; i < asmdefs.Length; i++)
-                    directories[i] = Path.GetDirectoryName(asmdefs[i]);
+                return new ProjectEnvironmentData(name, path, name.Join(suffix));
+            }
+
+            static ProjectDatas GetProjectsMonolithic(ProjectNamesInfo projectNamesInfo)
+            {
+                ProjectDatas result;
+
+                string projectName = "Root";
+                if (projectNamesInfo.RootPseudoProjectName != "")
+                    projectName = projectNamesInfo.RootPseudoProjectName;
+
+                var project = CreateProjectWithDefaultNamespace(
+                    projectName, 
+                    projectNamesInfo.ProjectRootDirectory, 
+                    projectNamesInfo.GeneratedNamespaceSuffix);
+
+                result.Projects = new[] { project };
+                result.Root = new() { Data = project, Index = 0 };
                 
-                // Nesting asmdefs is never allowed
-                if (directories.Distinct().Count() == directories.Length)
+                if (projectNamesInfo.CommonPseudoProjectName == "" ||
+                    projectNamesInfo.CommonPseudoProjectName == projectName)
                 {
-                    logger.LogError("Duplicate project folders were detected. Cannot continue.");
+                    result.Common = new() { Data = project, Index = 0 };
+                }
+                else
+                {
+                    var directory = Path.Join(projectNamesInfo.ProjectRootDirectory, projectNamesInfo.CommonPseudoProjectName);
+                    var commonProject = CreateProjectWithDefaultNamespace(
+                        projectNamesInfo.CommonPseudoProjectName,
+                        directory,
+                        projectNamesInfo.GeneratedNamespaceSuffix);
+                        
+                    result.Common = new() { Data = commonProject, Index = -1 };
+
+                    // The common project is an output-only project.
+                    // projectNamesInfo.IgnoredFullPaths.Add(directory);
                 }
 
-                string[] names = new string[asmdefs.Length];
-                for (int i = 0; i < names.Length; i++)
-                {
-                    // TODO: Can it have a project name field?? or is it encoded in the file name??
-                    // Not sure if needed
-                    // var asmdefJson = Object.Parse(File.ReadAllText(asmdef));
+                return result;
+            }
 
-                    // So just get the name of the file ??????
-                    names[i] = Path.GetFileNameWithoutExtension(asmdefs[i]);
+            static ProjectDatas GetProjectsByDirectory(ProjectNamesInfo projectNamesInfo)
+            {
+                ProjectDatas result;
+
+                var projects = Directory.EnumerateDirectories(projectNamesInfo.ProjectRootDirectory, "*", SearchOption.TopDirectoryOnly)
+                    .Select(directory =>
+                    {
+                        var projectName = DeduceProjectNameFromDirectory(directory).ToString();
+                        return CreateProjectWithDefaultNamespace(projectName, directory, projectNamesInfo.GeneratedNamespaceSuffix);
+                    })
+                    .ToArray();
+
+                result.Projects = projects;
+                (result.Common, result.Root) = FindOrCreateCommonAndRootProjects(projectNamesInfo, projects);
+                return result;
+            }
+
+            static (ProjectDataAndIndex Common, ProjectDataAndIndex Root) FindOrCreateCommonAndRootProjects(
+                    ProjectNamesInfo projectNamesInfo, ProjectEnvironmentData[] projects)
+            {
+                var root = GetOrCreateRootProject();
+                var common =
+                    (projectNamesInfo.RootPseudoProjectName == projectNamesInfo.CommonPseudoProjectName)
+                        ? root
+                        : GetOrCreateCommonProject();
+
+                return (common, root);
+
+                ProjectDataAndIndex GetOrCreateRootProject()
+                {
+                    if (projectNamesInfo.RootPseudoProjectName == "")
+                    {
+                        var rootProject = CreateProjectWithDefaultNamespace(
+                            "Root",
+                            projectNamesInfo.ProjectRootDirectory,
+                            projectNamesInfo.GeneratedNamespaceSuffix);
+                        return new() { Data = rootProject, Index = -1 };
+                    }
+                    int indexOfRootProject = projects.IndexOfFirst(p => p.Name == projectNamesInfo.RootPseudoProjectName);
+                    if (indexOfRootProject == -1)
+                    {
+                        var rootProject = CreateProjectWithDefaultNamespace(
+                            projectNamesInfo.RootPseudoProjectName,
+                            Path.Join(projectNamesInfo.ProjectRootDirectory, projectNamesInfo.RootPseudoProjectName),
+                            projectNamesInfo.GeneratedNamespaceSuffix);
+
+                        return new() { Data = rootProject, Index = -1 };
+                    }
+                    // Found the project within the project list.
+                    return new() { Data = projects[indexOfRootProject], Index = indexOfRootProject };
                 }
 
-                return new DirectoriesAndNames(directories, names);
-            }
+                ProjectDataAndIndex GetOrCreateCommonProject()
+                {
+                    string searchedName = projectNamesInfo.RootPseudoProjectName;
+                    if (searchedName == "")
+                    {
+                        // if it already exists it will be a project already, so we could find it perhaps.
+                        searchedName = "Common";
+                    }
+                    int indexOfRootProject = projects.IndexOfFirst(p => p.Name == projectNamesInfo.RootPseudoProjectName);
+                    if (indexOfRootProject == -1)
+                    {
+                        var rootProject = CreateProjectWithDefaultNamespace(
+                            projectNamesInfo.RootPseudoProjectName,
+                            Path.Join(projectNamesInfo.ProjectRootDirectory, projectNamesInfo.RootPseudoProjectName),
+                            projectNamesInfo.GeneratedNamespaceSuffix);
 
-            static DirectoriesAndNames GetDirectoriesAndNamesMonolithic(string projectRootDirectory)
-            {
-                return new DirectoriesAndNames(new[] { projectRootDirectory }, new[] { "Root" });
-            }
-
-            static DirectoriesAndNames GetDirectoriesSplitByDirectory(string projectRootDirectory)
-            {
-                var dirs = Directory.GetDirectories(projectRootDirectory, "*", SearchOption.TopDirectoryOnly);
-                return new DirectoriesAndNames(dirs, DeduceProjectNamesDefault(dirs));
+                        return new() { Data = rootProject, Index = -1 };
+                    }
+                    // Found the project within the project list.
+                    return new() { Data = projects[indexOfRootProject], Index = indexOfRootProject };
+                }
             }
         }
         
