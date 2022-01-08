@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Kari.Arguments;
 using Kari.GeneratorCore;
@@ -12,7 +13,7 @@ namespace Kari.Plugins.UnityHelpers
     /// </summary>
     public class UnityHelpersAdministrator : IAdministrator
     {
-        [Option("The namespace of the engine-dependent common project")]
+        [Option("The name of the engine-dependent common project.")]
         string engineCommon = "EngineCommon";
 
         public ProjectEnvironmentData _engineCommon;
@@ -20,7 +21,7 @@ namespace Kari.Plugins.UnityHelpers
 
         public void Initialize() 
         {
-            _engineCommon = MasterEnvironment.Instance.Projects.Find(p => p.NamespaceName == engineCommon);
+            _engineCommon = MasterEnvironment.Instance.AllProjectDatas.FirstOrDefault(p => p.Name == engineCommon);
             if (_engineCommon is null) 
                 _logger.LogError($"The engine common project `{engineCommon}` could not be found");
         }

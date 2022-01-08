@@ -24,7 +24,6 @@ namespace Kari.GeneratorCore.Workflow;
 // Class because we use it in an async context, and those do not work with the in parameter.
 public record class ProjectNamesInfo
 {
-    public string CommonProjectNamespaceName { get; init; } = "Common";
     public string GeneratedNamespaceSuffix { get; init; } = "Generated";
     public string RootNamespaceName { get; init; } = "";
     public string ProjectRootDirectory { get; init; } = "";
@@ -199,7 +198,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// </summary>
     public ProjectEnvironment[] Projects { get; private set; }
 
-    public IEnumerable<ProjectEnvironmentData> AllProjectData {
+    public IEnumerable<ProjectEnvironmentData> AllProjectDatas {
         get
         {
             foreach (var p in Projects)
@@ -513,7 +512,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                             "Root",
                             projectNamesInfo.ProjectRootDirectory,
                             projectNamesInfo.GeneratedNamespaceSuffix);
-                        return new (rootProject,-1);
+                        return new (rootProject, -1);
                     }
                     int indexOfRootProject = projects.IndexOfFirst(p => p.Name == projectNamesInfo.RootPseudoProjectName);
                     if (indexOfRootProject == -1)
@@ -531,18 +530,18 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
                 ProjectDataAndIndex GetOrCreateCommonProject()
                 {
-                    string searchedName = projectNamesInfo.RootPseudoProjectName;
+                    string searchedName = projectNamesInfo.CommonPseudoProjectName;
                     if (searchedName == "")
                     {
                         // if it already exists it will be a project already, so we could find it perhaps.
                         searchedName = "Common";
                     }
-                    int indexOfRootProject = projects.IndexOfFirst(p => p.Name == projectNamesInfo.RootPseudoProjectName);
+                    int indexOfRootProject = projects.IndexOfFirst(p => p.Name == searchedName);
                     if (indexOfRootProject == -1)
                     {
                         var rootProject = CreateProjectWithDefaultNamespace(
-                            projectNamesInfo.RootPseudoProjectName,
-                            Path.Join(projectNamesInfo.ProjectRootDirectory, projectNamesInfo.RootPseudoProjectName),
+                            searchedName,
+                            Path.Join(projectNamesInfo.ProjectRootDirectory, searchedName),
                             projectNamesInfo.GeneratedNamespaceSuffix);
 
                         return new (rootProject, -1);
@@ -716,7 +715,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         }
     }
 
-    public async Task CollectSymbols(HashSet<string> independentNamespaceNames)
+    public async Task CollectSymbols()
     {
         var managerTasks = Administrators.Select(admin => admin.Collect());
         await Task.WhenAll(managerTasks);
@@ -1009,7 +1008,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     outputDirectory, fragments, fileNamesInfo.FileNames, CancellationToken));
         }
 
-        return AllProjectData.Select(ProcessProject).ToArray();
+        return AllProjectDatas.Select(ProcessProject).ToArray();
     }
 
     /// <summary>
@@ -1032,12 +1031,12 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     outputDirectory, fragments, fileNamesInfo.FileNames, CancellationToken));
         }
 
-        return AllProjectData.Select(ProcessProject).ToArray();
+        return AllProjectDatas.Select(ProcessProject).ToArray();
     }
 
     public void DisposeOfAllCodeFragments()
     {
-        foreach (var p in AllProjectData)
+        foreach (var p in AllProjectDatas)
             p.DisposeOfCodeFragments();
     }
 
@@ -1072,7 +1071,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         var directory = Path.GetDirectoryName(singleOutputFileFullPath);
         Directory.CreateDirectory(directory);
 
-        foreach (var project in AllProjectData)
+        foreach (var project in AllProjectDatas)
         {
             project.CodeFragments.Sort();
         }
@@ -1080,7 +1079,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         return WriteArraySegmentsToCodeFileAsync(
             singleOutputFileFullPath, 
             WrapArraySegmentsWithHeaderAndFooter(
-                AllProjectData.SelectMany(GetProjectArraySegmentsForSingleFileOutput)), 
+                AllProjectDatas.SelectMany(GetProjectArraySegmentsForSingleFileOutput)), 
             CancellationToken);
     }
 
@@ -1097,6 +1096,6 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 CancellationToken);
         }
 
-        return Task.WhenAll(AllProjectData.Select(ProcessProject));
+        return Task.WhenAll(AllProjectDatas.Select(ProcessProject));
     }
 }

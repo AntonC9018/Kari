@@ -83,5 +83,28 @@ namespace Kari.GeneratorCore.Workflow
         ProjectEnvironmentData Data, 
         SyntaxTree[] SourceFilesSyntaxTrees,
         SyntaxTree AnnotationsSyntaxTree,
-        INamedTypeSymbol[] Types);
+        INamedTypeSymbol[] Types)
+    {
+        public NamedLogger Logger => Data.Logger;
+
+        public IEnumerable<INamedTypeSymbol> TypesWithAttributes
+        {
+            get
+            {
+                return Types.Where(t => t.GetAttributes().Length > 0);
+            }
+        }
+
+        
+        public IEnumerable<IMethodSymbol> MethodsWithAttributes
+        {
+            get
+            {
+                return Types
+                    .SelectMany(t => t.GetMembers())
+                    .OfType<IMethodSymbol>()
+                    .Where(t => t.GetAttributes().Length > 0);
+            }
+        }
+    }
 }

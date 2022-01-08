@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 using Kari.GeneratorCore.Workflow;
 using Kari.Utils;
@@ -18,8 +19,8 @@ namespace Kari.Plugins.Terminal
         {
             _logger = new NamedLogger("TerminalPlugin");
 
-            TerminalProject = MasterEnvironment.Instance.Projects.Find(
-                project => project.RootNamespace.Name == terminalProject);
+            TerminalProject = MasterEnvironment.Instance.AllProjectDatas.FirstOrDefault(
+                project => project.Name == terminalProject);
             
             if (TerminalProject is null)
             {

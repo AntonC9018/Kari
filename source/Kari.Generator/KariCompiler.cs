@@ -125,6 +125,7 @@
                 argumentLogger.LogError(result.Error);
                 return (int) ExitCode.OptionSyntaxError;
             }
+            
 
             result = parser.MaybeParseConfiguration("kari");
             if (result.IsError)
@@ -133,8 +134,18 @@
                 return (int) ExitCode.OptionSyntaxError;
             }
 
+            var ops = new KariOptions();
+            var result1 = parser.FillObjectWithOptionValues(ops);
+
+            if (result1.IsError)
+            {
+                foreach (var e in result1.Errors)
+                    argumentLogger.LogError(e);
+                return (int) ExitCode.BadOptionValue;
+            }
+
             var compiler = new KariCompiler();
-            compiler._ops = new KariOptions();
+            compiler._ops = ops;
             compiler._logger = new NamedLogger("Master");
 
             if (parser.IsEmpty)
@@ -161,44 +172,7 @@
 
         private void PreprocessOptions(ArgumentParser parser)
         {
-            var result = parser.FillObjectWithOptionValues(_ops);
-
-            if (result.IsError)
-            {
-                foreach (var e in result.Errors)
-                {
-                    _logger.LogError(e);
-                }
-                return;
-            }
-
-            _ops.generatedName = _ops.generatedName.WithNormalizedDirectorySeparators();
-
-            if (_ops.pluginConfigFilePath is not null)
-                _ops.pluginConfigFilePath = Path.GetFullPath(_ops.pluginConfigFilePath);
-
-            // Hacky?
-            if (parser.IsHelpSet)
-                return;
-
-            if (_ops.generatedName == "")
-            {
-                _logger.LogError($"Setting the `generatedName` to an empty string will wipe all top-level source files in your project. (In principle! I WON'T do that.) Specify a different folder or file.");
-            }
-
-            // Validate the independent namespaces + initialize.
-            foreach (var part in _ops.independentNamespaceParts)
-            {
-                if (!SyntaxFacts.IsValidIdentifier(part))
-                {
-                    _logger.LogError($"Independent namespace part {part} does not represent a valid identifier.");
-                }
-            }
-
-            var namespacePrefixRoot = string.IsNullOrEmpty(_ops.rootNamespace) 
-                ? "" : _ops.rootNamespace + '.';
-
-            _ops.commonProjectName = _ops.commonProjectName.Replace("$Root.", namespacePrefixRoot);
+            
         }
 
         private async Task<ExitCode> RunAsync(ArgumentParser parser, CancellationToken token)
@@ -216,56 +190,69 @@
             var entireGenerationMeasurer = new Measurer(_logger);
             entireGenerationMeasurer.Start("The entire generation process");
 
-            PreprocessOptions(parser);
-
-            if (parser.IsHelpSet && _ops.pluginPaths is null && _ops.pluginConfigFilePath is null)
+            string validOutputPath = "";
+            
+            // Option preprocessing and validation.
             {
-                parser.LogHelpFor(_ops);
-                return ExitCode.Ok;
-            }
-            if (ShouldExit())
-                return ExitCode.BadOptionValue;
+                if (_ops.pluginConfigFilePath is not null)
+                    _ops.pluginConfigFilePath = Path.GetFullPath(_ops.pluginConfigFilePath);
 
-            // Input must be either a directory of source files or an msbuild project
-            string projectDirectory = "";
-            bool isProjectADirectory = false;
-            if (!parser.IsHelpSet)
-            {
-                if (_ops.pluginConfigFilePath is not null && !File.Exists(_ops.pluginConfigFilePath))
+                if (!parser.IsHelpSet)
                 {
-                    _logger.LogError($"Plugin config file {_ops.pluginConfigFilePath} does not exist");
-                }
-                if (Directory.Exists(_ops.inputFolder))
-                {
-                    projectDirectory = _ops.inputFolder;
-                    isProjectADirectory = true;
-                }
-                else if (File.Exists(_ops.inputFolder))
-                {
-                    projectDirectory = Path.GetDirectoryName(_ops.inputFolder);
-                    isProjectADirectory = false;
+                    {
+                        _ops.generatedName = _ops.generatedName.WithNormalizedDirectorySeparators();
+                        if (_ops.generatedName == "")
+                        {
+                            _logger.LogError($"Setting the `generatedName` to an empty string will wipe all top-level source files in your project. (In principle! I WON'T do that.) Specify a different folder or file.");
+                        }
+                    }
+
+                    {
+                        var namespacePrefixRoot = string.IsNullOrEmpty(_ops.rootNamespace) 
+                            ? "" : _ops.rootNamespace + '.';
+
+                        _ops.commonProjectName = _ops.commonProjectName.Replace("$Root.", namespacePrefixRoot);
+                    }
+
+                    if (_ops.pluginConfigFilePath is not null && !File.Exists(_ops.pluginConfigFilePath))
+                    {
+                        _logger.LogError($"Plugin config file {_ops.pluginConfigFilePath} does not exist.");
+                    }
+
+                    if (!Directory.Exists(_ops.inputFolder))
+                    {
+                        _logger.LogError($"No such input directory {_ops.inputFolder}.");
+                    }
+
+                    // Preprocess and validate the output path.
+                    {
+                        validOutputPath = _ops.generatedName;
+                        if (Path.IsPathRooted(validOutputPath))
+                        {
+                            if ((_ops.outputMode & MasterEnvironment.OutputMode.Central) != 0)
+                                validOutputPath = Path.Join(_ops.inputFolder, validOutputPath);
+                            else
+                                _logger.LogError("When the output mode is set to central, the path cannot be absolute.");
+                        }
+                        if ((_ops.outputMode & MasterEnvironment.OutputMode.File) != 0)
+                        {
+                            if (!validOutputPath.EndsWith(".cs"))
+                                validOutputPath += ".cs";
+                        }
+                    }
                 }
                 else
                 {
-                    _logger.LogError($"No such input file or directory {_ops.inputFolder}.");
+                    if (_ops.pluginPaths is null && _ops.pluginConfigFilePath is null)
+                    {
+                        parser.LogHelpFor(_ops);
+                        return ExitCode.Ok;
+                    }
                 }
+
                 if (ShouldExit())
                     return ExitCode.BadOptionValue;
             }
-            
-            // This means no subprojects
-            if (!_ops.monolithicProject && _ops.commonProjectName == "")
-            {
-                _logger.LogError($"The common project name cannot be empty. If you wish to treat the entire code base as one monolithic project, use that option instead.");
-            }
-
-            var projectNamesInfo = new ProjectNamesInfo
-            {
-                RootNamespaceName = _ops.rootNamespace,
-                CommonProjectNamespaceName = _ops.monolithicProject ? null : _ops.commonProjectName,
-                GeneratedNamespaceSuffix = "Generated", // TODO
-                ProjectRootDirectory = projectDirectory
-            };
 
             // We need to initialize this in order to create Administrators.
             // Even if help is set, we need to new them up in order to retrieve the help messages,
@@ -407,77 +394,58 @@
                 return ExitCode.Ok;
             }
 
-            // Set the master instance globally
-            MasterEnvironment.InitializeSingleton(master);
-
-
-            // Now finally create the compilation
-            Task compileTask;
-            Compilation compilation = null;
-            if (isProjectADirectory)
-            {
-                compileTask = _logger.MeasureAsync("Pseudo Compilation", () =>
-                    compilation = PseudoCompilation.CreateFromDirectory(_ops.inputFolder, _ops.generatedName, token));
-            }
-            else
-            {
-                compileTask = _logger.MeasureAsync("MSBuild Compilation", () =>
-                    (workspace, compilation) = OpenMSBuildProjectAsync(_ops.inputFolder, token).Result);
-            }
-            
-            string validOutputPath = _ops.generatedName;
-            if (Path.IsPathRooted(validOutputPath))
-            {
-                if ((_ops.outputMode & MasterEnvironment.OutputMode.Central) != 0)
-                    validOutputPath = Path.Join(_ops.inputFolder, validOutputPath);
-                else
-                    _logger.LogError("When the output mode is set to central, the path cannot be absolute.");
-            }
-            if ((_ops.outputMode & MasterEnvironment.OutputMode.File) != 0)
-            {
-                if (!validOutputPath.EndsWith(".cs"))
-                    validOutputPath += ".cs";
-            }
-
             await pluginsTask;
 
-            // Now that plugins have loaded, we can actually use the rest of the arguments.
-            master.TakeCommandLineArguments(parser);
-            if (ShouldExit())
-                return ExitCode.BadOptionValue;
-
-            var unrecognizedOptions = parser.GetUnrecognizedOptions();
-            var unrecognizedConfigOptions = parser.GetUnrecognizedOptionsFromConfigurations();
-            if (unrecognizedOptions.Any() || unrecognizedConfigOptions.Any())
+            // Now that plugins have loaded, we can finally use the rest of the arguments.
             {
-                foreach (var arg in unrecognizedOptions)
-                {
-                    _logger.LogError($"Unrecognized option: `{arg}`");
-                }
-                foreach (var arg in unrecognizedConfigOptions)
-                {
-                    // TODO: This can contain more info, like the line number.
-                    _logger.LogError($"Unrecognized option: `{parser.GetPropertyPathOfOption(arg)}`");
-                }
-                return ExitCode.UnknownOptions;
-            }
+                master.TakeCommandLineArguments(parser);
+                if (ShouldExit())
+                    return ExitCode.BadOptionValue;
 
-            await compileTask;
-            if (ShouldExit())
-                return ExitCode.Other;
+                var unrecognizedOptions = parser.GetUnrecognizedOptions();
+                var unrecognizedConfigOptions = parser.GetUnrecognizedOptionsFromConfigurations();
+                if (unrecognizedOptions.Any() || unrecognizedConfigOptions.Any())
+                {
+                    foreach (var arg in unrecognizedOptions)
+                    {
+                        _logger.LogError($"Unrecognized option: `{arg}`");
+                    }
+                    foreach (var arg in unrecognizedConfigOptions)
+                    {
+                        // TODO: This can contain more info, like the line number.
+                        _logger.LogError($"Unrecognized option: `{parser.GetPropertyPathOfOption(arg)}`");
+                    }
+                    return ExitCode.UnknownOptions;
+                }
+
+                if (ShouldExit())
+                    return ExitCode.Other;
+            }
 
             // The code is a bit less ugly now, but still pretty ugly.
             // TODO: Is this profiling thing even useful? I mean, we already get the stats for the whole function. 
             var measurer = new Measurer(_logger);
 
-            measurer.Start("Environment Initialization");
-                await master.InitializeCompilation(ref compilation, projectNamesInfo.RootNamespaceName);
-            measurer.Stop();
-
-            measurer.Start("Environment Initialization2");
+            var projectNamesInfo = new ProjectNamesInfo
             {
+                RootNamespaceName        = _ops.rootNamespace,
+                RootPseudoProjectName    = _ops.rootProjectName,
+                CommonPseudoProjectName  = _ops.commonProjectName,
+                GeneratedNamespaceSuffix = _ops.generatedNamespaceSuffix,
+                ProjectRootDirectory     = _ops.inputFolder
+            };
+
+            measurer.Start("Environment Initialization");
+            {
+                await master.InitializeCompilation(projectNamesInfo, _ops.inputMode);
+
                 if (ShouldExit())
                     return ExitCode.FailedEnvironmentInitialization;
+                
+                // Set the master instance globally.
+                // It is only needed as a convenience for plugins.
+                MasterEnvironment.InitializeSingleton(master);
+
                 master.InitializeAdministrators();
 
                 if (ShouldExit())
@@ -487,7 +455,7 @@
 
             measurer.Start("Symbol Collect");
             {
-                await master.CollectSymbols(_ops.independentNamespaceParts);
+                await master.CollectSymbols();
                 
                 if (ShouldExit())
                     return ExitCode.FailedSymbolCollection;

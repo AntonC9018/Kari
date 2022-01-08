@@ -13,7 +13,7 @@ namespace Kari.Plugins.Terminal
 
         public void CollectSymbols(ProjectEnvironment environment)
         {
-            string parsersFullyQualifiedClassName = ParserDatabase.GetFullyQualifiedParsersClassNameForProject(environment);
+            string parsersFullyQualifiedClassName = ParserDatabase.GetFullyQualifiedParsersClassNameForProject(environment.Data);
 
             foreach (var type in environment.TypesWithAttributes)
             {

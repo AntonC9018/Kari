@@ -35,7 +35,7 @@ namespace Kari.Plugins.Terminal
                 
                 if (method.TryGetAttribute(CommandSymbols.CommandAttribute, _logger, out var commandAttribute))
                 {
-                    var info = new CommandMethodInfo(method, commandAttribute, environment.GeneratedNamespaceName);
+                    var info = new CommandMethodInfo(method, commandAttribute, environment.Data.GeneratedNamespaceName);
                     info.Collect(environment);
                     _infos.Add(info);
                     RegisterCommandName(info.Name);
@@ -43,7 +43,7 @@ namespace Kari.Plugins.Terminal
                 
                 if (method.TryGetAttribute(CommandSymbols.FrontCommandAttribute, _logger, out var frontCommandAttribute))
                 {
-                    var info = new FrontCommandMethodInfo(method, frontCommandAttribute, environment.GeneratedNamespaceName);
+                    var info = new FrontCommandMethodInfo(method, frontCommandAttribute, environment.Data.GeneratedNamespaceName);
                     _frontInfos.Add(info);
                     RegisterCommandName(info.Name);
                 }
@@ -392,7 +392,7 @@ namespace Kari.Plugins.Terminal
 
             builder.AppendLine("namespace ", project.GeneratedNamespaceName);
             builder.StartBlock();
-            builder.AppendLine("using ", TerminalAdministrator.TerminalProject.NamespaceName, ";");
+            builder.AppendLine("using ", TerminalAdministrator.TerminalProject.Name, ";");
             builder.AppendLine("using ", TerminalAdministrator.TerminalProject.GeneratedNamespaceName, ";");
 
             foreach (var info in _infos) 
