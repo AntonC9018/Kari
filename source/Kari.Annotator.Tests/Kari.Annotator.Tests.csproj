@@ -1,8 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Name="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <AssemblyName>Kari.Annotator.Tests</AssemblyName>
     <IsTestAssembly>true</IsTestAssembly>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>

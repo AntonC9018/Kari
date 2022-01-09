@@ -1,5 +1,6 @@
 build_folder
 apikey.txt
+nuget.config
 
 *.ilk
 *.pdb

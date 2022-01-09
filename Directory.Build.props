@@ -1,7 +1,6 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <IsPackable Condition=" '$(IsTestAssembly)' != 'true' ">true</IsPackable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Authors>Anton Curmanschii</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

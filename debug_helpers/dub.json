@@ -30,6 +30,11 @@
 			"name": "install_kari_globally",
 			"targetName": "install_kari_globally",
 			"sourceFiles": ["source/install_kari_globally.d"]
+		},
+		{
+			"name": "nuget_publish",
+			"targetName": "nuget_publish",
+			"sourceFiles": ["source/nuget_publish.d"]
 		}
 	]
 }
