@@ -131,6 +131,11 @@
                 return (int) ExitCode.OptionSyntaxError;
             }
             
+            if (parser.IsVersionSet)
+            {
+                NamedLogger.LogPlain($"{ThisAssembly.AssemblyName} version {ThisAssembly.AssemblyInformationalVersion}.");
+                return 0;
+            }
 
             result = parser.MaybeParseConfiguration("kari");
             if (result.IsError)

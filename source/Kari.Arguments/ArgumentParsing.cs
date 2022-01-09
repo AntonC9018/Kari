@@ -115,6 +115,7 @@ namespace Kari.Arguments
         /// Has the help flag been passed?
         /// </summary>
         public bool IsHelpSet { get; private set; }
+        public bool IsVersionSet { get; private set; }
         public bool IsEmpty => Options.Count == 0 && Configurations.Count == 0;
 
         /// <summary>
@@ -178,6 +179,10 @@ namespace Kari.Arguments
                 bool isHelp = StringComparer.OrdinalIgnoreCase.Compare(option, "HELP") == 0;
                 // The help is considered set even if it is given a value
                 IsHelpSet = IsHelpSet || isHelp;
+
+                bool isVersion = StringComparer.OrdinalIgnoreCase.Compare(option, "VERSION") == 0;
+                // The help is considered set even if it is given a value
+                IsVersionSet = IsVersionSet || isVersion;
                 
                 i++;
                 // If it's not followed by a value, or the value is an option, it must be a flag.
