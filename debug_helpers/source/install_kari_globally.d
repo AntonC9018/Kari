@@ -48,7 +48,7 @@ int main(string[] args)
     auto entries = dirEntries(`build_folder/nuget_sources/kari.generator`, SpanMode.shallow).array;
     auto sorted = entries.sort!((a, b) => a.timeLastModified > b.timeLastModified).release;
     auto greatest = sorted[0].baseName;
-    writeln(greatest);
+    writeln(greatest); // nbgv get-version "NuGetPackageVersion"
 
     executeShell("dotnet tool uninstall --global Kari.Generator").output.writeln;
     execute([
