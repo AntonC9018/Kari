@@ -458,10 +458,10 @@ namespace Kari.Arguments
                     if (optionAttribute.IsFlag)
                     {
                         Debug.Assert(fieldInfo.FieldType == typeof(bool),
-                            $"{name}, indicated as flag, must be bool type");
+                            $"{name}, indicated as flag, must be bool type.");
 
                         Debug.Assert(((bool) fieldInfo.GetValue(objectToBeFilled)) == false,
-                            "The default value for {name} flag must be true");
+                            $"The default value for {name} flag must be true.");
 
                         if (hasOption)
                         {
@@ -472,7 +472,7 @@ namespace Kari.Arguments
                             }
                             else if (!TrySetBoolValue())
                             {
-                                result.Errors.Add($"Option {name} is a flag, you can only pass it a bool value");
+                                result.Errors.Add($"Option {name} is a flag, you can only pass it a bool value.");
                             }
                         }
                         // If it's not set it's already false
@@ -589,7 +589,7 @@ namespace Kari.Arguments
         { 
             new TableColumn("Option").Centered(),
             new TableColumn("Type").Centered(),
-            new TableColumn("Default").Centered(),
+            new TableColumn("Default/Config").Centered(),
             new TableColumn("Description").LeftAligned(),
         };
         private static readonly IRenderable[] _TableRowTemp = new IRenderable[4];
@@ -614,9 +614,6 @@ namespace Kari.Arguments
                 Debug.Assert(!string.IsNullOrEmpty(optionAttribute.Help),
                     "If it's super obvious what the option does, set the help to \" \"");
 
-                // Split the help in manageable pieces that all could sort of wrap in the third column,
-                // but we're emulating wrapping by appending spaces.
-
                 var typeBuilder = new StringBuilder();
 
                 if (fieldInfo.FieldType.IsEnum)
@@ -633,9 +630,30 @@ namespace Kari.Arguments
                     typeBuilder.Append(string.Join(",\n", items));
                     typeBuilder.Append("}");
                 }
+                // HashSet<string> or List<string>
+                else if (fieldInfo.FieldType.GenericTypeArguments.Length > 0)
+                {
+                    var n = fieldInfo.FieldType.Name;
+                    // This cuts off the ` and the number
+                    typeBuilder.Append(n.AsSpan(0, n.Length - 2));
+                    typeBuilder.Append("<"); 
+                    // TODO: We only allow strings here, so I'm not looping over it.
+                    if (optionAttribute.IsPath)
+                    {
+                        typeBuilder.Append("Path");
+                    }
+                    else
+                    {
+                        typeBuilder.Append(fieldInfo.FieldType.GenericTypeArguments[0].Name);
+                    }
+                    typeBuilder.Append(">");
+                }
+                // either a string or a string[]
                 else if (optionAttribute.IsPath)
                 {
                     typeBuilder.Append("Path");
+                    if (fieldInfo.FieldType == typeof(string[]))
+                        typeBuilder.Append("[]");
                 }
                 else
                 {
@@ -643,18 +661,21 @@ namespace Kari.Arguments
                 }
 
                 var otherThings = new List<string>();
-                if (optionAttribute.IsRequired)
-                    otherThings.Add("required");
-                // if (optionAttribute.IsRequiredForHelp)
-                //     AppendProperty("required for help");
-                if (optionAttribute.IsFlag)
-                    otherThings.Add("flag");
 
-                if (otherThings.Count > 0)
                 {
-                    typeBuilder.Append(" (");
-                    typeBuilder.Append(string.Join(", ", otherThings));
-                    typeBuilder.Append(")");
+                    if (optionAttribute.IsRequired)
+                        otherThings.Add("required");
+                    // if (optionAttribute.IsRequiredForHelp)
+                    //     AppendProperty("required for help");
+                    if (optionAttribute.IsFlag)
+                        otherThings.Add("flag");
+
+                    if (otherThings.Count > 0)
+                    {
+                        typeBuilder.Append(" (");
+                        typeBuilder.Append(string.Join(", ", otherThings));
+                        typeBuilder.Append(")");
+                    }
                 }
                 
                 var defaultBuilder = new StringBuilder();

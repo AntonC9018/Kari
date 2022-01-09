@@ -13,9 +13,7 @@
     using Kari.GeneratorCore.Workflow;
     using Kari.Utils;
     using Microsoft.Build.Locator;
-    using Microsoft.Build.Logging;
     using Microsoft.CodeAnalysis;
-    using Microsoft.CodeAnalysis.MSBuild;
     using static System.Diagnostics.Debug;
 
     public class KariCompiler
@@ -326,7 +324,7 @@
                             .Where(d => d.StartsWith(id))
                             .OrderBy(d => d, StringComparer.Ordinal)
                             .FirstOrDefault();
-                            
+
                         if (packageDirectoryName is null)
                         {
                             _logger.LogError($"Not found a directory for the plugin `{id}` at {getLocation()}. (Did you forget to restore?)");

@@ -5,7 +5,7 @@ This is a Kari plugin.
 A *data object* just means simple struct or class with just data. 
 Checking such an object for equality is just comparing the values of all the fields, serializing it means just serializing all fields, etc.
 
-It effectively has the same semantics as C# 9's records (C# 10's record structs). [More info](https://docs.microsoft.com/en-us/dotnet/csharp/whats-new/tutorials/records).
+It effectively has similar semantics to C# 9's records (C# 10's record structs). [More info](https://docs.microsoft.com/en-us/dotnet/csharp/whats-new/tutorials/records).
 
 How is this useful, you may ask, if record types already exist? 
 Well, they don't for older C# versions; they don't exist in Unity either.
@@ -69,5 +69,6 @@ The generated methods:
 - `Sync` is only generated if the type is not readonly. It currently generates incorrectly if there are readonly fields. 
 
 > Note: 
-> Mark your type as partial, otherwise you'll get errors. 
+> Mark your type as partial, otherwise you'll get errors.
 > The operators and the methods have to be members of the type.
+> Currently does not work correctly with nested types.

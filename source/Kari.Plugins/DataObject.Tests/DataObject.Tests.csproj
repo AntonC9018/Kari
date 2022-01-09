@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <TestedPlugins Include="../DataObject/DataObject.csproj" />
+    <TestedPlugins Include="..\DataObject\DataObject.csproj" />
   </ItemGroup>
 
   <ImportGroup>
