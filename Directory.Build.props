@@ -6,6 +6,9 @@
     <Authors>Anton Curmanschii</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <LangVersion>10</LangVersion>
+
+    <!-- RS1024 is Compare Symbols correctly, making me use `SymbolComparison.Default.Equals()` instead of `==` -->
+    <NoWarn>$(NoWarn);RS1024</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

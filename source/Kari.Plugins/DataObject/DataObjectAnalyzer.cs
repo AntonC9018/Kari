@@ -64,6 +64,20 @@ namespace Kari.Plugins.DataObject
             {
                 cb.AppendLine($"public static bool operator==({info.NameTypeParameters} a, {info.NameTypeParameters} b)");
                 cb.StartBlock();
+
+                if (info.Symbol.IsReferenceType)
+                {
+                    cb.AppendLine("if (a is null && b is null)");
+                    cb.IncreaseIndent();
+                    cb.AppendLine("return true;");
+                    cb.DecreaseIndent();
+
+                    cb.AppendLine("if (a is null || b is null)");
+                    cb.IncreaseIndent();
+                    cb.AppendLine("return false;");
+                    cb.DecreaseIndent();
+                }
+
                 cb.Indent();
                 cb.Append("return ");
 
@@ -72,10 +86,13 @@ namespace Kari.Plugins.DataObject
                 {
                     // TODO: Check if this works for hierarchies.
                     // TODO: The lib code for symbols that are not part of the user code is not loaded, so this check will be wrong. 
-                    if (field.Type.HasEqualityOperatorAbleToCompareAgainstOwnType())
+                    // if (field.Type.HasEqualityOperatorAbleToCompareAgainstOwnType())
+                        
+                        // You know what? we should just check the references in this case.
                         listBuilder.AppendOnNewLine(ref cb, $"a.{field.Name} == b.{field.Name}");
-                    else
-                        listBuilder.AppendOnNewLine(ref cb, $"a.{field.Name}.Equals(b.{field.Name})");
+
+                    // else
+                    //     listBuilder.AppendOnNewLine(ref cb, $"a.{field.Name}.Equals(b.{field.Name})");
                 }
 
                 if (info.Fields.Length == 0)

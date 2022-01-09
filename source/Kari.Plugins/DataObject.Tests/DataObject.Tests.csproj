@@ -1,11 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <AssemblyName>DataObject.Tests</AssemblyName>
-    <IsPluginTestAssembly>true</IsPluginTestAssembly>
+    <IsTestAssembly>true</IsTestAssembly>
   </PropertyGroup>
 
   <ItemGroup>
     <TestedPlugins Include="../DataObject/DataObject.csproj" />
   </ItemGroup>
+
+  <ImportGroup>
+    <Import Project="..\PluginTests.targets" />
+  </ImportGroup>
 
 </Project>

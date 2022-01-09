@@ -79,6 +79,13 @@
 
             [Option("Which projects to read the code of. (Unimplemented)")]
             public HashSet<string> whitelistAnalyzedProjects = null;
+            
+            [Option("Paths to assemblies to load annotations from. The `object` assembly is always loaded. (Unimplemented)", 
+                IsPath = true)]
+            public string[] additionalAnnotationAssemblyPaths = null;
+
+            [Option("Names of assemblies to load annotations from. These will be searched in the default location. Use `additionalAnnotationAssemblyPaths` to straight up load from paths. (Unimplemented)")] 
+            public string[] additionalAnnotationAssemblyNames = null;
         }
         private KariOptions _ops;
         private NamedLogger _logger;
@@ -168,11 +175,6 @@
             }
 
             return 0;
-        }
-
-        private void PreprocessOptions(ArgumentParser parser)
-        {
-            
         }
 
         private async Task<ExitCode> RunAsync(ArgumentParser parser, CancellationToken token)
@@ -320,7 +322,11 @@
                     // No version is fine, we just do the default one in this case.
                     if (versionAttribute is null)
                     {
-                        packageDirectoryName = pluginDirectoryNames.FirstOrDefault(d => d.StartsWith(id));
+                        packageDirectoryName = pluginDirectoryNames
+                            .Where(d => d.StartsWith(id))
+                            .OrderBy(d => d, StringComparer.Ordinal)
+                            .FirstOrDefault();
+                            
                         if (packageDirectoryName is null)
                         {
                             _logger.LogError($"Not found a directory for the plugin `{id}` at {getLocation()}. (Did you forget to restore?)");

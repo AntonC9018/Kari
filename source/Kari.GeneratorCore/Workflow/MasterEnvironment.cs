@@ -114,13 +114,6 @@ public static class ReflectedFileStreamHelpers
     }
 }
 
-public record struct OutputInfo(object GeneratedNames, MasterEnvironment.OutputMode OutputMode)
-{
-    // Contains the generated directory names / generated file names for each project.
-    // If this is a list, then the output mode is per project,
-    // if this is a string, then it is central, and the name indicates the file name / dir name.
-}
-
 public class MasterEnvironment : Singleton<MasterEnvironment>
 {
     [System.Flags]
@@ -176,21 +169,13 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// </summary>
     public Compilation Compilation { get; private set; }
 
-
+    /// <summary>
+    /// </summary>
     private readonly NamedLogger Logger;
+
+    /// <summary>
+    /// </summary>
     public readonly CancellationToken CancellationToken;
-
-    
-    // public readonly record struct ProjectInfos(
-    //     string[] Names,
-    //     string[] GeneratedNamespaceNames,
-    //     string[] Directories,
-    //     SyntaxTree[][] SyntaxTreeArrays,
-    //     SyntaxTree[] AnnotationsSyntaxTrees,
-    //     List<CodeFragment>[] CodeFragments)
-    // {
-    // }
-
 
     /// <summary>
     /// Projects whose code will be analysed.
@@ -944,7 +929,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         CancellationToken cancellationToken)
     {
         using SafeFileHandle outputFileHandle = File.OpenHandle(outputFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
-        WriteLine(outputFilePath);
+
         if (!await IsFileEqualToContent(outputFileHandle, outputBytes, 
             byteOffsetFromStart:    CodeFileCommon.HeaderBytes.Length,
             byteOffsetFromEnd:      CodeFileCommon.FooterBytes.Length,

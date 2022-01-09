@@ -1,4 +1,3 @@
 {
-    "monolithicProject": true,
-    "rootNamespace": "DataObject.Tests"
+    "inputMode": "Monolithic"
 }
