@@ -25,9 +25,9 @@ namespace Kari.Plugins.MyPlugin
         
         public void GenerateCode(ProjectEnvironmentData project, ref CodeBuilder builder)
         {
-            // Returing null implies no output should be generated for the given template.
+            // Returing early implies no output should be generated for the given template.
             if (_infos.Count == 0) 
-                return null;
+                return;
 
             builder.AppendLine($"namespace {project.GeneratedNamespaceName}");
             builder.StartBlock();
@@ -50,7 +50,8 @@ namespace Kari.Plugins.MyPlugin
         }
     }
 
-    // Store information in such structs/classes
+    // Store information in such structs/classes.
+    // You may use records for this too.
     public readonly struct MyPluginInfo
     {
         public readonly INamedTypeSymbol Symbol;

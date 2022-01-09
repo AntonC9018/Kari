@@ -73,7 +73,7 @@ public record class ProjectNamesInfo
     /// <summary>
     /// Where to generate the root files, in case a root project is not found.
     /// You do not have to add it into the IgnoredNames list, it will add it 
-    /// there automatically if the InputType is set to Adaptive or Monolithic.
+    /// there automatically if the InputMode is set to Adaptive or Monolithic.
     /// 
     /// If such a project with such a name is not found, it will use a folder with this name instead.
     ///
@@ -253,7 +253,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     private record struct ProjectDatas(ProjectEnvironmentData[] Projects, ProjectDataAndIndex Root, ProjectDataAndIndex Common);
 
     /// <summary>
-    /// Resolves projects given by `projectNamesInfo`, using InputType.
+    /// Resolves projects given by `projectNamesInfo`, using InputMode.
     /// Returns a Task that resolves when all the source file have been loaded, 
     /// and all the essential symbols have been cached. 
     /// </summary>

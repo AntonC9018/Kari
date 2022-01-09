@@ -1,6 +1,4 @@
 {
-    "input": ".",
     "pluginPaths": ["../MyPlugin/bin/Debug/net6.0/Kari.Plugins.MyPlugin.dll"],
-    "monolithicProject": true,
-    "rootNamespace": "MyPlugin.Tests"
+    "inputMode": "Monolithic"
 }

@@ -21,7 +21,7 @@
     <AssemblyName>Kari.Plugins.MyPlugin</AssemblyName>
   </PropertyGroup>
 
-  <!-- Includes the packaging configuration. The target framework is set to net5. -->
+  <!-- Includes the packaging configuration. This sets the target framework to net6.0 -->
   <Sdk Name="Kari.Plugin.Sdk" />
   
 </Project>

@@ -1,8 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 
+    Not going to build, unless you call Kari before testing. 
+    I'm not here to decide how you would automate that, but you may take a look at
+    how I did it for Kari internal plugins, and maybe propose a generic solution.
+    I'm not that good at MSBuild to solve this in a generic way.
+
+    https://github.com/AntonC9018/Kari/blob/main/source/Kari.Plugins/PluginTests.targets
+     
+    -->
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <AssemblyName>Kari.Plugins.MyPlugin.Tests</AssemblyName>
   </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.7.1" />
@@ -11,4 +22,5 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
   </ItemGroup>
+
 </Project>

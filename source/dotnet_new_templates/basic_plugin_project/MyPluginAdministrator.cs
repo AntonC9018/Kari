@@ -15,7 +15,7 @@ namespace Kari.Plugins.MyPlugin
         public void Initialize()
         {
             AnalyzerMaster.Initialize(ref _analyzers);
-            var logger = new Logger("MyPlugin Plugin");
+            var logger = new Logger("MyPlugin");
             MyPluginSymbols.Initialize(logger);
         }
         
@@ -33,7 +33,9 @@ namespace Kari.Plugins.MyPlugin
             return Task.WhenAll(
                 AnalyzerMaster.GenerateAsync(_analyzers, "MyPlugin.cs"),
                 // Write the attributes to an acessible file.
-                MasterEnvironment.Instance.CommonPseudoProject.WriteFileAsync("MyPluginAnnotations.cs", GetAnnotations())
+                AdministratorHelpers.AddCodeStringAsync(
+                    MasterEnvironment.Instance.CommonPseudoProject,
+                    "MyPluginAnnotations.cs", "MyPlugin", GetAnnotations())
             );
         }
         

@@ -32,7 +32,7 @@
 
     <PropertyGroup> 
       <KariCommand>$(KariExecutablePath) -pluginPaths &quot;@(TestedPlugins -> '$(KariOutputPath)%(Filename)\$(Configuration)\$(TargetFramework)\Kari.Plugins.%(Filename).dll', ',')&quot;</KariCommand>
-    </PropertyGroup> 
+    </PropertyGroup>
 
     <Message Importance="high" Text="$(KariCommand)"/>
     <Exec Command="$(KariCommand)" 

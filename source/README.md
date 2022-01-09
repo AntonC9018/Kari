@@ -32,10 +32,10 @@ Administrators must be public classes implementing `IAdministrator`. They must i
 The easiest way to get started is to use a starter template. 
 To generate a starter boilerplate for your plugin and add it to the solution, use `kari -newPluginPath PATH_TO_PLUGIN`.
 
-This generates 5 files: the csproj file, *Administrator* class, *Analyzer* class, a file with *Annotations* and a T4 template for code generation.
+This generates 5 files: the csproj file, *Administrator* class, *Analyzer* class, a file with *Annotations*.
 Out of these parts, only an *Administrator* (and a csproj file obviously) is absolutely required from a plugin, but the other parts are also common.
 
-The key part is to import the Plugin properties in the csproj file:
+The key part is to use the Kari.Plugin.Sdk in the csproj file:
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -94,7 +94,7 @@ Generates backend code for terminal commands. See a complete example repo [here]
 
 ### UnityHelpers
 
-Generates boilerplate helper functions related to unity. Currently, makes helper functions for changing individual coordinates of `Vector`'s.
+Generates boilerplate helper functions related to unity. Currently, it makes helper functions for changing individual coordinates of `Vector`'s.
 
 The idea comes from [here](https://github.com/TobiasWehrum/unity-utilities/blob/c78da2928b1f7b73046a697185271e7effeddd1f/UnityHelper/UnityHelper.cs#L199), but results in no runtime penalty of checking nullable types.
 
