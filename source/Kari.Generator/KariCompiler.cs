@@ -2,74 +2,91 @@
 {
     using System;
     using System.Collections.Generic;
-    using System.Diagnostics;
     using System.IO;
     using System.Linq;
     using System.Runtime.Loader;
     using System.Threading;
     using System.Threading.Tasks;
-    using Kari.GeneratorCore;
+    using System.Xml;
+    using System.Xml.Linq;
+    using Kari.Arguments;
     using Kari.GeneratorCore.Workflow;
+    using Kari.Utils;
     using Microsoft.Build.Locator;
-    using Microsoft.Build.Logging;
     using Microsoft.CodeAnalysis;
-    using Microsoft.CodeAnalysis.CSharp;
-    using Microsoft.CodeAnalysis.MSBuild;
+    using static System.Diagnostics.Debug;
 
     public class KariCompiler
     {
-        string HelpMessage => "Use Kari to generate code for a C# project.";
-        // [Option("Show help for Kari and all specified plugins. Call with no arguments to show help just for Kari",
-        //     IsFlag = true)]
-        // bool help;
+        public class KariOptions
+        {
+            public string HelpMessage => "Use Kari to generate code for a C# project.";
 
-        // This is a hack, but like my argument parsing system is simple and cannot handle this case easily.
-        // I assume one would just make another project = whole another program for the different use cases.
-        // I'm doing a hack to accomodate this currently.
-        [Option("Specify path for a new plugin folder. It will create all the default files.")]
-        string newPluginPath = null;
+            [Option("Input path to the directory containing source files or projects.", 
+                IsPath = true)] 
+            public string inputFolder = ".";
 
-        [Option("Input path to MSBuild project file or to the directory containing source files.", 
-            IsRequired = true)] 
-        string input;
+            [Option("Plugins folder or paths to individual plugin dlls.",
+                // Can be sometimes inferred from input, aka NuGet's packages.config
+                IsRequired = false,
+                IsPath = true)]
+            public string[] pluginPaths = null;
 
-        [Option("Plugins folder or paths to individual plugin dlls.",
-            IsRequired = true)]
-        string[] pluginsLocations;
+            [Option("Path to `packages.config` that you're using to manage packages. The plugins mentioned in that file will be imported.",
+                IsPath = true)]
+            public string pluginConfigFilePath = null;
 
-        [Option("The suffix added to each subproject (or the root project) indicating the output folder.")] 
-        string generatedName = "Generated";
+            [Option("The suffix added to the project namespace to generate the output namespace.")]
+            public string generatedNamespaceSuffix = "Generated";
 
-        [Option("Conditional compiler symbols. Ignored if a project file is specified for input.")] 
-        string[] conditionalSymbols = null;
+            [Option("Conditional compiler symbols. Ignored if a project file is specified for input. (Currently ignored)")] 
+            public string[] conditionalSymbols = null;
 
-        [Option("Set input namespace root name.")]
-        string rootNamespace = "";
+            [Option("Set input namespace root name.")]
+            public string rootNamespace = "";
 
-        [Option("Delete all cs files in the output folder.", 
-            IsFlag = true)]
-        bool clearOutput = false;
+            [Option("Plugin names to be used for code analysis and generation. All plugins are used by default.")]
+            public string[] pluginNames = null;
 
-        [Option("Plugin names to be used for code analysis and generation. All plugins are used by default.")]
-        string[] pluginNames = null;
+            [Option("The code by default will be generated in a nested folder with this name. If `centralInput` is true, this indicates the central output folder path, relative to `input`. If `singleFileOutput` is set to true, '.cs' may be appended to this name to indicate the output file name.")] 
+            public string generatedName = "Generated";
 
-        [Option("Whether to output all code into a single file.",
-            IsFlag = true)]
-        bool singleFileOutput = false;
+            [Option("Where to place the generated files.")]
+            public MasterEnvironment.OutputMode outputMode = MasterEnvironment.OutputMode.NestedDirectory;
 
-        [Option("Whether to not scan for subprojects and always treat the entire codebase as a single root project. This implies the files will be generated in a single folder. With `singleFileOutput` set to true implies generating all code for the entire project in the single file.",
-            IsFlag = true)]
-        bool monolithicProject = false;
+            [Option(@"`UnityAsmdefs` means it will search for asmdefs.
+`MSBuild` and `ByDirectory` are equivalent: they assume the given path is a root folder, where each subfolder is a separate project. Nested projects are currently not allowed.
+`Monolithic` there are source files to be analysed in the root folder, as well as in nested folders.
+`Autodetect` means that the input will be selected by looking at the file system's entries. If there are asmdefs, Unity will be guessed, if there are source files in root, Monolithic. At last, it will default to `ByDirectory` if none of the above were true.")]
+            public MasterEnvironment.InputMode inputMode = MasterEnvironment.InputMode.Autodetect;
 
-        [Option("The common project namespace name (use $Root to mean the root namespace). This is the project where all the attributes and other things common to all projects will end up. Ignored when `monolithicProject` is set to true.")]
-        string commonNamespace = "$Root.Common";
+            [Option("The name of the common project. Corresponds either to the directory name (`ByDirectory`) or the project file name (`Unity`). Leave at default to let it autodetect.")]
+            public string commonProjectName = "";
 
-        [Option("The subnamespaces ignored for the particular project, but which are treated as a separate project, even if they sit in the same root namespace.")]
-        HashSet<string> independentNamespaceParts = new HashSet<string> { "Editor", "Tests" };
+            [Option("The name of the root project. Corresponds either to the directory name (`ByDirectory`) or the project file name (`Unity`). By default, it would generate in the root directory. You can either pass a name of one of the projects that you want to be root here, or just give it the folder name relative to the root directory and it would generate into that folder.")]
+            public string rootProjectName = "";
 
-        [Option("Whether to treat 'Editor' folders as separate subprojects, even if they contain no asmdef. Only the editor folder that is at root of a folder with asmdef is regarded this way, nested Editor folders are ignored.")]
-        bool treatEditorAsSubproject = true;
+            [Option("The directories, source files in which will be ignored. The generated source files are always ignored.")]
+            public List<string> ignoredNames = new List<string> { "obj", "bin" };
 
+            [Option("The full directory or file paths which will be ignored when reading source files. The generated source files are always ignored.")]
+            public List<string> ignoredFullPaths = new List<string> {};
+
+            [Option("Which projects to generate code for. (Unimplemented)")]
+            public HashSet<string> whitelistGeneratedCodeForProjects = null;
+
+            [Option("Which projects to read the code of. (Unimplemented)")]
+            public HashSet<string> whitelistAnalyzedProjects = null;
+            
+            [Option("Paths to assemblies to load annotations from. The `object` assembly is always loaded. (Unimplemented)", 
+                IsPath = true)]
+            public string[] additionalAnnotationAssemblyPaths = null;
+
+            [Option("Names of assemblies to load annotations from. These will be searched in the default location. Use `additionalAnnotationAssemblyPaths` to straight up load from paths. (Unimplemented)")] 
+            public string[] additionalAnnotationAssemblyNames = null;
+        }
+        private KariOptions _ops;
+        private NamedLogger _logger;
 
         public enum ExitCode
         {
@@ -83,6 +100,7 @@
             FailedEnvironmentInitialization = 7,
             FailedSymbolCollection = 8,
             FailedOutputGeneration = 9,
+            NoPlugins = 10,
         }
         
         private static async Task<int> Main(string[] args)
@@ -90,7 +108,7 @@
             var instance = MSBuildLocator.RegisterDefaults();
             AssemblyLoadContext.Default.Resolving += (assemblyLoadContext, assemblyName) =>
             {
-                var path = Path.Combine(instance.MSBuildPath, assemblyName.Name + ".dll");
+                var path = Path.Join(instance.MSBuildPath, assemblyName.Name + ".dll");
                 Console.WriteLine(path);
                 if (File.Exists(path))
                 {
@@ -103,7 +121,7 @@
             var tokenSource = new CancellationTokenSource();
             CancellationToken token = tokenSource.Token;
 
-            Logger argumentLogger = new Logger("Arguments");
+            var argumentLogger = new NamedLogger("Arguments");
 
             ArgumentParser parser = new ArgumentParser();
             var result = parser.ParseArguments(args);
@@ -112,6 +130,7 @@
                 argumentLogger.LogError(result.Error);
                 return (int) ExitCode.OptionSyntaxError;
             }
+            
 
             result = parser.MaybeParseConfiguration("kari");
             if (result.IsError)
@@ -120,17 +139,29 @@
                 return (int) ExitCode.OptionSyntaxError;
             }
 
+            var ops = new KariOptions();
+            var result1 = parser.FillObjectWithOptionValues(ops);
+
+            if (result1.IsError)
+            {
+                foreach (var e in result1.Errors)
+                    argumentLogger.LogError(e);
+                return (int) ExitCode.BadOptionValue;
+            }
+
             var compiler = new KariCompiler();
+            compiler._ops = ops;
+            compiler._logger = new NamedLogger("Master");
 
             if (parser.IsEmpty)
             {
-                argumentLogger.Log(parser.GetHelpFor(compiler), LogType.Information);
+                parser.LogHelpFor(compiler._ops);
                 return 0;
             }
 
             try
             {
-                System.Environment.ExitCode = await compiler.RunAsync(parser, token);
+                System.Environment.ExitCode = (int) await compiler.RunAsync(parser, token);
             }
             catch (OperationCanceledException)
             {
@@ -144,59 +175,7 @@
             return 0;
         }
 
-
-        private Logger _logger;
-
-        private void PreprocessOptions(ArgumentParser parser)
-        {
-            var result = parser.FillObjectWithOptionValues(this);
-            
-            // FIXME: This is the horrible hack.
-            if (!(newPluginPath is null) && !parser.IsHelpSet)
-            {
-                newPluginPath = newPluginPath.WithNormalizedDirectorySeparators();
-                return;
-            }
-
-            if (result.IsError)
-            {
-                foreach (var e in result.Errors)
-                {
-                    _logger.LogError(e);
-                }
-                return;
-            }
-
-            pluginsLocations = pluginsLocations?.Select(Stuff.WithNormalizedDirectorySeparators).ToArray();
-
-            // Hacky?
-            if (parser.IsHelpSet)
-                return;
-
-            input = Path.GetFullPath(input.WithNormalizedDirectorySeparators());
-            generatedName = generatedName.WithNormalizedDirectorySeparators();
-
-            if (generatedName == "" && clearOutput)
-            {
-                _logger.LogNoLock($"Setting the `generatedName` to an empty string and `clearOutputFolder` to true will wipe all top-level source files in your project. (In principle! I WON'T do that.) Specify a different folder or file.", LogType.Error);
-            }
-
-            // Validate the independent namespaces + initialize.
-            foreach (var part in independentNamespaceParts)
-            {
-                if (!SyntaxFacts.IsValidIdentifier(part))
-                {
-                    _logger.LogError($"Independent namespace part {part} does not represent a valid identifier.");
-                }
-            }
-
-            var namespacePrefixRoot = string.IsNullOrEmpty(rootNamespace) 
-                ? "" : rootNamespace + '.';
-
-            commonNamespace = commonNamespace.Replace("$Root.", namespacePrefixRoot);
-        }
-
-        private async Task<int> RunAsync(ArgumentParser parser, CancellationToken token)
+        private async Task<ExitCode> RunAsync(ArgumentParser parser, CancellationToken token)
         {
             Workspace workspace = null;
             try // I hate that I have to do the stupid try-catch with awaits, 
@@ -205,195 +184,372 @@
 
             bool ShouldExit()
             {
-                return Logger.AnyLoggerHasErrors || token.IsCancellationRequested;
+                return NamedLogger.AnyLoggerHasErrors || token.IsCancellationRequested;
             }
 
-            int Exit(ExitCode code)
+            string validOutputPath = "";
+            
+            // Option preprocessing and validation.
             {
-                workspace?.Dispose();
-                return (int) code;
-            }
+                if (_ops.pluginConfigFilePath is not null)
+                    _ops.pluginConfigFilePath = Path.GetFullPath(_ops.pluginConfigFilePath);
 
-            _logger = new Logger("Master");
-            var entireGenerationMeasurer = new Measurer(_logger);
-            entireGenerationMeasurer.Start("The entire generation process");
+                // Since there is a default value, this may actually still not be a full path at this point.
+                if (!Path.IsPathRooted(_ops.inputFolder))
+                    _ops.inputFolder = Path.GetFullPath(_ops.inputFolder);
 
-            PreprocessOptions(parser);
-
-            // TODO: Redo this in a reasonable way
-            if (!(newPluginPath is null) && !parser.IsHelpSet)
-            {
-                new PluginFileTemplates().WriteNewPlugin(newPluginPath);
-                return Exit(ExitCode.Ok);
-            }
-
-            if (parser.IsHelpSet && pluginsLocations == null)
-            {
-                Logger.LogPlain(parser.GetHelpFor(this));
-                return Exit(ExitCode.Ok);
-            }
-            if (ShouldExit())  return (int) ExitCode.BadOptionValue;
-
-            // Input must be either a directory of source files or an msbuild project
-            string projectDirectory = "";
-            bool isProjectADirectory = false;
-            if (!parser.IsHelpSet)
-            {
-                if (Directory.Exists(input))
+                if (!parser.IsHelpSet)
                 {
-                    projectDirectory = input;
-                    isProjectADirectory = true;
-                }
-                else if (File.Exists(input))
-                {
-                    projectDirectory = Path.GetDirectoryName(input);
-                    isProjectADirectory = false;
+                    {
+                        _ops.generatedName = _ops.generatedName.WithNormalizedDirectorySeparators();
+                        if (_ops.generatedName == "")
+                        {
+                            _logger.LogError($"Setting the `generatedName` to an empty string will wipe all top-level source files in your project. (In principle! I WON'T do that.) Specify a different folder or file.");
+                        }
+                    }
+
+                    // {
+                    //     var namespacePrefixRoot = string.IsNullOrEmpty(_ops.rootNamespace) 
+                    //         ? "" : _ops.rootNamespace + '.';
+
+                    //     _ops.commonProjectName = _ops.commonProjectName.Replace("$Root.", namespacePrefixRoot);
+                    // }
+
+                    if (_ops.pluginConfigFilePath is not null && !File.Exists(_ops.pluginConfigFilePath))
+                    {
+                        _logger.LogError($"Plugin config file {_ops.pluginConfigFilePath} does not exist.");
+                    }
+
+                    if (!Directory.Exists(_ops.inputFolder))
+                    {
+                        _logger.LogError($"No such input directory {_ops.inputFolder}.");
+                    }
+
+                    // Preprocess and validate the output path.
+                    {
+                        validOutputPath = _ops.generatedName.WithNormalizedDirectorySeparators();
+                        if (_ops.outputMode.HasFlag(MasterEnvironment.OutputMode.Central))
+                        {
+                            if (!Path.IsPathRooted(validOutputPath))
+                            {
+                                validOutputPath = Path.GetFullPath(Path.Join(_ops.inputFolder, validOutputPath));
+                            }
+                            _ops.ignoredFullPaths.Add(validOutputPath);
+                        }
+                        else
+                        {
+                            if (Path.IsPathRooted(validOutputPath))
+                            {
+                                _logger.LogError("When the output mode is not set to central, the path cannot be absolute.");
+                            }
+                            else
+                            {
+                                _ops.ignoredNames.Add(validOutputPath);
+                            }
+                        }
+                        if (_ops.outputMode.HasFlag(MasterEnvironment.OutputMode.File))
+                        {
+                            if (!validOutputPath.EndsWith(".cs"))
+                                validOutputPath += ".cs";
+                        }
+                    }
                 }
                 else
                 {
-                    _logger.LogError($"No such input file or directory {input}.");
-                    return 1;
+                    if (_ops.pluginPaths is null && _ops.pluginConfigFilePath is null)
+                    {
+                        parser.LogHelpFor(_ops);
+                        return ExitCode.Ok;
+                    }
                 }
-                if (ShouldExit()) return Exit(ExitCode.BadOptionValue);
+
+                if (ShouldExit())
+                    return ExitCode.BadOptionValue;
             }
 
             // We need to initialize this in order to create Administrators.
             // Even if help is set, we need to new them up in order to retrieve the help messages,
             // so creating this is a prerequisite.
-            var master = new MasterEnvironment(rootNamespace, projectDirectory, token, _logger, independentNamespaceParts);
+            var master = new MasterEnvironment(token, _logger);
+
+            IEnumerable<string> GetNugetPluginPaths()
+            {
+                if (_ops.pluginConfigFilePath is null)
+                    yield break;
+
+                var pluginConfigDirectory = Path.GetDirectoryName(_ops.pluginConfigFilePath);
+                var pluginConfigXml = XDocument.Load(_ops.pluginConfigFilePath, LoadOptions.SetLineInfo);
+                var packages = pluginConfigXml.Root;
+                if (packages.Name != "packages")
+                {
+                    _logger.LogError("The root element must be named `packages`");
+                    yield break;
+                }
+
+                var pluginDirectoryNames = Directory.EnumerateDirectories(pluginConfigDirectory)
+                    // Actually gets just the last directory name (I think this function returns no slashes??)
+                    .Select(d => Path.GetFileName(d));
+
+                foreach (var package in packages.Elements())
+                {
+                    // I'm not sure non-package elements are allowed tho
+                    if (package.Name != "package")
+                        continue;
+
+                    string getLocation()
+                    { 
+                        IXmlLineInfo info = package; 
+                        return $"{_ops.pluginConfigFilePath}({info.LineNumber},{info.LinePosition})"; 
+                    }
+
+                    var attributes = package.Attributes();
+                    var idAttribute = attributes.Where(a => a.Name == "id").FirstOrDefault();
+                    if (idAttribute is null)
+                    {
+                        _logger.LogError($"{getLocation()}: Wrong format: you forgot to specify the id for the package.");
+                        continue;
+                    }
+                    var id = idAttribute.Value;
+
+                    var targetFrameworkAttribute = attributes.Where(a => a.Name == "targetFramework").FirstOrDefault();
+                    var targetFramework = targetFrameworkAttribute?.Value ?? "net6.0";
+
+                    string packageDirectoryName;
+
+                    var versionAttribute = attributes.Where(a => a.Name == "version").FirstOrDefault();
+                    // No version is fine, we just do the default one in this case.
+                    if (versionAttribute is null)
+                    {
+                        packageDirectoryName = pluginDirectoryNames
+                            .Where(d => d.StartsWith(id))
+                            .OrderBy(d => d, StringComparer.Ordinal)
+                            .FirstOrDefault();
+
+                        if (packageDirectoryName is null)
+                        {
+                            _logger.LogError($"Not found a directory for the plugin `{id}` at {getLocation()}. (Did you forget to restore?)");
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        var version = versionAttribute.Value;
+                        packageDirectoryName = $"{id}.{version}";
+
+                        // I'm not sure which one should be preferred?
+                        // if (!Directory.Exists(packageDirName))
+                        if (!pluginDirectoryNames.Contains(packageDirectoryName))
+                        {
+                            _logger.LogError($"Could not find the directory `{packageDirectoryName}` within the plugin folder. (Did you forget to restore?)");
+                            continue;
+                        }
+                    }
+
+                    var pluginRootFullPath = Path.Join(pluginConfigDirectory, packageDirectoryName);
+                    // We've checked the enumerable above, so this should be true.
+                    Assert(Directory.Exists(pluginRootFullPath));
+
+                    string libPath = Path.Join(pluginRootFullPath, "lib", targetFramework);
+                    if (!Directory.Exists(libPath))
+                    {
+                        _logger.LogError($"The plugin `{packageDirectoryName}` had no lib folder, so it's probably not even a plugin, someone messed something up.");
+                        continue;
+                    }
+                    foreach (var dllFullPath in Directory.EnumerateFiles(libPath, "*.dll", SearchOption.AllDirectories))
+                        yield return dllFullPath;
+                }
+            }
+
+            IEnumerable<string> GetDllPathsFromUserGivenPaths()
+            {
+                if (_ops.pluginPaths is null)
+                    yield break;
+
+                // These paths are already prenormalized by the argument parser
+                foreach (var p in _ops.pluginPaths)
+                {
+                    if (File.Exists(p))
+                    {
+                        if (p.EndsWith("dll", StringComparison.OrdinalIgnoreCase))
+                        {
+                            yield return p;
+                        }
+                        else
+                        {
+                            _logger.LogError($"Plugin file `{p}` is not a dynamic library.");
+                        }
+                    }
+                    else if (Directory.Exists(p))
+                    {
+                        foreach (var dllPath in Directory.EnumerateFiles(p, "*.dll", SearchOption.AllDirectories))
+                        {
+                            yield return dllPath;
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogError($"Plugin file or directory `{p}` did not exist.");
+                    }
+                }
+            }
+
             
-            // It is fine to not have master entirely globally initialized.
+            var pluginPaths = Enumerable.Concat(GetDllPathsFromUserGivenPaths(), GetNugetPluginPaths());
+            if (!pluginPaths.Any())
+            {
+                _logger.LogError("Kari won't generate any code if it were given no plugins.");
+                return ExitCode.NoPlugins;
+            }
+
+            // It is fine to not have master entirely globally initialized at this point.
             // The plugin loading only needs the administrator list.
-            Task pluginsTask = _logger.MeasureAsync("Load Plugins", () => LoadPlugins(master, token));
+            Task pluginsTask = _logger.MeasureAsync("Load Plugins", 
+                delegate 
+                {
+                    var paths = Enumerable.Concat(GetDllPathsFromUserGivenPaths(), GetNugetPluginPaths());
+                    LoadPlugins(paths, master, token); 
+                });
+
             if (parser.IsHelpSet)
             {
                 await pluginsTask;
 
-                Logger.LogPlain(parser.GetHelpFor(this));
+                parser.LogHelpFor(_ops);
                 master.LogHelpForEachAdministrator(parser);
-                return Exit(ExitCode.Ok);
-            }
-
-            // Set the master instance globally
-            MasterEnvironment.InitializeSingleton(master);
-
-            master.GeneratedPath = generatedName;
-            // This means no subprojects
-            if (monolithicProject)
-            {
-                master.CommonProjectNamespaceName = null;
-            }
-            else if (commonNamespace == "")
-            {
-                _logger.LogError($"The common project name cannot be empty. If you wish to treat the entire code base as one monolithic project, use that option instead.");
-            }
-            else
-            {
-                master.CommonProjectNamespaceName = commonNamespace;
-            }
-
-            // Now finally create the compilation
-            Task compileTask;
-            Compilation compilation = null;
-            if (isProjectADirectory)
-            {
-                compileTask = _logger.MeasureAsync("Pseudo Compilation", () =>
-                    compilation = PseudoCompilation.CreateFromDirectory(input, generatedName, token));
-            }
-            else
-            {
-                compileTask = _logger.MeasureAsync("MSBuild Compilation", () =>
-                    (workspace, compilation) = OpenMSBuildProjectAsync(input, token).Result);
-            }
-            
-            var outputPath = generatedName;
-            if (!Path.IsPathFullyQualified(generatedName))
-            {
-                master.GeneratedNamespaceSuffix = generatedName;
-                outputPath = Path.Combine(projectDirectory, generatedName);
-            }
-            
-            if (singleFileOutput)
-            {
-                if (!Path.GetExtension(generatedName).Equals(".cs", StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogError($"If the option {nameof(singleFileOutput)} is specified, the generated path must be a relative to a file with the '.cs' extension, got {generatedName}.");
-                }
-                else
-                {
-                    master.RootWriter = new OneFilePerProjectFileWriter(outputPath);
-                }
-            }
-            else
-            {
-                master.RootWriter = new SeparateCodeFileWriter(outputPath);
+                return ExitCode.Ok;
             }
 
             await pluginsTask;
 
-            // Now that plugins have loaded, we can actually use the rest of the arguments.
-            master.TakeCommandLineArguments(parser);
-            if (ShouldExit()) return Exit(ExitCode.BadOptionValue);
-
-            var unrecognizedOptions = parser.GetUnrecognizedOptions();
-            var unrecognizedConfigOptions = parser.GetUnrecognizedOptionsFromConfigurations();
-            if (unrecognizedOptions.Any() || unrecognizedConfigOptions.Any())
+            // Now that plugins have loaded, we can finally use the rest of the arguments.
             {
-                foreach (var arg in unrecognizedOptions)
+                master.TakeCommandLineArguments(parser);
+                if (ShouldExit())
+                    return ExitCode.BadOptionValue;
+
+                var unrecognizedOptions = parser.GetUnrecognizedOptions();
+                var unrecognizedConfigOptions = parser.GetUnrecognizedOptionsFromConfigurations();
+                if (unrecognizedOptions.Any() || unrecognizedConfigOptions.Any())
                 {
-                    _logger.LogError($"Unrecognized option: `{arg}`");
+                    foreach (var arg in unrecognizedOptions)
+                    {
+                        _logger.LogError($"Unrecognized option: `{arg}`");
+                    }
+                    foreach (var arg in unrecognizedConfigOptions)
+                    {
+                        // TODO: This can contain more info, like the line number.
+                        _logger.LogError($"Unrecognized option: `{parser.GetPropertyPathOfOption(arg)}`");
+                    }
+                    return ExitCode.UnknownOptions;
                 }
-                foreach (var arg in unrecognizedConfigOptions)
-                {
-                    // TODO: This can contain more info, like the line number.
-                    _logger.LogError($"Unrecognized option: `{arg.GetPropertyPath()}`");
-                }
-                return Exit(ExitCode.UnknownOptions);
+
+                if (ShouldExit())
+                    return ExitCode.Other;
             }
 
-            await compileTask;
-            if (ShouldExit()) return Exit(ExitCode.Other);
+            var entireGenerationMeasurer = new Measurer(_logger);
+            entireGenerationMeasurer.Start("The entire generation process");
 
-            // The code is a bit less ugly now, but still pretty ugly.
             // TODO: Is this profiling thing even useful? I mean, we already get the stats for the whole function. 
             var measurer = new Measurer(_logger);
-
             measurer.Start("Environment Initialization");
             {
-                master.InitializeCompilation(ref compilation);
-                if (ShouldExit()) return Exit(ExitCode.FailedEnvironmentInitialization);
-                if (!monolithicProject) 
-                    master.FindProjects(treatEditorAsSubproject);
-                master.InitializePseudoProjects();
+                var projectNamesInfo = new ProjectNamesInfo
+                {
+                    RootNamespaceName        = _ops.rootNamespace,
+                    RootPseudoProjectName    = _ops.rootProjectName,
+                    CommonPseudoProjectName  = _ops.commonProjectName,
+                    GeneratedNamespaceSuffix = _ops.generatedNamespaceSuffix,
+                    ProjectRootDirectory     = _ops.inputFolder,
+                    IgnoredFullPaths         = _ops.ignoredFullPaths,
+                    IgnoredNames             = _ops.ignoredNames,
+                };
+                
+                await master.InitializeCompilation(projectNamesInfo, _ops.inputMode);
+
+                if (ShouldExit())
+                    return ExitCode.FailedEnvironmentInitialization;
+                
+                // Set the master instance globally.
+                // It is only needed as a convenience for plugins.
+                MasterEnvironment.InitializeSingleton(master);
+
                 master.InitializeAdministrators();
+
+                if (ShouldExit())
+                    return ExitCode.FailedEnvironmentInitialization;
             }
-            if (ShouldExit()) return Exit(ExitCode.FailedEnvironmentInitialization);
             measurer.Stop();
 
             measurer.Start("Symbol Collect");
             {
-                await master.Collect();
-                master.RunCallbacks();
+                await master.CollectSymbols();
+                
+                if (ShouldExit())
+                    return ExitCode.FailedSymbolCollection;
             }
-            if (ShouldExit()) return Exit(ExitCode.FailedSymbolCollection);
             measurer.Stop();
 
             measurer.Start("Output Generation");
             {
-                if (clearOutput) master.ClearOutput();
-                await master.GenerateCode();
-                master.CloseWriters();
+                await master.GenerateCodeFragments();
+
+                switch (_ops.outputMode)
+                {
+                    case MasterEnvironment.OutputMode.NestedFile:
+                    {
+                        await master.WriteCodeFiles_SingleNestedFile(validOutputPath);
+                        break;
+                    }
+
+                    case MasterEnvironment.OutputMode.CentralFile:
+                    {
+                        await master.WriteCodeFiles_CentralFile(validOutputPath);
+                        break;
+                    }
+
+                    case MasterEnvironment.OutputMode.NestedDirectory:
+                    {
+                        foreach (var a in master.WriteCodeFiles_NestedDirectory(validOutputPath))
+                        {
+                            a.GeneratedPaths.RemoveCodeFilesThatWereNotGenerated();
+                            await a.WriteOutputTask;
+                        }
+                        break;
+                    }
+
+                    case MasterEnvironment.OutputMode.CentralDirectory:
+                    {
+                        foreach (var a in master.WriteCodeFiles_CentralDirectory(validOutputPath))
+                        {
+                            a.GeneratedPaths.RemoveCodeFilesThatWereNotGenerated();
+                            await a.WriteOutputTask;
+                        }
+                        break;
+                    }
+                    
+                    default: 
+                    {
+                        Assert(false); 
+                        break;
+                    }
+                }
+
+                master.DisposeOfAllCodeFragments();
+
+                if (ShouldExit())
+                    return ExitCode.FailedOutputGeneration;
             }
-            if (ShouldExit()) return Exit(ExitCode.FailedOutputGeneration);
-            
+            measurer.Stop();
+
             entireGenerationMeasurer.Stop();
-            return Exit(ExitCode.Ok);
+            return ExitCode.Ok;
 
 
             } // try
             catch (OperationCanceledException)
             {
-                return (int) ExitCode.OperationCanceled;
+                return ExitCode.OperationCanceled;
             }
             finally
             {
@@ -401,32 +557,20 @@
             }
         }
 
-        private void LoadPlugins(MasterEnvironment master, CancellationToken cancellationToken)
+        private void LoadPlugins(IEnumerable<string> pluginDllPaths, MasterEnvironment inoutMaster, CancellationToken cancellationToken)
         {
-            var finder = new AdministratorFinder();
-
-            for (int i = 0; i < pluginsLocations.Length; i++)
+            foreach (var dllPath in pluginDllPaths)
             {
                 void Handle(string error) 
                 {
-                    _logger.LogError($"Error while processing plugin input #{i}, {pluginsLocations[i]}: {error}");
+                    _logger.LogError($"Error while processing plugin input {dllPath}: {error}");
                 }
 
                 try
                 {
-                    pluginsLocations[i] = Path.GetFullPath(pluginsLocations[i]);
-                    if (Directory.Exists(pluginsLocations[i]))
-                    {
-                        finder.LoadPluginsDirectory(pluginsLocations[i]);
-                        continue;
-                    }
-                    if (File.Exists(pluginsLocations[i]))
-                    {
-                        finder.LoadPlugin(pluginsLocations[i]);
-                        continue;
-                    }
-                    Handle("The specified plugin folder or file does not exist.");
-                    if (cancellationToken.IsCancellationRequested) return;
+                    AdministratorFinder.LoadPlugin(dllPath);
+                    if (cancellationToken.IsCancellationRequested) 
+                        return;
                 }
                 catch (FileLoadException exception)
                 {
@@ -438,16 +582,18 @@
                 }
             }
 
-            if (Logger.AnyLoggerHasErrors) return;
+            // We don't return here, since I still want to load all available plugins for help
+            // if (Logger.AnyLoggerHasErrors)
+            //     return;
 
-            if (pluginNames is null)
+            if (_ops.pluginNames is null)
             {
-                finder.AddAllAdministrators(master);
+                AdministratorFinder.AddAllAdministrators(inoutMaster);
             }
             else
             {
-                var names = pluginNames.ToHashSet();
-                finder.AddAdministrators(master, names);
+                var names = _ops.pluginNames.ToHashSet();
+                AdministratorFinder.AddAdministrators(inoutMaster, names);
 
                 if (names.Count > 0)
                 {
@@ -456,28 +602,6 @@
                         _logger.LogError($"Invalid administrator name: {name}");
                     }
                 }
-            }
-        }
-
-        private async Task<(Workspace, Compilation)> OpenMSBuildProjectAsync(string projectPath, CancellationToken cancellationToken)
-        {
-            var workspace = MSBuildWorkspace.Create();
-            try
-            {
-                var logger = new ConsoleLogger(Microsoft.Build.Framework.LoggerVerbosity.Quiet);
-                var project = await workspace.OpenProjectAsync(projectPath, logger, null, cancellationToken);
-                var compilation = await project.GetCompilationAsync(cancellationToken);
-                if (compilation is null)
-                {
-                    _logger.LogError($"The input project {projectPath} does not support compilation.");
-                }
-
-                return (workspace, compilation);
-            }
-            catch
-            {
-                workspace.Dispose();
-                throw;
             }
         }
     }

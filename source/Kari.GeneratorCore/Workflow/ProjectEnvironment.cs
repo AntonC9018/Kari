@@ -1,8 +1,13 @@
 ﻿using System;
+using System.Buffers;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
+using Kari.Utils;
 using Microsoft.CodeAnalysis;
 
 namespace Kari.GeneratorCore.Workflow
@@ -11,131 +16,94 @@ namespace Kari.GeneratorCore.Workflow
     /// aka a pseudoproject. 
     /// Holds metadata about a project.
     /// </summary>
-    public class ProjectEnvironmentData
+    public record class ProjectEnvironmentData
     {
-        public readonly Logger Logger;
-        public readonly IFileWriter FileWriter;
+        /// <summary>
+        /// </summary>
+        public NamedLogger Logger { get; init; }
+
+        /// <summary>
+        /// This does not necessarily correspond to the namespace name.
+        /// In general, a project needs not have a concrete namespace.
+        /// The generated namespace though is a known thing, see `GeneratedNamespaceName`.
+        /// </summary>
+        public string Name => Logger.Name;
 
         /// <summary>
         /// Directory with the source files, including the source code and the project files.
         /// </summary>
-        public readonly string Directory;
-
-        /// <summary>
-        /// The fully qualified namespace name, as it is in the source code.
-        /// This has nothing to do with the generated namespace.
-        /// </summary>
-        public readonly string NamespaceName;
+        public string DirectoryFullPath { get; init; }
         
         /// <summary>
         /// The name of the namespace that the generated code will end up in.
+        /// It is most likely going to be Name.Generated, but it depends on the configuration.
         /// </summary>
-        public readonly string GeneratedNamespaceName;
+        public string GeneratedNamespaceName { get; init; }
 
-        /// <summary>
-        /// Shorthand for the MasterEnvironment singleton instance.
-        /// </summary>
-        public MasterEnvironment Master => MasterEnvironment.Instance;
+        public readonly List<CodeFragment> CodeFragments = new();
 
-        internal ProjectEnvironmentData(string directory, string namespaceName, IFileWriter fileWriter, Logger logger)
+        public ProjectEnvironmentData(string projectName, string directoryFullPath, string generatedNamespaceName)
         {
-            Directory = directory;
-            NamespaceName = namespaceName;
-            GeneratedNamespaceName = NamespaceName.Combine(Master.GeneratedNamespaceSuffix);
-            FileWriter = fileWriter;
-            Logger = logger;
+            Logger = new NamedLogger(projectName);
+            DirectoryFullPath = directoryFullPath;
+            GeneratedNamespaceName = generatedNamespaceName;
         }
+
 
         /// <summary>
         /// Writes the text to a file with the given file name, 
         /// placed in the directory of this project, with the current /Generated suffix appended to it.
         /// </summary>
-        public void WriteFile(string fileName, string text)
+        public void AddCodeFragment(CodeFragment fragment)
         {
-            if (text == null) return;
-            FileWriter.WriteCodeFile(fileName, text);
+            lock (CodeFragments)
+            {
+                CodeFragments.Add(fragment);
+            }
         }
 
-        /// <inheritdoc cref="WriteFile"/>
-        public Task WriteFileAsync(string fileName, string text)
+        /// <summary>
+        /// Is not thread safe.
+        /// </summary>
+        public void DisposeOfCodeFragments()
         {
-            return Task.Run(() => WriteFile(fileName, text));
-        }
-
-        /// <inheritdoc cref="WriteFile"/>
-        public Task WriteFileAsync(string fileName, ICodeTemplate template)
-        {
-            return Task.Run(() => WriteFile(fileName, template.TransformText()));
-        }
-
-        internal void ClearOutput()
-        {
-            Logger.Log($"Clearing the generated output.");
-            FileWriter.DeleteOutput();
+            foreach (ref var f in CollectionsMarshal.AsSpan(CodeFragments))
+            {
+                if (f.AreBytesRentedFromArrayPool)
+                    ArrayPool<byte>.Shared.Return(f.Bytes.Array);
+            }
+            CodeFragments.Clear();
         }
     }
 
     /// <summary>
-    /// Caches symbols for a project.
+    /// Stores cached symbols for a project.
     /// </summary>
-    public class ProjectEnvironment : ProjectEnvironmentData
+    public record class ProjectEnvironment(
+        ProjectEnvironmentData Data, 
+        SyntaxTree[] SourceFilesSyntaxTrees,
+        INamedTypeSymbol[] Types)
     {
-        // Any registered resources, like small pieces of data common to the project
-        public readonly Resources<object> Resources = new Resources<object>(5);
-        public readonly INamespaceSymbol RootNamespace;
+        public NamedLogger Logger => Data.Logger;
 
-        // Cached symbols
-        public readonly List<INamedTypeSymbol> Types = new List<INamedTypeSymbol>();
-        public readonly List<INamedTypeSymbol> TypesWithAttributes = new List<INamedTypeSymbol>();
-        public readonly List<IMethodSymbol> MethodsWithAttributes = new List<IMethodSymbol>();
-
-        internal ProjectEnvironment(string directory, string namespaceName, INamespaceSymbol rootNamespace, IFileWriter fileWriter) 
-            : base(directory, namespaceName, fileWriter, new Logger(rootNamespace.Name))
+        public IEnumerable<INamedTypeSymbol> TypesWithAttributes
         {
-            RootNamespace = rootNamespace;
+            get
+            {
+                return Types.Where(t => t.GetAttributes().Length > 0);
+            }
         }
 
-        /// <summary>
-        /// Asynchronously collects and caches relevant symbols.
-        /// </summary>
-        internal Task Collect()
+        
+        public IEnumerable<IMethodSymbol> MethodsWithAttributes
         {
-            return Task.Run(() => {
-                foreach (var symbol in RootNamespace.GetMembers())
-                {
-                    void AddType(INamedTypeSymbol type)
-                    {
-                        Types.Add(type);
-                        
-                        if (type.GetAttributes().Length > 0)
-                            TypesWithAttributes.Add(type);
-                        
-                        foreach (var method in type.GetMethods())
-                        {
-                            if (method.GetAttributes().Length > 0)
-                                MethodsWithAttributes.Add(method);
-                        }
-                    }
-
-                    if (symbol is INamedTypeSymbol type)
-                    {
-                        AddType(type);
-                    }
-                    else if (symbol is INamespaceSymbol nspace)
-                    {
-                        if (MasterEnvironment.Instance.IndependentNamespaces.Contains(nspace.Name))
-                        {
-                            continue;
-                        }
-                        foreach (var topType in nspace.GetNotNestedTypes())
-                        {
-                            AddType(topType);
-                        }
-                    }
-                }
-
-                Logger.Log($"Collected {Types.Count} types, {TypesWithAttributes.Count} annotated types, {MethodsWithAttributes.Count} annotated methods.");
-            });
+            get
+            {
+                return Types
+                    .SelectMany(t => t.GetMembers())
+                    .OfType<IMethodSymbol>()
+                    .Where(t => t.GetAttributes().Length > 0);
+            }
         }
     }
 }

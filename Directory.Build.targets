@@ -1,0 +1,15 @@
+
+<Project>
+
+  <Target Name="ReIncludeCompilationItems">
+    <ItemGroup>
+      <!-- 
+        https://stackoverflow.com/a/44829863/9731532 
+        This approach must be slower than just including single files tho.
+        -->
+      <Compile Include="**/*$(DefaultLanguageSourceExtension)"
+               Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder);$(BaseIntermediateOutputPath)**;$(BaseOutputPath)**;@(Compile)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

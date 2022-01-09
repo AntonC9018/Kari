@@ -1,21 +1,21 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using Cysharp.Text;
 using Humanizer;
-using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
+using Kari.Utils;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Kari.Plugins.Terminal
 {
-    internal partial class CommandsAnalyzer : IAnalyzer
+    internal partial class CommandsAnalyzer : ICollectSymbols, IGenerateCode
     {
         private readonly HashSet<string> _names = new HashSet<string>();
         public readonly List<CommandMethodInfo> _infos = new List<CommandMethodInfo>();
         public readonly List<FrontCommandMethodInfo> _frontInfos = new List<FrontCommandMethodInfo>();
-        private Logger _logger;
+        private NamedLogger _logger;
 
         private void RegisterCommandName(string name)
         {
@@ -25,7 +25,7 @@ namespace Kari.Plugins.Terminal
             }
         }
 
-        public void Collect(ProjectEnvironment environment)
+        public void CollectSymbols(ProjectEnvironment environment)
         {
             _logger = environment.Logger;
 
@@ -35,7 +35,7 @@ namespace Kari.Plugins.Terminal
                 
                 if (method.TryGetAttribute(CommandSymbols.CommandAttribute, _logger, out var commandAttribute))
                 {
-                    var info = new CommandMethodInfo(method, commandAttribute, environment.GeneratedNamespaceName);
+                    var info = new CommandMethodInfo(method, commandAttribute, environment.Data.GeneratedNamespaceName);
                     info.Collect(environment);
                     _infos.Add(info);
                     RegisterCommandName(info.Name);
@@ -43,14 +43,14 @@ namespace Kari.Plugins.Terminal
                 
                 if (method.TryGetAttribute(CommandSymbols.FrontCommandAttribute, _logger, out var frontCommandAttribute))
                 {
-                    var info = new FrontCommandMethodInfo(method, frontCommandAttribute, environment.GeneratedNamespaceName);
+                    var info = new FrontCommandMethodInfo(method, frontCommandAttribute, environment.Data.GeneratedNamespaceName);
                     _frontInfos.Add(info);
                     RegisterCommandName(info.Name);
                 }
             }
         }
 
-        public void InitializeParsers()
+        internal void InitializeParsers()
         {
             for (int i = 0; i < _infos.Count; i++)
             {
@@ -58,7 +58,7 @@ namespace Kari.Plugins.Terminal
             }
         }
 
-        public string GetClassName(ICommandMethodInfo info)
+        internal string GetClassName(ICommandMethodInfo info)
         {
             if (info.IsEscapedClassName)
             {
@@ -71,22 +71,18 @@ namespace Kari.Plugins.Terminal
             return info.ClassName;
         }
 
-        public string TransformFrontCommand(FrontCommandMethodInfo info, string initialIndentation = "")
+        private void TransformFrontCommand(ref CodeBuilder builder, FrontCommandMethodInfo info)
         {
-            var builder = new CodeBuilder(indentation: "    ", initialIndentation);
             var className = GetClassName(info);
             builder.AppendLine($"public class {className} : CommandBase");
             builder.StartBlock();
             builder.AppendLine($"public override void Execute(CommandContext context) => {info.Symbol.GetFullyQualifiedName()}(context);");
             builder.AppendLine($"public {className}() : base({info.Attribute.MinimumNumberOfArguments}, {info.Attribute.MaximumNumberOfArguments}, {info.Attribute.ShortHelp.AsVerbatimSyntax()}, {info.Attribute.Help.AsVerbatimSyntax()}) {{}}");
             builder.EndBlock();
-
-            return builder.ToString();
         }
 
-        public string TransformCommand(CommandMethodInfo info, string initialIndentation = "")
+        public void TransformCommand(ref CodeBuilder classBuilder, CommandMethodInfo info)
         {
-            var classBuilder = new CodeBuilder(indentation: "    ", initialIndentation);
             var className = GetClassName(info);
             classBuilder.AppendLine($"public class {className} : CommandBase");
             classBuilder.StartBlock();
@@ -99,28 +95,36 @@ namespace Kari.Plugins.Terminal
             List<ArgumentInfo> positionalArguments = info.PositionalArguments;
             List<ArgumentInfo> optionLikeArguments = info.OptionLikeArguments;
 
-            var usageBuilder = new StringBuilder();
-            var argsBuilder = new EvenTableBuilder("Argument/Option", "Type", "Description");
+            using var usageBuilder = ZString.CreateUtf8StringBuilder(notNested: true);
             
-            usageBuilder.Append($"Usage: {info.Name} ");
+            // TODO: this info should be available at runtime for it to print the thing.
+            // It should not be in the help message, because then the format is bad.
+            // var header = new string[3] { "Argument/Option", "Type", "Description" };
+            // var argsBuilder = new Table();
+            // argsBuilder.AddColumns(header);
+
+            usageBuilder.AppendFormat("Usage: {0}", info.Name);
             for (int i = 0; i < positionalArguments.Count; i++)
             {
                 var arg = positionalArguments[i];
-                usageBuilder.Append($"{arg.Name} ");
-                
-                argsBuilder.Append(column: 0, arg.Symbol.Name);
-                argsBuilder.Append(column: 1, arg.Parser.Name);
-                argsBuilder.Append(column: 2, arg.Attribute.Help);
+                usageBuilder.Append(arg.Name);
+                usageBuilder.Append(" ");
+
+                // row[0] = arg.Symbol.Name;
+                // row[1] = arg.Parser.Name;
+                // row[2] = arg.Attribute.Help;
+                // argsBuilder.AddRow(row);
             }
 
             for (int i = 0; i < optionLikeArguments.Count; i++)
             {
                 var arg = optionLikeArguments[i];
-                usageBuilder.Append($"{arg.Attribute.Name}|-{arg.Attribute.Name}=value ");
+                usageBuilder.AppendFormat("{0}|-{1}=value ", arg.Attribute.Name, arg.Attribute.Name);
 
-                argsBuilder.Append(column: 0, $"{arg.Attribute.Name}|-{arg.Attribute.Name}");
-                argsBuilder.Append(column: 1, arg.Parser.Name);
-                argsBuilder.Append(column: 2, arg.Attribute.Help);
+                // row[0] = $"{arg.Attribute.Name}|-{arg.Attribute.Name}";
+                // row[1] = arg.Parser.Name;
+                // row[2] = arg.Attribute.Help;
+                // argsBuilder.AddRow(row);
             }
             
             for (int i = 0; i < options.Count; i++)
@@ -152,20 +156,19 @@ namespace Kari.Plugins.Terminal
                     typeString += $", ={option.DefaultValueText}";
                 }
 
-                argsBuilder.Append(column: 0, "-" + option.Name);
-                argsBuilder.Append(column: 1, typeString);
-                argsBuilder.Append(column: 2, option.Attribute.Help);
+                // argsBuilder.Append(column: 0, "-" + option.Name);
+                // argsBuilder.Append(column: 1, typeString);
+                // argsBuilder.Append(column: 2, option.Attribute.Help);
             }
 
-            var helpMessageBuilder = new StringBuilder();
-            helpMessageBuilder.AppendLine(usageBuilder.ToString());
+            var helpMessageBuilder = usageBuilder;
             helpMessageBuilder.AppendLine();
             if (!string.IsNullOrEmpty(info.Attribute.Help))
             {
                 helpMessageBuilder.AppendLine(info.Attribute.Help);
                 helpMessageBuilder.AppendLine();
             }
-            helpMessageBuilder.AppendLine(argsBuilder.ToString());
+            // helpMessageBuilder.AppendLine(argsBuilder.ToString());
 
             executeBuilder.AppendLine("// Take in all the positional arguments.");
             for (int i = 0; i < positionalArguments.Count; i++)
@@ -251,31 +254,33 @@ namespace Kari.Plugins.Terminal
             executeBuilder.Indent();
             if (info.Symbol.ReturnsVoid)
             {
-                executeBuilder.Append(info.Symbol.GetFullyQualifiedName() + "(");
+                executeBuilder.Append(info.Symbol.GetFullyQualifiedName(), "(");
             }
             else
             {
                 executeBuilder.Append($"context.Log({info.Symbol.GetFullyQualifiedName()}(");
             }
 
-            var parameters = new ListBuilder(", ");
+            var parameters = CodeListBuilder.Create(", ");
 
             for (int i = 0; i < positionalArguments.Count; i++)
             {
-                parameters.Append($"{positionalArguments[i].Symbol.Name} : __{positionalArguments[i].Name}");
+                parameters.AppendOnNewLine(ref executeBuilder, 
+                    $"{positionalArguments[i].Symbol.Name} : __{positionalArguments[i].Name}");
             }
 
             for (int i = 0; i < optionLikeArguments.Count; i++)
             {
-                parameters.Append($"{optionLikeArguments[i].Symbol.Name} : __{optionLikeArguments[i].Name}");
+                parameters.AppendOnNewLine(ref executeBuilder, 
+                    $"{optionLikeArguments[i].Symbol.Name} : __{optionLikeArguments[i].Name}");
             }
 
             for (int i = 0; i < options.Count; i++)
             {
-                parameters.Append($"{options[i].Symbol.Name} : __{options[i].Name}");
+                parameters.AppendOnNewLine(ref executeBuilder, 
+                    $"{options[i].Symbol.Name} : __{options[i].Name}");
             }
 
-            executeBuilder.Append(parameters.ToString());
             executeBuilder.Append(")");
 
             if (!info.Symbol.ReturnsVoid)
@@ -290,18 +295,152 @@ namespace Kari.Plugins.Terminal
             classBuilder.AppendLine($"public {className}() : base(_MinimumNumberOfArguments, _MaximumNumberOfArguments, {info.Attribute.ShortHelp.AsVerbatimSyntax()}, _HelpMessage) {{}}");
             classBuilder.Indent();
             classBuilder.Append("public const string _HelpMessage = @\"");
-            classBuilder.Append(helpMessageBuilder.ToString().EscapeVerbatim());
+            classBuilder.AppendEscapeVerbatim(helpMessageBuilder.AsArraySegment());
             classBuilder.Append("\";");
             classBuilder.AppendLine();
             // TODO: Allow default values for arguments
             classBuilder.AppendLine($"public const int _MinimumNumberOfArguments = {positionalArguments.Count};");
             classBuilder.AppendLine($"public const int _MaximumNumberOfArguments = {positionalArguments.Count + optionLikeArguments.Count};");
             classBuilder.AppendLine();
-            classBuilder.Append(executeBuilder.ToString());
+            classBuilder.AppendLiteral(executeBuilder.AsArraySegment());
             classBuilder.AppendLine();
             classBuilder.EndBlock();
+        }
 
-            return classBuilder.ToString();
+        const string basics = @"/// <summary>
+    /// The CommandContext class must implement the following duck interface.
+    /// The generated commands will reference the actual CommandContext class instead, 
+    /// so the interface must only be used for reference.
+    /// </summary>
+    public interface IDuckCommandContext
+    {
+        bool HasErrors { get; }
+        T ParseArgument<T>(int index, string name, IValueParser<T> parser);
+        bool ParseFlag(string name, bool defaultValue = false, bool flagValue = true);
+        T ParseOption<T>(string name, IValueParser<T> parser);
+        T ParseOption<T>(string name, T defaultValue, IValueParser<T> parser);
+        void EndParsing();
+    }
+
+    /// <summary>
+    /// This struct is used in a sort of main function to set the builtin commands below.
+    /// </summary>
+    public readonly struct CommandInfo
+    {
+        public readonly string Name;
+        public readonly CommandBase Command;
+        public CommandInfo(string name, CommandBase command)
+        {
+            Name = name;
+            Command = command;
+        }
+    }
+
+    /// <summary>
+    /// Defines the data model of any reasonable command.
+    /// </summary>
+    public abstract class CommandBase
+    {
+        public abstract void Execute(CommandContext context);
+        public readonly int MinimumNumberOfArguments;
+        public readonly int MaximumNumberOfArguments; // TODO: Never used, should be removed?
+        public readonly string HelpMessage;
+        public readonly string ExtendedHelpMessage;
+
+        protected CommandBase(int minimumNumberOfArguments, int maximumNumberOfArguments, string helpMessage, string extendedHelpMessage)
+        {
+            MinimumNumberOfArguments = minimumNumberOfArguments;
+            MaximumNumberOfArguments = maximumNumberOfArguments;
+            HelpMessage = helpMessage;
+            ExtendedHelpMessage = extendedHelpMessage;
+        }
+
+        protected CommandBase(int minimumNumberOfArguments, int maximumNumberOfArguments, string helpMessage)
+        {
+            MinimumNumberOfArguments = minimumNumberOfArguments;
+            MaximumNumberOfArguments = maximumNumberOfArguments;
+            HelpMessage = helpMessage;
+            ExtendedHelpMessage = helpMessage;
+        }
+    }
+
+    /// <summary>
+    /// Contains the default commands.
+    /// Warning! This data must be set by an outside script prior to being used.
+    /// You must manually set this array to the correct value.
+    /// </summary>
+    public static class Commands
+    {
+        public static CommandInfo[] BuiltinCommands;
+    }
+";
+
+        internal static CodeBuilder TransformBasics()
+        {
+            var builder = CodeBuilder.Create();
+            builder.AppendLine("namespace ", TerminalAdministrator.TerminalProject.GeneratedNamespaceName);
+            builder.StartBlock();
+            builder.Append(basics);
+            builder.EndBlock();
+            return builder;
+        }
+
+        public void GenerateCode(ProjectEnvironmentData project, ref CodeBuilder builder)
+        {
+            if (_infos.Count == 0 && _frontInfos.Count == 0) 
+                return;
+
+            builder.AppendLine("namespace ", project.GeneratedNamespaceName);
+            builder.StartBlock();
+            builder.AppendLine("using ", TerminalAdministrator.TerminalProject.Name, ";");
+            builder.AppendLine("using ", TerminalAdministrator.TerminalProject.GeneratedNamespaceName, ";");
+
+            foreach (var info in _infos) 
+            { 
+                TransformCommand(ref builder, info);
+                builder.AppendLine();
+            }
+
+            foreach (var info in _frontInfos) 
+            {
+                TransformFrontCommand(ref builder, info);
+                builder.AppendLine();
+            }
+
+            builder.EndBlock();
+        }
+
+        internal static CodeBuilder TransformBuiltin(ProjectEnvironmentData project, CommandsAnalyzer[] analyzers)
+        {
+            CodeBuilder builder = CodeBuilder.Create();
+            builder.AppendLine("namespace ", project.GeneratedNamespaceName);
+            builder.StartBlock();
+            builder.AppendLine("public static class CommandsInitialization");
+            builder.StartBlock();
+            
+            builder.AppendLine("public static void InitializeBuiltinCommands()");
+            builder.StartBlock();
+            var ns = TerminalAdministrator.TerminalProject.GeneratedNamespaceName;
+            builder.AppendLine($"{ns}.Commands.BuiltinCommands = new {ns}.CommandInfo[]");
+            builder.StartBlock();
+
+            void AppendInfo(CommandsAnalyzer a, string name, string fullClassName)
+            {
+                builder.AppendLine($"new {ns}.CommandInfo(name: \"{name}\", command: new {fullClassName}()),");
+            }
+
+            foreach (var a in analyzers)
+            {
+                foreach (var info in a._infos)
+                    AppendInfo(a, info.Name, info.FullClassName);
+                foreach (var info in a._frontInfos)
+                    AppendInfo(a, info.Name, info.FullClassName);
+            }
+            builder.EndBlock();
+            builder.EndBlock();
+            builder.EndBlock();
+            builder.EndBlock();
+            return builder;
         }
     }
 
@@ -337,7 +476,7 @@ namespace Kari.Plugins.Terminal
                 IsEscapedClassName = false;
                 ClassName = attribute.Name + "Command";
             }
-            FullClassName = generatedNamespace.Combine(ClassName);
+            FullClassName = generatedNamespace.Join(ClassName);
         }
 
         private static void UpdateAttributeHelp(IMethodSymbol method, ICommandAttribute attribute)
@@ -357,7 +496,7 @@ namespace Kari.Plugins.Terminal
             var root = xml.FirstChild;
             var nodes = root.ChildNodes;
 
-            var sb = new StringBuilder();
+            var sb = new System.Text.StringBuilder();
             for (int i = 0; i < nodes.Count; i++)
             {
                 if (i > 0) sb.AppendLine("\n");

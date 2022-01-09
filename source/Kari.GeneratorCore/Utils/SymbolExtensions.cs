@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
-using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Xml;
-using Humanizer;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
+using static System.Diagnostics.Debug;
 
 namespace Kari.GeneratorCore.Workflow
 {
@@ -110,7 +108,7 @@ namespace Kari.GeneratorCore.Workflow
 
                     foreach (var t in named_symbol.TypeArguments)
                     {
-                        sb_type.Append(ToFullyQualifiedText((INamedTypeSymbol)t));
+                        sb_type.Append(ToFullyQualifiedText((INamedTypeSymbol) t));
                         sb_type.Append(", ");
                     }
 
@@ -166,12 +164,14 @@ namespace Kari.GeneratorCore.Workflow
             return String.Join(", ", ParamTypeNames(parameters));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int IndexOfFirst<T>(this IEnumerable<T> e, Predicate<T> predicate)
         {
             int i = 0;
             foreach (var el in e)
             {
-                if (predicate(el)) return i;
+                if (predicate(el)) 
+                    return i;
                 i++;
             }
             return -1;
@@ -273,7 +273,7 @@ namespace Kari.GeneratorCore.Workflow
 
         public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T> e) where T : class
         {
-            return e.Where(el => !(el is null));
+            return e.Where(el => el is not null);
         }
         
         public static IEnumerable<ITypeSymbol> GetLeafTypeArguments(this ITypeSymbol symbol)
@@ -313,7 +313,8 @@ namespace Kari.GeneratorCore.Workflow
             for (int i = 0; i < paths.Length; i++)
             {
                 result = result.GetNamespaceMembers().Where(ns => ns.Name == paths[i]).FirstOrDefault();
-                if (result is null) return null;
+                if (result is null) 
+                    return null;
             }
 
             return result;
@@ -342,8 +343,10 @@ namespace Kari.GeneratorCore.Workflow
 
             if (parameter.Type.SpecialType == SpecialType.None)
             {
-                if (parameter.Type.IsReferenceType) return "null";
-                else return "default";
+                if (parameter.Type.IsReferenceType) 
+                    return "null";
+                else 
+                    return "default";
             }
 
             switch (parameter.Type.SpecialType)
@@ -368,7 +371,7 @@ namespace Kari.GeneratorCore.Workflow
             return "default";
         }
 
-        public static string Combine(this string mainPart, string part, string separator = ".")
+        public static string Join(this string mainPart, string part, string separator = ".")
         {
             if (mainPart == "") return part;
             return mainPart + separator + part;
@@ -399,6 +402,55 @@ namespace Kari.GeneratorCore.Workflow
         public static string AsVerbatimSyntax(this string text)
         {
             return $"@\"{text.EscapeVerbatim()}\"";
+        }
+
+        public static bool HasEqualityOperatorAbleToCompareAgainstOwnType(this ITypeSymbol type)
+        {
+            switch (type.SpecialType)
+            {
+                case SpecialType.System_Enum:
+                case SpecialType.System_Boolean:
+                case SpecialType.System_Char:
+                case SpecialType.System_SByte:
+                case SpecialType.System_Byte:
+                case SpecialType.System_Int16:
+                case SpecialType.System_UInt16:
+                case SpecialType.System_Int32:
+                case SpecialType.System_UInt32:
+                case SpecialType.System_Int64:
+                case SpecialType.System_UInt64:
+                case SpecialType.System_Decimal:
+                case SpecialType.System_Single:
+                case SpecialType.System_Double:
+                case SpecialType.System_String:
+                case SpecialType.System_IntPtr:
+                case SpecialType.System_UIntPtr:
+                case SpecialType.System_DateTime:
+                    return true;
+            }
+
+            if (type.TypeKind == TypeKind.Enum)
+            {
+                return true;
+            }
+
+            var arr = type.GetMembers("op_Equality");
+            for (int i = 0; i < arr.Length; i++)
+            {
+                var opMethod = arr[i] as IMethodSymbol;
+
+                // AFAIK it has to be a method.
+                Assert(opMethod is not null);
+
+                if (opMethod.Parameters.Length == 2 &&
+                    type.Equals(opMethod.Parameters[0].Type) &&
+                    type.Equals(opMethod.Parameters[1].Type))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

@@ -1,5 +1,9 @@
+using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
+using Cysharp.Text;
+using Kari.Utils;
 
 namespace Kari.GeneratorCore.Workflow
 {
@@ -38,7 +42,7 @@ namespace Kari.GeneratorCore.Workflow
         /// right before or right after theirs, by setting the priority of your handler to a lower or to 
         /// a higher value respectively.
         /// </summary>
-        IEnumerable<CallbackInfo> GetCallbacks() { yield break; }
+        IEnumerable<MasterEnvironment.CallbackInfo> GetCallbacks() { yield break; }
 
         /// <summary>
         /// The method called asynchronously by the MasterEnvironment to initiate the code generation process.
@@ -46,69 +50,88 @@ namespace Kari.GeneratorCore.Workflow
         Task Generate();
     }
 
-    public interface IAnalyzer
+    public interface ICollectSymbols
     {
-        void Collect(ProjectEnvironment project);
+        void CollectSymbols(ProjectEnvironment project);
     }
 
-    public static class AnalyzerMaster
+    public interface IGenerateCode
     {
-        public static void Initialize<T>(ref T[] slaves) where T : IAnalyzer, new()
+        /// <summary>
+        /// Used to output the code of a given code generator (analyzer/template)
+        /// </summary>
+        void GenerateCode(ProjectEnvironmentData project, ref CodeBuilder codeBuilder);
+    }
+
+    public static class AdministratorHelpers
+    {
+        public static void Initialize<T>(ref T[] collectors) where T : ICollectSymbols, new()
         {
             var projects = MasterEnvironment.Instance.Projects;
-            slaves = new T[projects.Count]; 
-            for (int i = 0; i < projects.Count; i++)
+            collectors = new T[projects.Length]; 
+            for (int i = 0; i < projects.Length; i++)
             {
-                slaves[i] = new T();
+                collectors[i] = new T();
             }
         }
 
-        public static void Collect<T>(T[] slaves) where T : IAnalyzer
+        public static void Collect<T>(T[] collectors) where T : ICollectSymbols
         {
             var projects = MasterEnvironment.Instance.Projects;
-            for (int i = 0; i < slaves.Length; i++)
+            for (int i = 0; i < collectors.Length; i++)
             {
-                slaves[i].Collect(projects[i]);
+                collectors[i].CollectSymbols(projects[i]);
             }
         }
 
-        public static Task CollectAsync<T>(T[] slaves) where T : IAnalyzer
+        public static Task CollectAsync<T>(T[] collectors) where T : ICollectSymbols
         {
-            return Task.Run(() => Collect(slaves));
+            return Task.Run(delegate { Collect(collectors); });
         }
 
-        public static void Generate<T>(T[] slaves, string fileName, IGenerator<T> generator)
-            where T : IAnalyzer
+        public static void Generate<T>(T[] generators, string fileName)
+            where T : IGenerateCode
         {
             var projects = MasterEnvironment.Instance.Projects;
-            for (int i = 0; i < slaves.Length; i++)
+            
+            for (int i = 0; i < generators.Length; i++)
             {
-                generator.m = slaves[i];
-                generator.Project = projects[i];
-                projects[i].WriteFile(fileName, generator.TransformText());
-            }
-        }
+                var builder = CodeBuilder.Create();
 
-        public static Task GenerateAsync<T>(T[] slaves, string fileName, IGenerator<T> generator) 
-            where T : IAnalyzer
-        {
-            return Task.Run(() => Generate(slaves, fileName, generator));
-        }
-
-        public static void Generate<T>(T[] slaves, string fileName)
-            where T : ISimpleGenerator
-        {
-            var projects = MasterEnvironment.Instance.Projects;
-            for (int i = 0; i < slaves.Length; i++)
-            {
-                projects[i].WriteFile(fileName, slaves[i].TransformText(projects[i]));
+                generators[i].GenerateCode(projects[i].Data, ref builder);
+                
+                projects[i].Data.AddCodeFragment(new CodeFragment
+                {
+                    FileNameHint = fileName,
+                    NameHint = typeof(T).Name,
+                    Bytes = builder.AsArraySegment(),
+                    AreBytesRentedFromArrayPool = true,
+                });
             }
         }
 
         public static Task GenerateAsync<T>(T[] slaves, string fileName) 
-            where T : ISimpleGenerator
+            where T : IGenerateCode
         {
-            return Task.Run(() => Generate(slaves, fileName));
+            return Task.Run(delegate { Generate(slaves, fileName); });
         }
+
+        public static void AddCodeString(ProjectEnvironmentData project, string fileName, string nameHint, string content)
+        {
+
+            project.AddCodeFragment(new CodeFragment
+            {
+                FileNameHint = fileName,
+                NameHint = nameHint,
+                Bytes = Encoding.UTF8.GetBytes(content),
+                AreBytesRentedFromArrayPool = false,
+            });
+        }
+
+        public static Task AddCodeStringAsync(ProjectEnvironmentData project, string fileName, string nameHint, string content)
+        {
+            return Task.Run(delegate { AddCodeString(project, fileName, nameHint, content); });
+        }
+
     }
 }

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
+using Kari.Utils;
 using Microsoft.CodeAnalysis;
 
 namespace Kari.Plugins.Terminal
@@ -18,7 +19,7 @@ namespace Kari.Plugins.Terminal
         public BuiltinParser(string parsersFullyQualifiedClassName, string name)
         {
             Name = name;
-            FullName = parsersFullyQualifiedClassName.Combine(name);
+            FullName = parsersFullyQualifiedClassName.Join(name);
         }
     }
 
@@ -34,7 +35,7 @@ namespace Kari.Plugins.Terminal
         {
             Attribute = attribute;
             Attribute.Name ??= symbol.Name;
-            FullName = parsersFullyQualifiedClassName.Combine(Attribute.Name);
+            FullName = parsersFullyQualifiedClassName.Join(Attribute.Name);
             FullyQualifiedName = symbol.GetFullyQualifiedName();
             Symbol = symbol;
             Next = null;
@@ -64,14 +65,14 @@ namespace Kari.Plugins.Terminal
         internal const int CheckPriority = 1;
         private readonly Dictionary<ITypeSymbol, BuiltinParser> _builtinParsers = new Dictionary<ITypeSymbol, BuiltinParser>();
         private readonly Dictionary<ITypeSymbol, CustomParserInfo> _customParsersTypeMap = new Dictionary<ITypeSymbol, CustomParserInfo>();
-        private readonly Logger _logger = new Logger("Parsers");
+        private readonly NamedLogger _logger = new NamedLogger("Parsers");
 
         internal static string GetFullyQualifiedParsersClassNameForProject(ProjectEnvironmentData environment)
         {
-            return environment.GeneratedNamespaceName.Combine("Parsers");
+            return environment.GeneratedNamespaceName.Join("Parsers");
         }
 
-        public ParserDatabase(ProjectEnvironmentData terminalProject)
+        internal ParserDatabase(ProjectEnvironmentData terminalProject)
         {
             var parsersFullyQualifiedClassName = GetFullyQualifiedParsersClassNameForProject(terminalProject);
             _builtinParsers.Add(Symbols.Int,     new BuiltinParser(parsersFullyQualifiedClassName, "Int")      );
@@ -90,7 +91,7 @@ namespace Kari.Plugins.Terminal
             _builtinParsers.Add(Symbols.String,  new BuiltinParser(parsersFullyQualifiedClassName, "String")   );
         }
 
-        public void AddParser(CustomParserInfo info)
+        internal void AddParser(CustomParserInfo info)
         {
             lock (_customParsersTypeMap)
             {
@@ -118,11 +119,11 @@ namespace Kari.Plugins.Terminal
             return $"for type {argument.Symbol.Type} at {argument.Symbol.GetLocationInfo()}.";
         }
 
-        public IParserInfo GetParser(IArgumentInfo argument)
+        internal IParserInfo GetParser(IArgumentInfo argument)
         {
             var customParser = argument.GetAttribute().Parser;
             
-            if (!(customParser is null))
+            if (customParser is not null)
             {
                 if (_customParsersTypeMap.TryGetValue(argument.Symbol.Type, out var parser))
                 {

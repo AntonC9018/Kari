@@ -1,0 +1,14 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "type": "default",
+      "project": "debug_helpers\\bin\\install_plugin.exe",
+      "projectTarget": "",
+      "name": "install_plugin.exe",
+      "currentDir": "E:\\Coding\\C#\\Stuff",
+      "args": [ "--pluginName", "E:\\Coding\\C#\\Kari\\build_folder\\.nupkg\\DataObject\\Release\\Kari.Plugins.DataObject.0.0.0-g4e6d2e92ed.nupkg" ]
+    }
+  ]
+}

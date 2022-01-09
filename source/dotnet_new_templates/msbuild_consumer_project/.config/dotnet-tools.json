@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "kari.generator": {
+      "version": "0.0.0-g4e6d2e92ed",
+      "commands": [
+        "kari"
+      ]
+    }
+  }
+}

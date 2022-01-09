@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <PropertyGroup>
+    <!-- Announce this SDK -->
+    <UsingKariPluginSdk>true</UsingKariPluginSdk>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- This is needed for local Plugin development, it copies all assemblies of dependencies. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!--
+      Min Version is 2.5 because that's when build/ folder support was introduced:
+      https://docs.microsoft.com/en-us/nuget/release-notes/nuget-2.5#automatic-import-of-msbuild-targets-and-props-files
+    -->
+    <MinClientVersion>2.5</MinClientVersion>
+
+    <!-- Below is needed to make NuGet package TFM-oblivious -->
+    <!-- <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking> -->
+
+    <!-- Lib is what we ditribute as a plugin -->
+    <IncludeBuildOutput>true</IncludeBuildOutput>    
+    <IsPackable>true</IsPackable>
+    <OutputType>Library</OutputType>
+
+    <!-- Kari is net 6. TODO: this should be generalized. -->
+    <TargetFramework>net6.0</TargetFramework>
+
+    <!-- 
+      TODO: Add the ability to test plugins, but that's extremely 
+      hard to generalize to an arbitrary output path. 
+      -->
+  </PropertyGroup>
+
+  <!--
+    Version.props defines KariPluginSdkVersion Property
+    with the version of the Sdk package itself.
+  -->
+  <Import Project="Version.props" Condition=" Exists('Version.props') " />
+
+</Project>

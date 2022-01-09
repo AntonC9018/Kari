@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageType>Template</PackageType>
+    <PackageId>Kari.Plugin.Templates</PackageId>
+    
+    <Title>Kari predefined plugin templates</Title>
+    <Authors>Anton Curmanschii</Authors>
+    <Description>Templates to use when creating a new Kari plugin.</Description>
+    <PackageTags>dotnet-new;templates;kari</PackageTags>
+
+    <TargetFramework>netstandard2.1</TargetFramework>
+
+    <IncludeContentInPack>true</IncludeContentInPack>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <ContentTargetFolders>content</ContentTargetFolders>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+
+    <BeforePack>@(BeforePack);IncludePackItems</BeforePack>
+
+    <!-- Allow .gitignore -->
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+  </PropertyGroup>
+
+  <Target Name="IncludePackItems">
+    <ItemGroup>
+      <!-- All subdirectories, all files within them -->
+      <Content Include="*\**\*" PackagePath="%(RecursiveDir)" />
+      <!-- RecursiveDir only includes the matched wildcard part -->
+      <Content 
+        Include="basic_plugin_project\**\*"
+        Exclude="basic_plugin_project\**\.template.config\*"
+        PackagePath="advanced_plugin_project\MyPlugin\%(RecursiveDir)" />
+    </ItemGroup>
+  </Target>
+    
+  <ItemGroup>
+    <Compile Remove="**\*" />
+  </ItemGroup>
+
+</Project>

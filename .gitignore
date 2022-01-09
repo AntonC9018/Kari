@@ -1,2 +1,9 @@
-[Bb]uild
+build_folder
 apikey.txt
+
+*.ilk
+*.pdb
+*.exe
+*.obj
+.vs/*
+!.vs/launch.vs.json

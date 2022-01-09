@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ImportGroup>
-    <Import Project="$(KariPluginPropsPath)" />
+    <Import Project="..\InternalPlugin.props" />
   </ImportGroup>
-  
+
 </Project>

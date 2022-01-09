@@ -1,0 +1,36 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build_kari_debug",
+            "command": "dotnet",
+            "type": "process",
+            "args": [ "build", "${workspaceFolder}/source/Kari.Generator/Kari.Generator.csproj" ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "pack_kari",
+            "command": "dotnet",
+            "type": "process",
+            "args": [ "pack", "--configuration=Release" ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "install_kari",
+            "command": "dotnet",
+            "dependsOn": [ "pack_kari" ],
+            "type": "process",
+            "args": [ 
+                "tool", "update", "--global", "Kari.Generator",
+                "--add-source", "build_folder\\bin\\Kari.Generator\\Release"
+            ],
+        },
+        {
+            "label": "build_annotator_debug",
+            "command": "dotnet",
+            "type": "process",
+            "args": [ "build", "${workspaceFolder}/source/Kari.Annotator/Kari.Annotator.csproj" ],
+            "problemMatcher": "$msCompile"
+        },
+    ]
+}

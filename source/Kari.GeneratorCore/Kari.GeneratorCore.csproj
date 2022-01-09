@@ -1,20 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
     <AssemblyName>Kari.GeneratorCore</AssemblyName>
     <!-- <SignAssembly>True</SignAssembly>
     <AssemblyOriginatorKeyFile>..\..\opensource.snk</AssemblyOriginatorKeyFile> -->
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Humanizer" Version="2.11.10" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <ProjectReference Include="$(KariRootPath)Kari.Arguments\Kari.Arguments.csproj"/>
 
     <!-- Roslyn references. -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.10.0" />
-    <PackageReference Include="Microsoft.Build" Version="16.5.0" />
-    <PackageReference Include="System.CodeDom" Version="4.7.0" />
+    <PackageReference Include="Microsoft.Build" Version="17.0.0" />
+    <PackageReference Include="System.CodeDom" Version="6.0.0" />
   </ItemGroup>
 
 </Project>

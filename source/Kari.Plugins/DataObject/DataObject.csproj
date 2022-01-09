@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <AssemblyName>Kari.Plugins.DataObject</AssemblyName>
   </PropertyGroup>
-
-  <ImportGroup>
-    <!-- See the plugin properties at `../Plugin.props` for more details -->
-    <Import Project="$(KariPluginPropsPath)" />
-  </ImportGroup>
   
+  <ImportGroup>
+    <Import Project="..\InternalPlugin.props" />
+  </ImportGroup>
+
 </Project>

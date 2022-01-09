@@ -1,0 +1,35 @@
+{
+	"authors": [
+		"Anton Curmanschii"
+	],
+	"copyright": "Copyright © 2021, Anton Curmanschii",
+	"dependencies": {
+		"acd-versions": "~>1.0.3"
+	},
+	"description": "Kari debug tools",
+	"license": "MIT",
+	"name": "debug_helpers",
+	"sourcePaths": ["source/common"],
+	"targetPath": "bin",
+	"targetType": "executable",
+	"workingDirectory": "..",
+	"libs": ["curl"],
+
+	"configurations": [
+		{
+			"name": "build_nuget",
+			"targetName": "build_nuget",
+			"sourceFiles": ["source/build_nuget.d"]
+		},
+		{
+			"name": "install_plugin",
+			"targetName": "install_plugin",
+			"sourceFiles": ["source/install_plugin.d"]
+		},
+		{
+			"name": "install_kari_globally",
+			"targetName": "install_kari_globally",
+			"sourceFiles": ["source/install_kari_globally.d"]
+		}
+	]
+}

@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>Kari.Annotator</AssemblyName>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>kari-annotator</ToolCommandName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(KariRootPath)Kari.Arguments\Kari.Arguments.csproj"/>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Make tests be able to call internal (not private?) methods. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Kari.Annotator.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

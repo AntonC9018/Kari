@@ -1,0 +1,32 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <IsPackable Condition=" '$(IsTestAssembly)' != 'true' ">true</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Authors>Anton Curmanschii</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <LangVersion>10</LangVersion>
+
+    <!-- RS1024 is Compare Symbols correctly, making me use `SymbolComparison.Default.Equals()` instead of `==` -->
+    <NoWarn>$(NoWarn);RS1024</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Nerdbank.GitVersioning" Version="3.4.244" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ImportGroup>
+    <Import Project="$(MSBuildThisFileDirectory)source\KariPropsPaths.props" />
+    <Import Project="$(MSBuildThisFileDirectory)source\KariOutputDirectories.props" />
+  </ImportGroup>
+
+  <ItemGroup Condition=" '$(IsTestAssembly)' == 'true' ">
+    <PackageReference Include="xunit" Version="2.4.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.7.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

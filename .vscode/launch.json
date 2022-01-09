@@ -1,0 +1,33 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Kari",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build_kari_debug",
+            "program": "${workspaceFolder}/build_folder/bin/Kari.Generator/Debug/net6.0/Kari.Generator.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/../a-particular-project",
+            "console": "internalConsole",
+            "stopAtEntry": false
+        },
+        {
+            "name": ".NET Core Attach",
+            "type": "coreclr",
+            "request": "attach"
+        },
+        {
+            "name": "Debug Annotator",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build_annotator_debug",
+            "program": "${workspaceFolder}/build_folder/bin/Kari.Annotator/Debug/net6.0/Kari.Annotator.dll",
+            "args": [],
+            "cwd": "E:/Coding/C#/Bitfield/Bitfield",
+            // "cwd": "${workspaceFolder}/source/Kari.Plugins/DataObject",
+            "console": "internalConsole",
+            "stopAtEntry": false
+        },
+    ]
+}

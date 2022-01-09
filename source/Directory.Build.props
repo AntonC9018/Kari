@@ -1,4 +1,0 @@
-<Project>
-  <Import Project="KariPropsPaths.props" />
-  <Import Project="KariOutputDirectories.props" />
-</Project>

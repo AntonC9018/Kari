@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Kari.Test</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="$(KariRootPath)Kari.GeneratorCore\Kari.GeneratorCore.csproj" />
+  </ItemGroup>
+
+</Project>

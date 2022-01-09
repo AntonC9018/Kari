@@ -1,0 +1,32 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <!-- RS1024 is Compare Symbols correctly, making me use `SymbolComparison.Default.Equals()` instead of `==` -->
+    <!-- <NoWarn>$(NoWarn);RS1024</NoWarn> -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Kari will already have these dll's included by default when you import the dll -->
+    <ProjectReference Include="$(KariRootPath)Kari.GeneratorCore\Kari.GeneratorCore.csproj" 
+                      ExcludeAssets="runtime" />
+    <!-- Compile-time dependency -->
+    <ProjectReference Include="$(KariRootPath)Kari.Annotator\Kari.Annotator.csproj" 
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all"
+                      ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <Target Name="RunAnnotator" 
+          AfterTargets="ResolveProjectReferences">
+    <Exec Command="$(KariOutputPath)Kari.Annotator\$(Configuration)\net6.0\Kari.Annotator.exe $(AnnotatorArguments)" />
+    <CallTarget Targets="ReIncludeCompilationItems" />
+  </Target>
+
+  <Target Name="TextTemplateClean" AfterTargets="Clean">
+    <ItemGroup>
+      <KariAnnotatorGeneratedFiles Include="**\*.Generated.cs" Condtion=" '$(KariAnnotatorGeneratedFiles)' == '' "/>
+    </ItemGroup>
+    <Delete Files="@(KariAnnotatorGeneratedFiles)" />
+  </Target>
+</Project>

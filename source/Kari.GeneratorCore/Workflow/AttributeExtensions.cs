@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Kari.Utils;
 using Microsoft.CodeAnalysis;
 
 namespace Kari.GeneratorCore.Workflow
@@ -14,7 +15,7 @@ namespace Kari.GeneratorCore.Workflow
             return (INamedTypeSymbol) compilation.GetTypeByMetadataName(t.FullName);
         }
 
-        public AttributeSymbolWrapper(Compilation compilation, Logger logger)
+        public AttributeSymbolWrapper(Compilation compilation, NamedLogger logger)
         {
             symbol = GetKnownSymbol(compilation, typeof(T));
             if (symbol is null) logger.LogError($"{typeof(T)} not found in the compilation");
@@ -98,8 +99,8 @@ namespace Kari.GeneratorCore.Workflow
             // result null, message not null -> error
             public readonly T Result; 
             public readonly string Message;
-            public bool IsError => !(Message is null) && Result is null;
-            public bool IsSuccess => !(Result is null) && Message is null;
+            public bool IsError => Message is not null && Result is null;
+            public bool IsSuccess => Result is not null && Message is null;
             public bool IsFail => Result is null && Message is null;
 
             private AttributeConversionResult(string message)
@@ -139,7 +140,7 @@ namespace Kari.GeneratorCore.Workflow
             return AttributeConversionResult<T>.Fail;
         }
 
-        public static bool TryGetAttribute<T>(this ISymbol symbol, AttributeSymbolWrapper<T> attributeSymbolWrapper, Logger logger, out T attribute) where T : System.Attribute
+        public static bool TryGetAttribute<T>(this ISymbol symbol, AttributeSymbolWrapper<T> attributeSymbolWrapper, NamedLogger logger, out T attribute) where T : System.Attribute
         {
             var result = GetAttributeConversionResult<T>(symbol, attributeSymbolWrapper);
             if (result.IsError) logger.LogError($"Invalid attribute usage at {symbol.Name}: {result.Message}");
