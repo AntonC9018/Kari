@@ -66,7 +66,7 @@
             [Option("The name of the root project. Corresponds either to the directory name (`ByDirectory`) or the project file name (`Unity`). By default, it would generate in the root directory. You can either pass a name of one of the projects that you want to be root here, or just give it the folder name relative to the root directory and it would generate into that folder.")]
             public string rootProjectName = "";
 
-            [Option("The directories, sources files in which will be ignored. The generated source files are always ignored.")]
+            [Option("The directories, source files in which will be ignored. The generated source files are always ignored.")]
             public List<string> ignoredNames = new List<string> { "obj", "bin" };
 
             [Option("The full directory or file paths which will be ignored when reading source files. The generated source files are always ignored.")]

@@ -3,6 +3,7 @@
   <PropertyGroup>
     <PackageType>Template</PackageType>
     <PackageId>Kari.Plugin.Templates</PackageId>
+    
     <Title>Kari predefined plugin templates</Title>
     <Authors>Anton Curmanschii</Authors>
     <Description>Templates to use when creating a new Kari plugin.</Description>

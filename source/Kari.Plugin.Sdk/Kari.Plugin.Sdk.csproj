@@ -2,6 +2,7 @@
   
   <PropertyGroup>
     <PackageType>MSBuildSdk</PackageType>
+    <AssemblyName>Kari.Plugin.Sdk</AssemblyName>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Description>The MSBuild project SDK that helps correctly create Kari plugins.
 How to use MSBuild project SDKs: https://docs.microsoft.com/visualstudio/msbuild/how-to-use-project-sdk

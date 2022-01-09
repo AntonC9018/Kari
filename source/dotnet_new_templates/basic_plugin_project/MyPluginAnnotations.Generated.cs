@@ -34,7 +34,7 @@ namespace Kari.Plugins.MyPlugin
     {
         internal static AttributeSymbolWrapper<MyPluginAttribute> MyPluginAttribute { get; private set; }
 
-        internal static void Initialize(Logger logger)
+        internal static void Initialize(NamedLogger logger)
         {
             var compilation = MasterEnvironment.Instance.Compilation;
             MyPluginAttribute = new AttributeSymbolWrapper<MyPluginAttribute>(compilation, logger);

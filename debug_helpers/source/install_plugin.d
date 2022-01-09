@@ -34,6 +34,8 @@ struct Options
 
 void main(string[] args)
 {
+    writeln("Do not use this script to install packages, consider using nuget's packages.config instead.");
+    
     Options op;
     auto helpInfo = getOptions(args, op);
     if (helpInfo.helpWanted || op.pluginName.length == 0)

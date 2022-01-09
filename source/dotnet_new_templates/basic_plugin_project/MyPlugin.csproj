@@ -14,14 +14,21 @@
       The annotator tool is opt-out: if you decide to use it, you must also install it.
       https://docs.microsoft.com/en-us/dotnet/core/tools/local-tools-how-to-use
 
-      If you don't want to use it, change to false.
+      If you want to use it, install it as a tool, and change this to true.
       -->
-    <RunKariAnnotator>true</RunKariAnnotator>
+    <RunKariAnnotator>false</RunKariAnnotator>
     
     <AssemblyName>Kari.Plugins.MyPlugin</AssemblyName>
   </PropertyGroup>
 
-  <!-- Includes the packaging configuration. This sets the target framework to net6.0 -->
-  <Sdk Name="Kari.Plugin.Sdk" />
+  <!-- 
+    Includes the packaging configuration. 
+    This sets the target framework to net6.0.
+    
+    You may have to adjust the exact sdk version numbers to be able to test things.
+    You'll have to find the exact number within the output packages if 
+    this didn't work out of the box.
+    -->
+  <Sdk Name="Kari.Plugin.Sdk" Version="0.0.0-g0f95f52d01" />
   
 </Project>

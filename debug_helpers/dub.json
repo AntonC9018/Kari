@@ -25,6 +25,11 @@
 			"name": "install_plugin",
 			"targetName": "install_plugin",
 			"sourceFiles": ["source/install_plugin.d"]
+		},
+		{
+			"name": "install_kari_globally",
+			"targetName": "install_kari_globally",
+			"sourceFiles": ["source/install_kari_globally.d"]
 		}
 	]
 }

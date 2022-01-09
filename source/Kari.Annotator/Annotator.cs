@@ -234,7 +234,7 @@ namespace Kari.Annotator
                 builder.StartBlock();
 
                 var initializeBuilder = builder.NewWithPreservedIndentation();
-                initializeBuilder.AppendLine(classVisibility, " static void Initialize(Logger logger)");
+                initializeBuilder.AppendLine(classVisibility, " static void Initialize(NamedLogger logger)");
                 initializeBuilder.StartBlock();
                 initializeBuilder.AppendLine($"var compilation = MasterEnvironment.Instance.Compilation;");
 

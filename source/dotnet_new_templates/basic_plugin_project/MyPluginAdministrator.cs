@@ -14,8 +14,8 @@ namespace Kari.Plugins.MyPlugin
         // Called after all of the projects have been loaded
         public void Initialize()
         {
-            AnalyzerMaster.Initialize(ref _analyzers);
-            var logger = new Logger("MyPlugin");
+            AdministratorHelpers.Initialize(ref _analyzers);
+            var logger = new NamedLogger("MyPlugin");
             MyPluginSymbols.Initialize(logger);
         }
         
@@ -24,14 +24,14 @@ namespace Kari.Plugins.MyPlugin
         // containing the final data needed to generate the output.
         public Task Collect()
         {
-            return AnalyzerMaster.CollectAsync(_analyzers);
+            return AdministratorHelpers.CollectAsync(_analyzers);
         }
         
         // Called to generate code. The name of the files can be anything.
         public Task Generate()
         {
             return Task.WhenAll(
-                AnalyzerMaster.GenerateAsync(_analyzers, "MyPlugin.cs"),
+                AdministratorHelpers.GenerateAsync(_analyzers, "MyPlugin.cs"),
                 // Write the attributes to an acessible file.
                 AdministratorHelpers.AddCodeStringAsync(
                     MasterEnvironment.Instance.CommonPseudoProject,

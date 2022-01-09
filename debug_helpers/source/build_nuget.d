@@ -26,18 +26,9 @@ struct Options
 
     @("Whether to create the local feed. Pass this flag when running it for the first time.")
     bool createFeed = false;
-}
 
-string getoptMixin()
-{
-    auto ret = "auto helpInformation = getopt(args";
-    static foreach (field; Options.tupleof)
-    {
-        import std.format;
-        ret ~= `, "%s", "%s", &op.%1$s`.format(__traits(identifier, field), __traits(getAttributes, field)[0]);
-    }
-    ret ~= ");";
-    return ret;
+    @("Clear all previous packages before rebuilding. There might be no other way of testing local changes.")
+    bool clearAll = false;
 }
 
 void main(string[] args)
@@ -46,7 +37,10 @@ void main(string[] args)
     auto helpInformation = getOptions(args, op);
     if (helpInformation.helpWanted)
     {
-        defaultGetoptPrinter("Help message", helpInformation.options);
+        const help = `Release builds all projects into packages.
+Clears nuget cache for it to register the latest versions of the packages correctly.
+Use this script in order to use the latest versions in your custom standalone plugin projects, when developing both the plugin and Kari.`;
+        defaultGetoptPrinter(help, helpInformation.options);
         return;
     }
 
@@ -54,7 +48,14 @@ void main(string[] args)
     if (!exists(tempFolder))
         mkdirRecurse(tempFolder);
     if (!exists(nupkgSourcesOutput))
+    {
         mkdirRecurse(nupkgSourcesOutput);
+    }
+    else if (op.clearAll)
+    {
+        rmdirRecurse(nupkgSourcesOutput);
+        mkdirRecurse(nupkgSourcesOutput);
+    }
 
     auto nugetExecutablePath = defaultNugetExecutablePath;
     initNuget(nugetExecutablePath);

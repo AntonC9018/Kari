@@ -349,7 +349,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             {
                 var a = directoryFullPath.LastIndexOf(Path.DirectorySeparatorChar);
                 Assert(a != -1, "Path must not be relative, hence at least one slash must be present.");
-                return directoryFullPath.Slice(a + 1, directoryFullPath.Length - a);
+                return directoryFullPath.Slice(a + 1, directoryFullPath.Length - (a + 1));
             }
 
             static ProjectDatas GetProjectsUnity(ProjectNamesInfo projectNamesInfo, string[] asmdefs, NamedLogger logger)
