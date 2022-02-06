@@ -14,7 +14,11 @@ namespace Kari.Plugins.Flags
             AdministratorHelpers.Initialize(ref _slaves);
             FlagsSymbols.Initialize(_logger);
         }
-        public Task Collect() => AdministratorHelpers.CollectAsync(_slaves);
+        public Task Collect()
+        {
+            _logger.Log("Called");
+            return AdministratorHelpers.CollectAsync(_slaves);
+        }
         public Task Generate() 
         {
             return Task.WhenAll(

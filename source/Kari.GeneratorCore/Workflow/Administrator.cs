@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Cysharp.Text;
 using Kari.Utils;
+using static System.Diagnostics.Debug;
 
 namespace Kari.GeneratorCore.Workflow
 {
@@ -99,7 +100,9 @@ namespace Kari.GeneratorCore.Workflow
                 var builder = CodeBuilder.Create();
 
                 generators[i].GenerateCode(projects[i].Data, ref builder);
-                
+
+                // MaybeAppendTrailingNewLine(builder);
+
                 projects[i].Data.AddCodeFragment(new CodeFragment
                 {
                     FileNameHint = fileName,
@@ -110,6 +113,28 @@ namespace Kari.GeneratorCore.Workflow
             }
         }
 
+        // NOTE: We always do \r\n not \n
+        // private static void MaybeAppendTrailingNewLine(CodeBuilder builder)
+        // {
+        //     var length = builder.StringBuilder.Length;
+        //     // definitely no trailing new line
+        //     if (length < 2)
+        //         builder.NewLine();
+
+        //     var lastChars = builder.StringBuilder.AsSpan()[(length - 2) .. length];
+
+        //     // It's utf8, we know it's fine to check like this
+        //     // We know \n must be preceeded by an \r (see the comment in CodeBuilder.NewLine()).
+        //     if (lastChars[1] == '\n')
+        //     {
+        //         Assert(lastChars[0] == '\r');
+        //     }
+        //     else
+        //     {
+        //         builder.NewLine();
+        //     }
+        // }
+
         public static Task GenerateAsync<T>(T[] slaves, string fileName) 
             where T : IGenerateCode
         {
@@ -118,7 +143,6 @@ namespace Kari.GeneratorCore.Workflow
 
         public static void AddCodeString(ProjectEnvironmentData project, string fileName, string nameHint, string content)
         {
-
             project.AddCodeFragment(new CodeFragment
             {
                 FileNameHint = fileName,

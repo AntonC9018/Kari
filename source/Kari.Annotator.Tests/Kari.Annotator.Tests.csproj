@@ -1,4 +1,4 @@
-﻿<Project Name="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <AssemblyName>Kari.Annotator.Tests</AssemblyName>

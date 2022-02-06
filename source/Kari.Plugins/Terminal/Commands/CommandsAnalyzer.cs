@@ -436,7 +436,10 @@ namespace Kari.Plugins.Terminal
                 foreach (var info in a._frontInfos)
                     AppendInfo(a, info.Name, info.FullClassName);
             }
-            builder.EndBlock();
+            
+            builder.DecreaseIndent();
+            builder.AppendLine("};");
+
             builder.EndBlock();
             builder.EndBlock();
             builder.EndBlock();

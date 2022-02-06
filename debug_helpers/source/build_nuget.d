@@ -29,6 +29,9 @@ struct Options
 
     @("Clear all previous packages before rebuilding. There might be no other way of testing local changes.")
     bool clearAll = false;
+
+    @("Whether to do a public relese (sane plugin version number).")
+    bool doPublicRelease = true;
 }
 
 void main(string[] args)
@@ -44,7 +47,7 @@ Use this script in order to use the latest versions in your custom standalone pl
         return;
     }
 
-    immutable nupkgSourcesOutput = defaultNugetSourcesOutput;
+    immutable nupkgSourcesOutput = absolutePath(defaultNugetSourcesOutput);
     if (!exists(tempFolder))
         mkdirRecurse(tempFolder);
     if (!exists(nupkgSourcesOutput))
@@ -63,21 +66,54 @@ Use this script in order to use the latest versions in your custom standalone pl
 
     if (op.createFeed)
     {
-        if (!executeShell("dotnet nuget list source").output.canFind("kariTestSource [Enabled]"))
+        const sources = executeShell("dotnet nuget list source").output;
+        const sourceName = "kariTestSource";
+        auto linesFrom = splitter(sources, "\n")
+            .find!(
+                a => a.canFind(
+                    sourceName.chain(" [Enabled]")));
+
+        void add()
         {
-            auto r = execute(["dotnet", "nuget", "add", "source", nupkgSourcesOutput, "--name", "kariTestSource"]);
+            auto r = execute(["dotnet", "nuget", "add", "source", nupkgSourcesOutput, "--name", sourceName]);
             assert(r.status == 0);
+        }
+        if (linesFrom.empty)
+        {
+            add();
+        }
+        else
+        {
+            linesFrom.popFront();
+            assert(!linesFrom.empty);
+
+            import std.string : stripLeft;
+            const actualPathToSources = stripLeft(linesFrom.front);
+
+            if (!filenameCmp(defaultNugetSourcesOutput, actualPathToSources))
+            {
+                writeln("The packages source ", sourceName, " will be recreated.");
+                auto r = execute(["dotnet", "nuget", "remove", "source", sourceName]);
+                assert(r.status == 0);
+                add();
+            }
         }
     }
 
     // writeln(nugetPaths["global-packages"]);
     // writeln(nugetPaths["plugins-cache"]);
 
+
     if (op.repackage)
-        executeShell("dotnet pack --configuration Release").output.writeln;
+    {
+        auto dotnetArgs = ["dotnet", "pack", "--configuration", "Release"];
+        if (op.doPublicRelease)
+            dotnetArgs ~= "/p:PublicRelease=true";
+        execute(dotnetArgs).output.writeln;
+    }
 
     import std.parallelism : parallel;
-    foreach (DirEntry folder; dirEntries(nupkgFolder, SpanMode.shallow))//.parallel(1))
+    foreach (DirEntry folder; dirEntries(nupkgFolder, SpanMode.shallow).parallel(1))
     { 
         try {
 

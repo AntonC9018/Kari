@@ -137,7 +137,25 @@ namespace Kari.Utils
         /// </summary>
         public void NewLine()
         {
-            StringBuilder.AppendLine();
+            // TODO: 
+            // How does this work on unix systems? 
+            //
+            // Should we replace the "\r\n"s in the string literals with "\n"s everywhere?
+            // Or should we enforce "\r\n"s everywhere instead? (which is what I have opted for).
+            //
+            // The first one is weird, because the multiline string literals have windows line endings
+            // on both platforms, so we'd have to replace them, allocating new strings every time,
+            // or do this without allocations, but then it's going to be slower and way more involved,
+            // because the API in dotnet is not flexible enough to make it nice.
+            //
+            // The second one is odd for Linux people, because they would probably expect normal line
+            // endings, but at the same time the other source files are stored on GitHub as crlf's 
+            // already (I think so), and does it even matter?
+            //
+            // The one thing that seems obvious to me is that we should not mix both types of new lines
+            // in a single file (probably). So I opt for windows line endings everywhere for now,
+            // because it is the solution with the least amount of friction.
+            StringBuilder.Append("\r\n");
         }
 
         /// <summary>
@@ -280,6 +298,7 @@ namespace Kari.Utils
         //     builder.Append(format);
         // }
 
+        // TODO: This is a temporary implementation.
         public static void FormattedAppend<T>(this ref T builder, string format, params string[] namesAndValues) 
             where T : struct, IAppend
         {

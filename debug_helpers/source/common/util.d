@@ -26,9 +26,9 @@ auto getOptions(T)(string[] args, out T op)
 
 import std.file : DirEntry, dirEntries, SpanMode;
 
-DirEntry getEntryWithLatestChange(string path)
+DirEntry getEntryWithLatestChange(string path, string pattern)
 {
-    return dirEntries(path, SpanMode.shallow)
+    return dirEntries(path, pattern, SpanMode.shallow)
         .array
         .sort!((DirEntry a, DirEntry b) => a.timeLastModified > b.timeLastModified)
         .release.front;

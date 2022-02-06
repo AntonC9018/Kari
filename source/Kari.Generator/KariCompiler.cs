@@ -32,7 +32,7 @@
                 IsPath = true)]
             public string[] pluginPaths = null;
 
-            [Option("Path to `packages.config` that you're using to manage packages. The plugins mentioned in that file will be imported.",
+            [Option("Path to `packages.*.config` that you're using to manage packages. The plugins mentioned in that file will be imported.",
                 IsPath = true)]
             public string pluginConfigFilePath = null;
 
@@ -283,7 +283,18 @@
                     yield break;
 
                 var pluginConfigDirectory = Path.GetDirectoryName(_ops.pluginConfigFilePath);
-                var pluginConfigXml = XDocument.Load(_ops.pluginConfigFilePath, LoadOptions.SetLineInfo);
+
+                XDocument pluginConfigXml;
+                try
+                {
+                    pluginConfigXml = XDocument.Load(_ops.pluginConfigFilePath, LoadOptions.SetLineInfo);
+                }
+                catch (System.Xml.XmlException exc)
+                {
+                    _logger.LogError($"Error occured while reading nuget plugin config file {_ops.pluginConfigFilePath}: {exc.Message}");
+                    yield break;
+                }
+
                 var packages = pluginConfigXml.Root;
                 if (packages.Name != "packages")
                 {
@@ -298,7 +309,7 @@
                 foreach (var package in packages.Elements())
                 {
                     // I'm not sure non-package elements are allowed tho
-                    if (package.Name != "package")
+                    if (package.Name.LocalName != "package")
                         continue;
 
                     string getLocation()
@@ -308,7 +319,7 @@
                     }
 
                     var attributes = package.Attributes();
-                    var idAttribute = attributes.Where(a => a.Name == "id").FirstOrDefault();
+                    var idAttribute = attributes.Where(a => a.Name.LocalName == "id").FirstOrDefault();
                     if (idAttribute is null)
                     {
                         _logger.LogError($"{getLocation()}: Wrong format: you forgot to specify the id for the package.");
@@ -316,12 +327,12 @@
                     }
                     var id = idAttribute.Value;
 
-                    var targetFrameworkAttribute = attributes.Where(a => a.Name == "targetFramework").FirstOrDefault();
+                    var targetFrameworkAttribute = attributes.Where(a => a.Name.LocalName == "targetFramework").FirstOrDefault();
                     var targetFramework = targetFrameworkAttribute?.Value ?? "net6.0";
 
                     string packageDirectoryName;
 
-                    var versionAttribute = attributes.Where(a => a.Name == "version").FirstOrDefault();
+                    var versionAttribute = attributes.Where(a => a.Name.LocalName == "version").FirstOrDefault();
                     // No version is fine, we just do the default one in this case.
                     if (versionAttribute is null)
                     {

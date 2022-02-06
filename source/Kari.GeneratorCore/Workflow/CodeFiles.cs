@@ -90,7 +90,7 @@ namespace Kari.GeneratorCore.Workflow
 ";
         public static readonly byte[] HeaderBytes = Encoding.UTF8.GetBytes(HeaderString); 
 
-        public const string FooterString = "#pragma warning restore\r\n";
+        public const string FooterString = "\r\n#pragma warning restore\r\n";
         public static readonly byte[] FooterBytes = Encoding.UTF8.GetBytes(FooterString); 
 
         public static void InitializeGeneratedDirectory(string directory)
@@ -99,7 +99,7 @@ namespace Kari.GeneratorCore.Workflow
             var gitignore = Path.Join(directory, ".gitignore");
             if (!File.Exists(gitignore) && !Directory.Exists(gitignore))
             {
-                File.WriteAllText(gitignore, "*\n!.gitignore");
+                File.WriteAllText(gitignore, "*\r\n!.gitignore");
             }
         }
 

@@ -361,13 +361,28 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     {
                         var directory = Path.GetDirectoryName(asmdefFullPath);
 
-                        // TODO: Can it have a project name field?? or is it encoded in the file name??
-                        // Not sure if needed
-                        // var asmdefJson = Object.Parse(File.ReadAllText(asmdef));
+                        static string GetNamespaceName(string asmdefFullPath, NamedLogger logger)
+                        {
+                            var asmdefJson = JObject.Parse(File.ReadAllText(asmdefFullPath));
+                            if (asmdefJson.TryGetValue("rootNamespace", out JToken rootNamespace))
+                            {
+                                if (rootNamespace.Type != JTokenType.String)
+                                {
+                                    logger.LogError($"Expected to find a value of type String, but found {rootNamespace.Type.ToString()} instead, in the asmdef {asmdefFullPath}.");
+                                }
+                                else
+                                {
+                                    return rootNamespace.Value<string>();
+                                }
+                            }
+                            return Path.GetFileNameWithoutExtension(asmdefFullPath);
+                        }
+                        
+                            
                         // So just get the name of the file ??????
-                        var name = Path.GetFileNameWithoutExtension(asmdefFullPath);
+                        var namespaceName = GetNamespaceName(asmdefFullPath, logger);
 
-                        return CreateProjectWithDefaultNamespace(name, directory, projectNamesInfo.GeneratedNamespaceSuffix); 
+                        return CreateProjectWithDefaultNamespace(namespaceName, directory, projectNamesInfo.GeneratedNamespaceSuffix); 
                     })
                     .ToArray();
 
@@ -461,11 +476,18 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 return new ProjectEnvironmentData(name, path, name.Join(suffix));
             }
 
+            static string GetDefaultRootProjectName(ProjectNamesInfo projectNamesInfo)
+            {
+                return projectNamesInfo.RootNamespaceName == ""
+                    ? "Root"
+                    : projectNamesInfo.RootNamespaceName;
+            }
+
             static ProjectDatas GetProjectsMonolithic(ProjectNamesInfo projectNamesInfo)
             {
                 var result = new ProjectDatas();
 
-                string projectName = "Root";
+                string projectName = GetDefaultRootProjectName(projectNamesInfo);
                 if (projectNamesInfo.RootPseudoProjectName != "")
                     projectName = projectNamesInfo.RootPseudoProjectName;
 
@@ -533,7 +555,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     if (projectNamesInfo.RootPseudoProjectName == "")
                     {
                         var rootProject = CreateProjectWithDefaultNamespace(
-                            "Root",
+                            GetDefaultRootProjectName(projectNamesInfo),
                             projectNamesInfo.ProjectRootDirectory,
                             projectNamesInfo.GeneratedNamespaceSuffix);
                         return new (rootProject, -1);
@@ -690,11 +712,11 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                         var model = compilation.GetSemanticModel(syntaxTree, ignoreAccessibility: true);
                         foreach (var node in root.DescendantNodes())
                         {
-                            if (node is not TypeDeclarationSyntax tds)
-                                continue;
-
-                            var s = model.GetDeclaredSymbol(tds);
-                            result.Add(s);
+                            if (node is BaseTypeDeclarationSyntax tds)
+                            {
+                                var s = model.GetDeclaredSymbol(tds);
+                                result.Add(s);
+                            }
                         }
                     }
                     var list = result.ToArray();

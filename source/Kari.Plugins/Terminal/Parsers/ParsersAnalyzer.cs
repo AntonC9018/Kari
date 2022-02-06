@@ -124,19 +124,19 @@ namespace Kari.Plugins.Terminal
                 string typePascal = numberTypesPascal[i];
                 string parserName = $"{typePascal}Parser";
 
+                builder.AppendLine($"public static readonly {parserName} {typePascal} = new {parserName}();");
                 builder.AppendLine($"public class {parserName} : IValueParser<{type}>");
                 builder.StartBlock();
                 builder.AppendLine($"public ParseSummary Parse(string input, out {type} value) => Parsers.Parse(input, out value);");
                 builder.EndBlock();
 
-                builder.AppendLine($"public static readonly {parserName} {typePascal} = new {parserName}();");
-                builder.AppendLine($"public static ParseSummary Parse(this string input, out {type} result");
+                builder.AppendLine($"public static ParseSummary Parse(this string input, out {type} result)");
                 builder.StartBlock();
                 builder.AppendLine($"if ({type}.TryParse(input, out result))");
                 builder.IncreaseIndent();
                 builder.AppendLine("return ParseSummary.Success;");
                 builder.DecreaseIndent();
-                builder.AppendLine($"return ParseSummary.TypeMismatch({type}input);");
+                builder.AppendLine($"return ParseSummary.TypeMismatch(\"{type}\", input);");
                 builder.EndBlock();
             }
 
@@ -153,24 +153,25 @@ namespace Kari.Plugins.Terminal
 
             builder.AppendLine("namespace ", project.GeneratedNamespaceName);
             builder.StartBlock();
-            builder.AppendLine("using ", DefinitionsNamespace);
+            builder.AppendLine("using ", DefinitionsNamespace, ";");
 
             builder.AppendLine("public static partial class Parsers");
-            builder.StartBlock();
-            foreach (var func in _customParserFunctionInfos)
-            {
-                var parserName = func.Name + "Parser";
-                builder.AppendLine($"public class {parserName} : IValueParser<{func.TypeName}>");
-                builder.StartBlock();
-                builder.AppendLine($"public ParseSummary Parse(string input, out {func.TypeName} value) => ", 
-                    $"{func.FullyQualifiedName}(input, out value);");
-                builder.AppendLine($"public static readonly {parserName} {func.Name} = new {parserName}();");
-                builder.EndBlock();
-            }
             foreach (var parser in _customParserInfos)
             {
                 builder.AppendLine($"public static readonly {parser.FullyQualifiedName} {parser.Name} = new {parser.FullyQualifiedName}();");
             }
+            builder.StartBlock();
+            foreach (var func in _customParserFunctionInfos)
+            {
+                var parserName = func.Name + "Parser";
+                builder.AppendLine($"public static readonly {parserName} {func.Name} = new {parserName}();");
+                builder.AppendLine($"public class {parserName} : IValueParser<{func.TypeName}>");
+                builder.StartBlock();
+                builder.AppendLine($"public ParseSummary Parse(string input, out {func.TypeName} value) => ", 
+                    $"{func.FullyQualifiedName}(input, out value);");
+                builder.EndBlock();
+            }
+            builder.EndBlock();
             builder.EndBlock();
         }
     }

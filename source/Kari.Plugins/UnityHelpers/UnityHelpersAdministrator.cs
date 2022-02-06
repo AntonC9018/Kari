@@ -46,13 +46,12 @@ namespace Kari.Plugins.UnityHelpers
             
             foreach (var type in new string[] { "float", "int" })
             {
-                builder.StartBlock();
                 foreach (var i in "xyzw") 
                 { 
                     var classname = type + i;
                     builder.AppendLine("public struct ", classname);
                     builder.StartBlock();
-                    builder.AppendLine($"public readonly {type} value");
+                    builder.AppendLine($"public readonly {type} value;");
                     builder.AppendLine($"public {classname}({type} value) => this.value = value;");
                     builder.AppendLine($"public static implicit operator {classname}({type} value) => new {classname}(value);");
                     builder.AppendLine($"public static implicit operator {type}({classname} t) => t.value;");
@@ -65,6 +64,9 @@ namespace Kari.Plugins.UnityHelpers
             AppendVectorCode(ref builder, "Vector4", "float",  new string[] { "x", "y", "z", "w" });
             AppendVectorCode(ref builder, "Vector2Int", "int", new string[] { "x", "y" });
             AppendVectorCode(ref builder, "Vector3Int", "int", new string[] { "x", "y", "z" });
+            
+            builder.EndBlock();
+            builder.EndBlock();
 
             return builder;
         }

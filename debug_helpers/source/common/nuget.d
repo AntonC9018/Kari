@@ -103,7 +103,7 @@ struct NugetPackageInfo
 NugetPackageInfo getInfoOfLatestPackage(string packageDirectoryWithDifferentVersionsPath)
 {
     NugetPackageInfo result;
-    result.dirEntry = getEntryWithLatestChange(packageDirectoryWithDifferentVersionsPath);
+    result.dirEntry = getEntryWithLatestChange(packageDirectoryWithDifferentVersionsPath, "*.nupkg");
     result.nameInfo = getPackageNameInfo(result.dirEntry);
     return result;
 }

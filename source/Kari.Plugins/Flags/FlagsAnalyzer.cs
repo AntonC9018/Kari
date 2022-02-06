@@ -29,8 +29,10 @@ namespace Kari.Plugins.Flags
             // Task.Run is debatable.
             foreach (var t in environment.TypesWithAttributes)
             {
+                environment.Logger.Log("Looking at " + t.GetFullyQualifiedName());
                 if (t.HasAttribute(FlagsSymbols.NiceFlagsAttribute.symbol))
                 {
+                    environment.Logger.Log(t.GetFullyQualifiedName() + " has a flags attribute.");
                     _infos.Add(new FlagsInfo(t));
                 }
             }
@@ -153,9 +155,11 @@ namespace Kari.Plugins.Flags
 
         private void AppendCodeForSingleInfo(FlagsInfo info, ref CodeBuilder builder)
         {
+            builder.Indent();
             builder.FormattedAppend(template, 
                 "Name", info.Name, 
                 "FullName", info.FullName);
+            builder.NewLine();
         }
 
         public void GenerateCode(ProjectEnvironmentData project, ref CodeBuilder builder)
@@ -163,9 +167,9 @@ namespace Kari.Plugins.Flags
             if (_infos.Count == 0)
                 return;
 
-            builder.AppendLine("namespace " + project.GeneratedNamespaceName);
+            builder.AppendLine("namespace ", project.GeneratedNamespaceName);
             builder.StartBlock();
-            builder.AppendLine("System.Collections.Generic;");
+            builder.AppendLine("using System.Collections.Generic;");
             foreach (var info in _infos) 
                 AppendCodeForSingleInfo(info, ref builder);
             builder.EndBlock();
