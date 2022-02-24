@@ -102,14 +102,16 @@ namespace Kari.GeneratorCore.Workflow
                 generators[i].GenerateCode(projects[i].Data, ref builder);
 
                 // MaybeAppendTrailingNewLine(builder);
-
-                projects[i].Data.AddCodeFragment(new CodeFragment
+                if (builder.StringBuilder.Length > 0)
                 {
-                    FileNameHint = fileName,
-                    NameHint = typeof(T).Name,
-                    Bytes = builder.AsArraySegment(),
-                    AreBytesRentedFromArrayPool = true,
-                });
+                    projects[i].Data.AddCodeFragment(new CodeFragment
+                    {
+                        FileNameHint = fileName,
+                        NameHint = typeof(T).Name,
+                        Bytes = builder.AsArraySegment(),
+                        AreBytesRentedFromArrayPool = true,
+                    });
+                }
             }
         }
 
