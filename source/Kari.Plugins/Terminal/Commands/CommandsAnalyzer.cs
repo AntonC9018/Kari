@@ -119,7 +119,7 @@ namespace Kari.Plugins.Terminal
             for (int i = 0; i < optionLikeArguments.Count; i++)
             {
                 var arg = optionLikeArguments[i];
-                usageBuilder.AppendFormat("{0}|-{1}=value ", arg.Attribute.Name, arg.Attribute.Name);
+                usageBuilder.AppendFormat(" {0}|-{1}=value", arg.Attribute.Name, arg.Attribute.Name);
 
                 // row[0] = $"{arg.Attribute.Name}|-{arg.Attribute.Name}";
                 // row[1] = arg.Parser.Name;
@@ -130,7 +130,7 @@ namespace Kari.Plugins.Terminal
             for (int i = 0; i < options.Count; i++)
             {
                 var option = options[i];
-                usageBuilder.Append($"[-{option.Name}=value] ");
+                usageBuilder.Append($" [-{option.Name}=value]");
 
                 string typeString;
                 if (option.Attribute.IsFlag)
@@ -502,14 +502,14 @@ namespace Kari.Plugins.Terminal
             var sb = new System.Text.StringBuilder();
             for (int i = 0; i < nodes.Count; i++)
             {
-                if (i > 0) sb.AppendLine("\n");
+                if (i > 0) sb.AppendLine("\r\n");
                 sb.Append(nodes[i].Name.Humanize(LetterCasing.Title));
                 sb.Append(":");
                 sb.Append(nodes[i].InnerText.TrimEnd());
 
                 if (nodes[i].Name == "summary")
                 {
-                    attribute.ShortHelp = SummryToShortHelp(nodes[i].InnerText, maxLength: 64);
+                    attribute.ShortHelp = SummaryToShortHelp(nodes[i].InnerText, maxLength: 64);
                 }
             }
 
@@ -517,7 +517,7 @@ namespace Kari.Plugins.Terminal
             attribute.Help = sb.ToString();
         }
 
-        private static string SummryToShortHelp(string text, int maxLength, string more = "...")
+        private static string SummaryToShortHelp(string text, int maxLength, string more = "...")
         {
             text = text.TrimStart();
             var newLineIndex = text.IndexOf("\r\n");
