@@ -170,7 +170,7 @@ namespace Kari.Plugins.DataObject
         {
             Symbol = symbol;
             AccessModifier = accessModifier;
-            Fields = Symbol.GetMembers().OfType<IFieldSymbol>().ToArray();
+            Fields = Symbol.GetMembers().OfType<IFieldSymbol>().Where(s => !s.IsStatic).ToArray();
             
             var syntax = Symbol.DeclaringSyntaxReferences[0].GetSyntax() as TypeDeclarationSyntax;
             NameTypeParameters = symbol.Name;
