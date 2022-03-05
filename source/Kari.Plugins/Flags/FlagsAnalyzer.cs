@@ -4,10 +4,11 @@ using Kari.GeneratorCore;
 using Kari.GeneratorCore.Workflow;
 using Kari.Utils;
 using Microsoft.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 namespace Kari.Plugins.Flags
 {
-    public class FlagsInfo
+    public struct FlagsInfo
     {
         public FlagsInfo(INamedTypeSymbol symbol)
         {
@@ -29,10 +30,8 @@ namespace Kari.Plugins.Flags
             // Task.Run is debatable.
             foreach (var t in environment.TypesWithAttributes)
             {
-                environment.Logger.Log("Looking at " + t.GetFullyQualifiedName());
                 if (t.HasAttribute(FlagsSymbols.NiceFlagsAttribute.symbol))
                 {
-                    environment.Logger.Log(t.GetFullyQualifiedName() + " has a flags attribute.");
                     _infos.Add(new FlagsInfo(t));
                 }
             }
@@ -117,43 +116,10 @@ namespace Kari.Plugins.Flags
             if (set) return flagInitial | flagToSet;
             else     return flagInitial & (~flagToSet);
         }
-
-        /// <summary>
-        /// Returns all possible combinations of the set bits of the given $(Name).
-        /// For example, for the input 0111 it would give 0001, 0010, 0011, 0100, 0101 and 0111.
-        /// </summary>
-        public static IEnumerable<$(FullName)> GetBitCombinations(this $(FullName) flags)
-        {
-            int bits = (int) flags;
-            int current = (~bits + 1) & bits;
-
-            while (current != 0)
-            {
-                yield return ($(FullName)) current;
-                current = (~bits + (current << 1)) & bits;
-            }
-        }
-        
-        /// <summary>
-        /// Returns all individual set bits of the given $(Name) on their positions.
-        /// For example, for the input 0111 it would give 0001, 0010 and 0100.
-        /// </summary>
-        public static IEnumerable<$(FullName)> GetSetBits(this $(FullName) flags)
-        {
-            int bits = (int) flags;
-            int current = 0;
-            
-            while (true)
-            {
-                current = (current - bits) & bits;
-                if (current == 0) yield break;
-                yield return ($(FullName)) current;
-            }
-        }
     }
     ";
 
-        private void AppendCodeForSingleInfo(FlagsInfo info, ref CodeBuilder builder)
+        private void AppendCodeForSingleInfo(in FlagsInfo info, ref CodeBuilder builder)
         {
             builder.Indent();
             builder.FormattedAppend(template, 
@@ -170,8 +136,8 @@ namespace Kari.Plugins.Flags
             builder.AppendLine("namespace ", project.GeneratedNamespaceName);
             builder.StartBlock();
             builder.AppendLine("using System.Collections.Generic;");
-            foreach (var info in _infos) 
-                AppendCodeForSingleInfo(info, ref builder);
+            foreach (ref var info in CollectionsMarshal.AsSpan(_infos)) 
+                AppendCodeForSingleInfo(in info, ref builder);
             builder.EndBlock();
         }
     }
