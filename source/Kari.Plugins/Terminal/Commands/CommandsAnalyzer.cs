@@ -103,7 +103,7 @@ namespace Kari.Plugins.Terminal
             // var argsBuilder = new Table();
             // argsBuilder.AddColumns(header);
 
-            usageBuilder.AppendFormat("Usage: {0}", info.Name);
+            usageBuilder.AppendFormat("Usage: {0} ", info.Name);
             for (int i = 0; i < positionalArguments.Count; i++)
             {
                 var arg = positionalArguments[i];
