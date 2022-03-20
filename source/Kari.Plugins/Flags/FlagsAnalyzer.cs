@@ -45,9 +45,10 @@ namespace Kari.Plugins.Flags
         /// <summary>
         /// Checks whether the given flags intersect with the other flags.
         /// Returns true if either of the other flags are set on the flags.
-        /// To see if flags contain all of some other flags, use <c>HasFlag()</c> instead. 
+        /// To see if flags contain all of some other flags, use <c>Has()</c> instead. 
         /// </summary>
-        public static bool HasEitherFlag(this $(FullName) flag1, $(FullName) flag2)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool HasEither(this $(FullName) flag1, $(FullName) flag2)
         {
             return (flag1 & flag2) != 0;
         }
@@ -55,16 +56,40 @@ namespace Kari.Plugins.Flags
         /// <summary>
         /// Checks whether the given flags does not intersect with the other flags.
         /// Returns false if either of the other flags are set on the flags.
-        /// This function does the same as negating a call to <c>HasEitherFlag()</c>.
+        /// This function does the same as negating a call to <c>HasEither()</c>.
         /// </summary>
-        public static bool HasNeitherFlag(this $(FullName) flag1, $(FullName) flag2)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool DoesNotHaveEither(this $(FullName) flag1, $(FullName) flag2)
         {
             return (flag1 & flag2) == 0;
         }
 
         /// <summary>
+        /// Checks whether the given flags1 contains flags2.
+        /// Returns false if either of the other flags are set on the flags.
+        /// This function does the same as negating a call to <c>HasEither()</c>.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool Has(this $(FullName) flag1, $(FullName) flag2)
+        {
+            return (flag1 & flag2) == flag2;
+        }
+
+        /// <summary>
+        /// Checks whether the given flags1 does not contain flags2.
+        /// Returns false if either of the other flags are set on the flags.
+        /// This function does the same as negating a call to <c>!Has()</c>.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool DoesNotHave(this $(FullName) flag1, $(FullName) flag2)
+        {
+            return (flag1 & flag2) != flag2;
+        }
+
+        /// <summary>
         /// Modifies the given <c>$(Name)</c>, setting the given flags.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref $(FullName) Set(ref this $(FullName) flagInitial, $(FullName) flagToSet)
         {
             flagInitial = flagInitial | flagToSet;
@@ -74,6 +99,7 @@ namespace Kari.Plugins.Flags
         /// <summary>
         /// Returns a new <c>$(Name)</c> with the given flags set.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static $(FullName) WithSet(this $(FullName) flagInitial, $(FullName) flagToSet)
         {
             return flagInitial | flagToSet;
@@ -82,6 +108,7 @@ namespace Kari.Plugins.Flags
         /// <summary>
         /// Modifies the given <c>$(Name)</c> unsetting the given flags.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref $(FullName) Unset(ref this $(FullName) flagInitial, $(FullName) flagToSet)
         {
             flagInitial = flagInitial & (~flagToSet);
@@ -91,6 +118,7 @@ namespace Kari.Plugins.Flags
         /// <summary>
         /// Returns a new <c>$(Name)</c> with the given flags unset.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static $(FullName) WithUnset(this $(FullName) flagInitial, $(FullName) flagToSet)
         {
             return flagInitial & (~flagToSet);
@@ -100,6 +128,7 @@ namespace Kari.Plugins.Flags
         /// Modifies the given <c>$(Name)</c> with the given flags set or unset, 
         /// indicated by the <c>set</c> boolean parameter.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref $(FullName) Set(ref this $(FullName) flagInitial, $(FullName) flagToSet, bool set)
         {
             if (set) flagInitial = flagInitial | flagToSet;
@@ -111,6 +140,7 @@ namespace Kari.Plugins.Flags
         /// Returns a new <c>$(Name)</c> with the given flags set or unset, 
         /// indicated by the <c>set</c> boolean parameter.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static $(FullName) WithSet(this $(FullName) flagInitial, $(FullName) flagToSet, bool set)
         {
             if (set) return flagInitial | flagToSet;
@@ -135,7 +165,7 @@ namespace Kari.Plugins.Flags
 
             builder.AppendLine("namespace ", project.GeneratedNamespaceName);
             builder.StartBlock();
-            builder.AppendLine("using System.Collections.Generic;");
+            builder.AppendLine("using System.Runtime.CompilerServices;");
             foreach (ref var info in CollectionsMarshal.AsSpan(_infos)) 
                 AppendCodeForSingleInfo(in info, ref builder);
             builder.EndBlock();
