@@ -122,8 +122,15 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         [HideOption] Central = 1,
         [HideOption] File = 2,
 
-        CentralFile = Central | File, // requires absolute file path
-        CentralDirectory = Central, // requires dir name
+        /// <summary>
+        /// Writes all output to a single file.
+        /// </summary>
+        CentralFile = Central | File,
+        
+        /// <summary>
+        /// Writes all output to a single file.
+        /// </summary>
+        CentralDirectory = Central,
         NestedFile = File, // requires file name
         NestedDirectory = 0, // requires dir name
     }
@@ -499,8 +506,8 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                 result.Projects = new[] { project };
                 result.Root = new (project, 0);
                 
-                if (projectNamesInfo.CommonPseudoProjectName == "" ||
-                    projectNamesInfo.CommonPseudoProjectName == projectName)
+                if (projectNamesInfo.CommonPseudoProjectName == ""
+                    || projectNamesInfo.CommonPseudoProjectName == projectName)
                 {
                     result.Common = new (project, 0);
                 }
@@ -1012,9 +1019,6 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             writeOutputFileTasks[i] = WriteSingleCodeFileAsync(outputFilePath, fragments[i].Bytes, cancellationToken);
         }
 
-        // TODO: this one should be done elsewhere.
-        // RemoveNotGeneratedCodeFilesInDirectory(fileNamesInfo, outputDirectory);
-
         return Task.WhenAll(writeOutputFileTasks);
     }
 
@@ -1057,6 +1061,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     }
 
     /// <summary>
+    /// Writes the output to a single directory
     /// This method assumes:
     /// 1. The project names correspond to namespaces. 
     /// 2. The project names are unique.
@@ -1111,6 +1116,9 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             .Append(CodeFileCommon.FooterBytes); 
     }
     
+    /// <summary>
+    /// Writes all output to a single file.
+    /// </summary>
     public Task WriteCodeFiles_CentralFile(string singleOutputFileFullPath)
     {
         var directory = Path.GetDirectoryName(singleOutputFileFullPath);
@@ -1128,6 +1136,10 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             CancellationToken);
     }
 
+    
+    /// <summary>
+    /// Writes the output of each project in a single nested file for each project.
+    /// </summary>
     public Task WriteCodeFiles_SingleNestedFile(string singleOutputFileRelativeToProjectDirectoryPath)
     {
         Task ProcessProject(ProjectEnvironmentData project)
