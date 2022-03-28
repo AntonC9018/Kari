@@ -26,8 +26,6 @@ namespace Kari.Plugins.Flags
 
         public void CollectSymbols(ProjectEnvironment environment)
         {
-            // It should be able to crank through those symbols fast on its own, so this
-            // Task.Run is debatable.
             foreach (var t in environment.TypesWithAttributes)
             {
                 if (t.HasAttribute(FlagsSymbols.NiceFlagsAttribute.symbol))
