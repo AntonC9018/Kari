@@ -575,6 +575,8 @@
 
         private void LoadPlugins(IEnumerable<string> pluginDllPaths, MasterEnvironment inoutMaster, CancellationToken cancellationToken)
         {
+            var finder = new AdministratorFinder();
+
             foreach (var dllPath in pluginDllPaths)
             {
                 void Handle(string error) 
@@ -584,7 +586,7 @@
 
                 try
                 {
-                    AdministratorFinder.LoadPlugin(dllPath);
+                    finder.LoadPlugin(dllPath);
                     if (cancellationToken.IsCancellationRequested) 
                         return;
                 }
@@ -604,12 +606,12 @@
 
             if (_ops.pluginNames is null)
             {
-                AdministratorFinder.AddAllAdministrators(inoutMaster);
+                finder.AddAllAdministrators(inoutMaster);
             }
             else
             {
                 var names = _ops.pluginNames.ToHashSet();
-                AdministratorFinder.AddAdministrators(inoutMaster, names);
+                finder.AddAdministrators(inoutMaster, names);
 
                 if (names.Count > 0)
                 {

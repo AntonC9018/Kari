@@ -55,7 +55,7 @@ namespace Kari.Utils
             // IMPORTANT: (and also kind of a hack)
             // We will not dispose of the buffer when done building to avoid copying.
             // The buffer will have to be deallocated manually, by a call to ArrayPool<byte>.Shared.Return(arr).
-            // I still provide the Dispose method tho, in the case when  
+            // I still provide the Dispose method tho, in the case when it's used outside plugins.
             StringBuilder = ZString.CreateUtf8StringBuilder(notNested: utfStringBuilderNotNested);
             CurrentIndentationCount = initialIndentationCount;
             IndentationBytes = indentationBytes;
