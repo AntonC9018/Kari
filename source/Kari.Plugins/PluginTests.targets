@@ -31,7 +31,7 @@
           Condition=" '@(TestedPlugins)' != '' ">
 
     <PropertyGroup> 
-      <KariCommand>$(KariExecutablePath) -pluginPaths &quot;@(TestedPlugins -> '$(KariOutputPath)%(Filename)\$(Configuration)\$(TargetFramework)\Kari.Plugins.%(Filename).dll', ',')&quot;</KariCommand>
+      <KariCommand>&quot;$(KariExecutablePath)&quot; -pluginPaths &quot;@(TestedPlugins -> '$(KariOutputPath)%(Filename)\$(Configuration)\$(TargetFramework)\Kari.Plugins.%(Filename).dll', ',')&quot;</KariCommand>
     </PropertyGroup>
 
     <Message Importance="high" Text="$(KariCommand)"/>

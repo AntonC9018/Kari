@@ -19,7 +19,7 @@
 
   <Target Name="RunAnnotator" 
           AfterTargets="ResolveProjectReferences">
-    <Exec Command="$(KariOutputPath)Kari.Annotator\$(Configuration)\net6.0\Kari.Annotator.exe $(AnnotatorArguments)" />
+    <Exec Command="&quot;$(KariOutputPath)Kari.Annotator\$(Configuration)\net6.0\Kari.Annotator.exe&quot; $(AnnotatorArguments)" />
     <CallTarget Targets="ReIncludeCompilationItems" />
   </Target>
 
