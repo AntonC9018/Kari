@@ -8,3 +8,5 @@ nuget.config
 *.obj
 .vs/*
 !.vs/launch.vs.json
+
+.DS_Store

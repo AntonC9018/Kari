@@ -10,7 +10,7 @@
       You cannot "call functions" in msbuild, all you can do is queue up targets.
       But those cannot define 
      -->
-    <KariExecutablePath>$(KariOutputPath)Kari.Generator\$(Configuration)\$(TargetFramework)\Kari.Generator.exe</KariExecutablePath>
+    <KariExecutablePath>$(KariOutputPath)Kari.Generator\$(Configuration)\$(TargetFramework)\Kari.Generator</KariExecutablePath>
 
     <KariIntermediateOutputPath Condition="'$(KariIntermediateOutputPath)' == ''">$(KariBuildPath)obj\</KariIntermediateOutputPath>
     
