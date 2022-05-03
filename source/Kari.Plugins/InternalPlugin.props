@@ -19,7 +19,11 @@
 
   <Target Name="RunAnnotator" 
           AfterTargets="ResolveProjectReferences">
-    <Exec Command="&quot;$(KariOutputPath)Kari.Annotator\$(Configuration)\net6.0\Kari.Annotator.exe&quot; $(AnnotatorArguments)" />
+
+    <PropertyGroup>
+      <KariAnnotatorPath>$(KariOutputPath)Kari.Annotator\$(Configuration)\net6.0\Kari.Annotator</KariAnnotatorPath>
+    </PropertyGroup>
+    <Exec Command="&quot;$([MSBuild]::NormalizePath('$(KariAnnotatorPath)'))&quot; $(AnnotatorArguments)" />
     <CallTarget Targets="ReIncludeCompilationItems" />
   </Target>
 
