@@ -35,6 +35,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataObject.Tests", "source\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kari.Profiling", "source\Kari.Profiling\Kari.Profiling.csproj", "{EB5F03A0-CCA6-4518-94CB-0034B33B5197}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "_build", "build\_build.csproj", "{B3D7332E-E961-4732-8FE0-7D5154625CDE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,6 +50,8 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B3D7332E-E961-4732-8FE0-7D5154625CDE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B3D7332E-E961-4732-8FE0-7D5154625CDE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1248AE24-87D8-43CB-9A24-AF0FDADFF999}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1248AE24-87D8-43CB-9A24-AF0FDADFF999}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1248AE24-87D8-43CB-9A24-AF0FDADFF999}.Debug|x64.ActiveCfg = Debug|Any CPU
