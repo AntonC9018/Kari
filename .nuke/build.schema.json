@@ -42,13 +42,13 @@
             "VSCode"
           ]
         },
+        "KariBuildPath": {
+          "type": "string",
+          "description": "Absolute path where to output kari built things. Default is \"build_folder\""
+        },
         "NoLogo": {
           "type": "boolean",
           "description": "Disables displaying the NUKE logo"
-        },
-        "OutputDirectory": {
-          "type": "string",
-          "description": "Absolute path where to output kari built things. Default is \"build_folder\""
         },
         "Partition": {
           "type": "string",

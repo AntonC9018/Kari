@@ -23,12 +23,5 @@
     <KariPackageOutputPath Condition="'$(KariPackageOutputPath)' == ''">$(KariBuildPath).nupkg\</KariPackageOutputPath>
     <PackageOutputPath>$(KariPackageOutputPath)$(MSBuildProjectName)\$(Configuration)\</PackageOutputPath>
   </PropertyGroup>
-
-  <Target Name="WorkaroundConfigNotFound" BeforeTargets="GenerateBindingRedirects">
-    <!-- <Message Text="$(KariOutputPath)$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config" Importance="high" /> -->
-    <PropertyGroup>
-      <_GenerateBindingRedirectsIntermediateAppConfig>$(KariOutputPath)$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(TargetFileName).config</_GenerateBindingRedirectsIntermediateAppConfig>
-    </PropertyGroup>
-  </Target>
 </Project>
     

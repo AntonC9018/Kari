@@ -16,19 +16,17 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 [CheckBuildProjectConfigurations]
 class Build : NukeBuild
 {
-    public static int Main () => Execute<Build>(x => x.Compile);
+    public static int Main () => Execute<Build>(x => x.CompileGenerator);
 
     [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
     readonly Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
 
     const string DefaultBuildOutputFolderName = "build_folder";
     [Parameter($"Absolute path where to output kari built things. Default is \"{DefaultBuildOutputFolderName}\"")]
-    readonly AbsolutePath OutputDirectory = null;
-
+    readonly AbsolutePath KariBuildPath = null;
 
     [Solution] readonly Solution Solution;
 
-    AbsolutePath SourceDirectory => RootDirectory / "source";
     const string KariGeneratorName = "Kari.Generator";
     const string KariAnnotatorName = "Kari.Annotator";
     /*
@@ -36,9 +34,19 @@ class Build : NukeBuild
     AbsolutePath KariGeneratorProject => GetProjectPath(KariGeneratorName);
     AbsolutePath KariAnnotatorProject => GetProjectPath(KariAnnotatorName);
     */
-    AbsolutePath BuildOutputDirectory => OutputDirectory ?? (RootDirectory / DefaultBuildOutputFolderName);
+    AbsolutePath SourceDirectory => RootDirectory / "source";
+    AbsolutePath BuildOutputDirectory => KariBuildPath ?? (RootDirectory / DefaultBuildOutputFolderName);
+    AbsolutePath BinOutputDirectory => BuildOutputDirectory / "bin";
+    AbsolutePath ObjOutputDirectory => BuildOutputDirectory / "obj";
+    AbsolutePath PackageOutputDirectory => BuildOutputDirectory / ".nupkg";
+    
+    AbsolutePath GetProjectBaseOutputPath(string projectName) => BinOutputDirectory / projectName;
+    AbsolutePath GetProjectOutputPath(string projectName, string configuration) => GetProjectBaseOutputPath(projectName) / configuration;
+    AbsolutePath GetBaseIntermediateOutputPath(string projectName) => ObjOutputDirectory / projectName;
+    AbsolutePath GetIntermediateOutputPath(string projectName, string configuration) => GetBaseIntermediateOutputPath(projectName) / configuration;
+    AbsolutePath GetPackageOutputPath(string projectName, string configuration) => PackageOutputDirectory / projectName / configuration;
+    
     AbsolutePath InternalPluginsDirectory => SourceDirectory / "Kari.Plugins";
-
 
     Target Clean => _ => _
         .Before(Restore)
@@ -46,9 +54,7 @@ class Build : NukeBuild
         {
             SourceDirectory.GlobDirectories("Generated").ForEach(DeleteDirectory);
             SourceDirectory.GlobFiles("*.[gG]enerated.cs").ForEach(DeleteFile);
-            DeleteDirectory(BuildOutputDirectory);
-
-            EnsureCleanDirectory(SourceDirectory);
+            EnsureCleanDirectory(BuildOutputDirectory);
         });
 
     Target Restore => _ => _
@@ -57,17 +63,52 @@ class Build : NukeBuild
             DotNetRestore();
         });
 
-    Target Compile => _ => _
-        .DependsOn(Restore)
-        .Executes(() =>
-        {
-            var generatorProject = Solution.GetProject(KariGeneratorName);
-            var msbuildProject = generatorProject.GetMSBuildProject();
 
-            DotNetBuild(o => o
-               .SetProjectFile(generatorProject)
-               .SetConfiguration(Configuration)
-               .SetFramework("net6.0")
-               .SetOutputDirectory(BuildOutputDirectory));
-        });
+    void ExecuteCompileProject(string name)
+    {
+        var generatorProject = Solution.GetProject(name);
+            
+        DotNetRestore(settings => settings
+            .SetProjectFile(generatorProject.Path));
+
+        DotNetBuild(settings => settings
+            .SetConfiguration(Configuration)
+            .SetProjectFile(generatorProject.Path)
+            .SetNoRestore(true));
+    }
+
+    Target CompileGenerator => _ => _
+        .DependsOn(Restore)
+        .Executes(() => ExecuteCompileProject(KariGeneratorName));
+
+    Target CompileAnnotator => _ => _
+        .DependsOn(Restore)
+        .Executes(() => ExecuteCompileProject(KariAnnotatorName));
+    
+    /*
+        Bootstrap current version by building an older version separately.
+        Building the tools (the generator and the annotator).
+        Building these separately.
+        To do that, restore exactly their dependencies (I guess I need separate restores for these).
+        Publishing packages to nuget.
+        Sharing configuration with external plugins.
+        Internal plugins:
+            - Running the annotator, taking the configuration from somewhere;
+            - Including the file it generates in clean;
+            - Make them depend on both the generator and the annotator being compiled.
+        External plugins:
+            - Sharing configuration somehow (it's possible);
+            - Reusing the configuration for internal plugins.
+        Tests:
+            - Make them depend on the generator having been built;
+            - Make them depend on the corresponding plugin having been built (by name? or by property in config file);
+            - Make kari run before it's getting compiled;
+        Tools:
+            - Install Kari as tool globally;
+            - Install the annotator as tool;
+            - Kari should output help in nuke compatible html;
+            - Use nuke for running the code generator and doing Unity builds???
+        
+        That's all??
+    */
 }
