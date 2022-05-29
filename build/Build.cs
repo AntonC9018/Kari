@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Nuke.Common;
 using Nuke.Common.CI;
 using Nuke.Common.Execution;
+using Nuke.Common.Git;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
@@ -19,7 +21,7 @@ partial class Build : NukeBuild
     public static int Main () => Execute<Build>(x => x.CompileGenerator);
 
     [Parameter($"Names of internal plugins to build")]
-    readonly AbsolutePath PluginsToBuild = null;
+    readonly IEnumerable<string> PluginsToBuild = null;
 
     [Solution] readonly Solution Solution;
 
@@ -45,7 +47,7 @@ partial class Build : NukeBuild
     AbsolutePath InternalPluginsDirectory => SourceDirectory / "Kari.Plugins";
 
     Target Clean => _ => _
-        // .Before(Restore)
+        .Before(Restore)
         .Executes(() =>
         {
             SourceDirectory.GlobDirectories("Generated").ForEach(DeleteDirectory);
@@ -53,40 +55,32 @@ partial class Build : NukeBuild
             EnsureCleanDirectory(BuildOutputDirectory);
         });
 
+    Target Restore => _ => _
+        .Executes(() =>
+        {
+            DotNetRestore();
+        });
+
     void ExecuteCompileProject(string name)
     {
-        var generatorProject = Solution.GetProject(name);
-            
-        DotNetRestore(settings => settings
-            .SetProjectFile(generatorProject.Path));
+        Project project = Solution.GetProject(name);
+        Assert.NotNull(project);
 
         DotNetBuild(settings => settings
             .SetConfiguration(Configuration)
-            .SetProjectFile(generatorProject.Path)
+            .SetProjectFile(project.Path)
             .SetNoRestore(true));
     }
 
-    Target RestoreGenerator => _ => _
-        .Executes(() =>
-        {
-            var project = Solution.GetProject(KariGeneratorName);
-            DotNetRestore(settings => settings
-                .SetProjectFile(project));
-        });
     Target CompileGenerator => _ => _
-        .DependsOn(RestoreGenerator)
+        .DependsOn(Restore)
         .Executes(() => ExecuteCompileProject(KariGeneratorName));
 
-    Target RestoreAnnotator => _ => _
-        .Executes(() =>
-        {
-            var project = Solution.GetProject(KariAnnotatorName);
-            DotNetRestore(settings => settings
-                .SetProjectFile(project));
-        });
     Target CompileAnnotator => _ => _
-        .DependsOn(RestoreAnnotator)
+        .DependsOn(Restore)
         .Executes(() => ExecuteCompileProject(KariAnnotatorName));
+    
+    
     
     /*
         Bootstrap current version by building an older version separately.
