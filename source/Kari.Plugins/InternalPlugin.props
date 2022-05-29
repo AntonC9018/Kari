@@ -10,27 +10,5 @@
     <!-- Kari will already have these dll's included by default when you import the dll -->
     <ProjectReference Include="$(KariRootPath)Kari.GeneratorCore\Kari.GeneratorCore.csproj" 
                       ExcludeAssets="runtime" />
-    <!-- Compile-time dependency -->
-    <ProjectReference Include="$(KariRootPath)Kari.Annotator\Kari.Annotator.csproj" 
-                      ReferenceOutputAssembly="false"
-                      PrivateAssets="all"
-                      ExcludeAssets="runtime" />
   </ItemGroup>
-
-  <Target Name="RunAnnotator" 
-          AfterTargets="ResolveProjectReferences">
-
-    <PropertyGroup>
-      <KariAnnotatorPath>$(KariOutputPath)Kari.Annotator\$(Configuration)\net6.0\Kari.Annotator</KariAnnotatorPath>
-    </PropertyGroup>
-    <Exec Command="&quot;$([MSBuild]::NormalizePath('$(KariAnnotatorPath)'))&quot; $(AnnotatorArguments)" />
-    <CallTarget Targets="ReIncludeCompilationItems" />
-  </Target>
-
-  <Target Name="TextTemplateClean" AfterTargets="Clean">
-    <ItemGroup>
-      <KariAnnotatorGeneratedFiles Include="**\*.Generated.cs" Condtion=" '$(KariAnnotatorGeneratedFiles)' == '' "/>
-    </ItemGroup>
-    <Delete Files="@(KariAnnotatorGeneratedFiles)" />
-  </Target>
 </Project>

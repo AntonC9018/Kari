@@ -46,7 +46,7 @@
             "VSCode"
           ]
         },
-        "KariBuildPath": {
+        "KariBuildOutputDirectory": {
           "type": "string",
           "description": "Absolute path where to output kari built things. Default is \"build_folder\""
         },
@@ -63,8 +63,11 @@
           "description": "Shows the execution plan (HTML)"
         },
         "PluginsToBuild": {
-          "type": "string",
-          "description": "Names of internal plugins to build"
+          "type": "array",
+          "description": "Names of internal plugins to build",
+          "items": {
+            "type": "string"
+          }
         },
         "Profile": {
           "type": "array",
@@ -83,11 +86,12 @@
           "items": {
             "type": "string",
             "enum": [
+              "BuildAllPlugins",
+              "BuildAnnotator",
+              "BuildGenerator",
+              "BuildPlugins",
               "Clean",
-              "CompileAnnotator",
-              "CompileGenerator",
-              "RestoreAnnotator",
-              "RestoreGenerator"
+              "Restore"
             ]
           }
         },
@@ -105,11 +109,12 @@
           "items": {
             "type": "string",
             "enum": [
+              "BuildAllPlugins",
+              "BuildAnnotator",
+              "BuildGenerator",
+              "BuildPlugins",
               "Clean",
-              "CompileAnnotator",
-              "CompileGenerator",
-              "RestoreAnnotator",
-              "RestoreGenerator"
+              "Restore"
             ]
           }
         },

@@ -2,6 +2,16 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Nuke debug",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "nuke",
+            "args": [],
+            "cwd": "",
+            "console": "internalConsole",
+            "stopAtEntry": false
+        },
+        {
             "name": "Launch Kari",
             "type": "coreclr",
             "request": "launch",

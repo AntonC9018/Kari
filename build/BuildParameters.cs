@@ -1,6 +1,7 @@
 // Adapted from https://github.com/AvaloniaUI/Avalonia
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Xml.Linq;
@@ -27,7 +28,7 @@ partial class Build
     public readonly AbsolutePath KariBuildOutputDirectory = null;
 
     [Parameter($"Names of internal plugins to build")]
-    public readonly AbsolutePath PluginsToBuild = null;
+    public string[] PluginsToBuild = null;
 
     public class BuildParameters
     {
@@ -97,6 +98,11 @@ partial class Build
             TestResultsRoot = ArtifactsDir / "test-results";
             BuildDirs = GlobDirectories(RootDirectory, "**bin").Concat(GlobDirectories(RootDirectory, "**obj")).ToList();
             DirSuffix = b.Configuration;
+
+            b.PluginsToBuild ??= Helper.GetAllPluginDirectoryNames(b.InternalPluginsDirectory).ToArray();
+
+            // TODO: check that the plugins list is null if target that's requested is not for building plugins.
+            // b.ExecutionPlan.Contains(target => target.
         }
 
         string GetVersion()
@@ -107,6 +113,17 @@ partial class Build
     }
 
 }
+
+public static class Helper
+{
+    public static IEnumerable<string> GetAllPluginDirectoryNames(string internalPluginsDirectory)
+    {
+        return GlobDirectories(internalPluginsDirectory)
+            .Select(p => p[(p.LastIndexOf(Path.DirectorySeparatorChar) + 1) ..])
+            .Where(name => !name.Contains(".Tests"));
+    }
+}
+
 
 public static class ToolSettingsExtensions
 {
