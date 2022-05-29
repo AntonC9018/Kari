@@ -15,24 +15,23 @@ using static Nuke.Common.IO.PathConstruction;
 partial class Build
 {
     [Parameter("configuration")]
-    public Configuration Configuration { get; set; }
+    public Configuration Configuration;
 
     [Parameter("skip-tests")]
-    public bool SkipTests { get; set; }
+    public bool SkipTests;
 
     [Parameter("force-nuget-version")]
-    public string ForceNugetVersion { get; set; }
+    public string ForceNugetVersion;
 
     public const string DefaultBuildOutputFolderName = "build_folder";
     [Parameter($"Absolute path where to output kari built things. Default is \"{DefaultBuildOutputFolderName}\"")]
-    public readonly AbsolutePath KariBuildOutputDirectory = null;
+    public AbsolutePath KariBuildOutputDirectory = null;
 
     [Parameter($"Names of internal plugins to build")]
     public string[] PluginsToBuild = null;
 
     public class BuildParameters
     {
-        public AbsolutePath BuildOutputDirectory { get; }
         public bool SkipTests { get; }
         public string MainRepo { get; }
         public string MasterBranch { get; }
@@ -60,6 +59,7 @@ partial class Build
         public BuildParameters(Build b)
         {
             // ARGUMENTS
+            b.Configuration ??= (IsLocalBuild ? Configuration.Debug : Configuration.Release);
             SkipTests = b.SkipTests;
 
             // CONFIGURATION
@@ -89,17 +89,18 @@ partial class Build
             Version = b.ForceNugetVersion ?? "1.2.0";
 
             // DIRECTORIES
-            BuildOutputDirectory = b.KariBuildOutputDirectory ?? (RootDirectory / Build.DefaultBuildOutputFolderName);
-            ArtifactsDir = BuildOutputDirectory / "artifacts";
+            b.KariBuildOutputDirectory ??= (RootDirectory / Build.DefaultBuildOutputFolderName);
+            ArtifactsDir = b.KariBuildOutputDirectory / "artifacts";
             NugetRoot = ArtifactsDir / "nuget";
-            NugetIntermediateRoot = BuildOutputDirectory / "nuget-intermediate" / "nuget";
+            NugetIntermediateRoot = b.KariBuildOutputDirectory / "nuget-intermediate" / "nuget";
             ZipRoot = ArtifactsDir / "zip";
             BinRoot = ArtifactsDir / "bin";
             TestResultsRoot = ArtifactsDir / "test-results";
             BuildDirs = GlobDirectories(RootDirectory, "**bin").Concat(GlobDirectories(RootDirectory, "**obj")).ToList();
             DirSuffix = b.Configuration;
 
-            b.PluginsToBuild ??= Helper.GetAllPluginDirectoryNames(b.InternalPluginsDirectory).ToArray();
+            if (b.PluginsToBuild == null || !b.PluginsToBuild.Any())
+                b.PluginsToBuild = Helper.GetAllPluginDirectoryNames(b.InternalPluginsDirectory).ToArray();
 
             // TODO: check that the plugins list is null if target that's requested is not for building plugins.
             // b.ExecutionPlan.Contains(target => target.
@@ -118,9 +119,18 @@ public static class Helper
 {
     public static IEnumerable<string> GetAllPluginDirectoryNames(string internalPluginsDirectory)
     {
-        return GlobDirectories(internalPluginsDirectory)
-            .Select(p => p[(p.LastIndexOf(Path.DirectorySeparatorChar) + 1) ..])
-            .Where(name => !name.Contains(".Tests"));
+        foreach (var directory in Directory.EnumerateDirectories(internalPluginsDirectory))
+        {
+            int directoryNameStartIndex = directory.LastIndexOf(Path.DirectorySeparatorChar) + 1;
+            string directoryName = directory[directoryNameStartIndex ..];
+            if (directoryName.Contains(".Tests"))
+                continue;
+
+            yield return directoryName;
+        }
+        // return 
+        //     .Select(p => p[( + 1) ..])
+        //     .Where(name => !name.Contains(".Tests"));
     }
 }
 
