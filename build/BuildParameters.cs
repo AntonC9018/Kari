@@ -77,12 +77,11 @@ partial class Build
             MSBuildSolution = RootDirectory / "dirs.proj";
 
             // PARAMETERS
-            IsLocalBuild = Host == HostType.Console;
+            IsLocalBuild = true;
             IsRunningOnUnix = Environment.OSVersion.Platform == PlatformID.Unix ||
                               Environment.OSVersion.Platform == PlatformID.MacOSX;
             IsRunningOnWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-            IsRunningOnAzure = Host == HostType.AzurePipelines ||
-                               Environment.GetEnvironmentVariable("LOGNAME") == "vsts";
+            IsRunningOnAzure = false;
 
             if (IsRunningOnAzure)
             {
