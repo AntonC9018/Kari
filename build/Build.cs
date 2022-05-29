@@ -14,16 +14,12 @@ using static Nuke.Common.IO.PathConstruction;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 
 [CheckBuildProjectConfigurations]
-class Build : NukeBuild
+partial class Build : NukeBuild
 {
     public static int Main () => Execute<Build>(x => x.CompileGenerator);
 
-    [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
-    readonly Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
-
-    const string DefaultBuildOutputFolderName = "build_folder";
-    [Parameter($"Absolute path where to output kari built things. Default is \"{DefaultBuildOutputFolderName}\"")]
-    readonly AbsolutePath KariBuildPath = null;
+    [Parameter($"Names of internal plugins to build")]
+    readonly AbsolutePath PluginsToBuild = null;
 
     [Solution] readonly Solution Solution;
 
@@ -49,20 +45,13 @@ class Build : NukeBuild
     AbsolutePath InternalPluginsDirectory => SourceDirectory / "Kari.Plugins";
 
     Target Clean => _ => _
-        .Before(Restore)
+        // .Before(Restore)
         .Executes(() =>
         {
             SourceDirectory.GlobDirectories("Generated").ForEach(DeleteDirectory);
             SourceDirectory.GlobFiles("*.[gG]enerated.cs").ForEach(DeleteFile);
             EnsureCleanDirectory(BuildOutputDirectory);
         });
-
-    Target Restore => _ => _
-        .Executes(() =>
-        {
-            DotNetRestore();
-        });
-
 
     void ExecuteCompileProject(string name)
     {
@@ -77,12 +66,26 @@ class Build : NukeBuild
             .SetNoRestore(true));
     }
 
+    Target RestoreGenerator => _ => _
+        .Executes(() =>
+        {
+            var project = Solution.GetProject(KariGeneratorName);
+            DotNetRestore(settings => settings
+                .SetProjectFile(project));
+        });
     Target CompileGenerator => _ => _
-        .DependsOn(Restore)
+        .DependsOn(RestoreGenerator)
         .Executes(() => ExecuteCompileProject(KariGeneratorName));
 
+    Target RestoreAnnotator => _ => _
+        .Executes(() =>
+        {
+            var project = Solution.GetProject(KariAnnotatorName);
+            DotNetRestore(settings => settings
+                .SetProjectFile(project));
+        });
     Target CompileAnnotator => _ => _
-        .DependsOn(Restore)
+        .DependsOn(RestoreAnnotator)
         .Executes(() => ExecuteCompileProject(KariAnnotatorName));
     
     /*
@@ -108,6 +111,9 @@ class Build : NukeBuild
             - Install the annotator as tool;
             - Kari should output help in nuke compatible html;
             - Use nuke for running the code generator and doing Unity builds???
+        Using git for versioning.
+        Overriding the currently installed global nuget package and the tools with the temp debug version.
+        Output files to the intermediate obj folder, and not together with other files.
         
         That's all??
     */
