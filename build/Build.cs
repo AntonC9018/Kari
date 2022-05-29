@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using Nuke.Common;
 using Nuke.Common.CI;
@@ -8,6 +9,7 @@ using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
 using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Utilities.Collections;
+using Serilog;
 using static Nuke.Common.EnvironmentInfo;
 using static Nuke.Common.IO.FileSystemTasks;
 using static Nuke.Common.IO.PathConstruction;
@@ -17,9 +19,6 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 partial class Build : NukeBuild
 {
     public static int Main () => Execute<Build>(x => x.CompileGenerator);
-
-    [Parameter($"Names of internal plugins to build")]
-    readonly AbsolutePath PluginsToBuild = null;
 
     [Solution] readonly Solution Solution;
 
@@ -31,21 +30,46 @@ partial class Build : NukeBuild
     AbsolutePath KariAnnotatorProject => GetProjectPath(KariAnnotatorName);
     */
     AbsolutePath SourceDirectory => RootDirectory / "source";
-    AbsolutePath BuildOutputDirectory => KariBuildPath ?? (RootDirectory / DefaultBuildOutputFolderName);
-    AbsolutePath BinOutputDirectory => BuildOutputDirectory / "bin";
-    AbsolutePath ObjOutputDirectory => BuildOutputDirectory / "obj";
-    AbsolutePath PackageOutputDirectory => BuildOutputDirectory / ".nupkg";
     
-    AbsolutePath GetProjectBaseOutputPath(string projectName) => BinOutputDirectory / projectName;
+
+    BuildParameters _ops;
+
+    // public struct PathInfo
+    // {
+    //     public AbsolutePath BaseOutputPath;
+    //     public AbsolutePath OutputPath;
+    //     public AbsolutePath BaseIntermediateOutputPath;
+    //     public AbsolutePath IntermediateOutputPath;
+    // }
+
+    AbsolutePath GetProjectBaseOutputPath(string projectName) => _ops.BuildOutputDirectory / projectName;
     AbsolutePath GetProjectOutputPath(string projectName, string configuration) => GetProjectBaseOutputPath(projectName) / configuration;
-    AbsolutePath GetBaseIntermediateOutputPath(string projectName) => ObjOutputDirectory / projectName;
+    AbsolutePath GetBaseIntermediateOutputPath(string projectName) => _ops.BuildOutputDirectory / projectName;
     AbsolutePath GetIntermediateOutputPath(string projectName, string configuration) => GetBaseIntermediateOutputPath(projectName) / configuration;
-    AbsolutePath GetPackageOutputPath(string projectName, string configuration) => PackageOutputDirectory / projectName / configuration;
+    AbsolutePath GetPackageOutputPath(string projectName, string configuration) => _ops.BuildOutputDirectory / projectName / configuration;
     
     AbsolutePath InternalPluginsDirectory => SourceDirectory / "Kari.Plugins";
 
+    BuildParameters Parameters { get; set; }
+    protected override void OnBuildInitialized()
+    {
+        Parameters = new BuildParameters(this);
+        Log.Information("Building version {0} of Kari ({1}) using version {2} of Nuke.",
+            Parameters.Version,
+            Configuration,
+            typeof(NukeBuild).Assembly.GetName().Version.ToString());
+
+        static void ExecWait(string preamble, string command, string args)
+        {
+            Console.WriteLine(preamble);
+            Process.Start(new ProcessStartInfo(command, args) {UseShellExecute = false}).WaitForExit();
+        }
+        ExecWait("dotnet version:", "dotnet", "--info");
+        ExecWait("dotnet workloads:", "dotnet", "workload list");
+    }
+
     Target Clean => _ => _
-        // .Before(Restore)
+        .Before(Restore)
         .Executes(() =>
         {
             SourceDirectory.GlobDirectories("Generated").ForEach(DeleteDirectory);
