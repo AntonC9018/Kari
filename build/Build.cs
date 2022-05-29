@@ -131,7 +131,7 @@ partial class Build : NukeBuild
     }
     
     // TODO: Use combinatorial builds?? (unless plugins depend on each other)
-    Target BuildPlugins => _ => _
+    Target BuildInternalPlugins => _ => _
         .DependsOn(BuildAnnotator)
         // .Requires(() => PluginsToBuild)
         .Executes(() =>
@@ -139,7 +139,7 @@ partial class Build : NukeBuild
             CompilePlugins(PluginsToBuild);
         });
 
-    Target BuildAllPlugins => _ => _
+    Target BuildAllInternalPlugins => _ => _
         .DependsOn(BuildAnnotator)
         .Executes(() =>
         {
@@ -184,5 +184,11 @@ partial class Build : NukeBuild
         Output files to the intermediate obj folder, and not together with other files.
         
         That's all??
+
+        The outside plugins should be able to reference the "public API" via their build script.
+        I guess they could do that just by using the ext approach (for simple plugins),
+        while we'd just have that file stored in our repo.
+        Otherwise, just make them use the annotator tool manually.
+        That will be easy once I add html help generation. 
     */
 }
