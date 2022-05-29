@@ -7,6 +7,7 @@ using System.Xml.Linq;
 using Nuke.Common;
 using Nuke.Common.CI.AzurePipelines;
 using Nuke.Common.IO;
+using Nuke.Common.Tooling;
 using static Nuke.Common.IO.PathConstruction;
 
 partial class Build
@@ -138,4 +139,13 @@ partial class Build
         }
     }
 
+}
+
+public static class ToolSettingsExtensions
+{
+    public static T Apply<T>(this T settings, Configure<T> configurator)
+    {
+        Assert.NotNull(configurator);
+        return configurator(settings);
+    }
 }
