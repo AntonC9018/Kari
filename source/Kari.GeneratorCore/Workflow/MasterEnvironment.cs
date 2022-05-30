@@ -285,9 +285,11 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
         int projectCount = projectDatas.Projects.Length;
 
-        // We keep at least the given directory in any case.
-        Assert(projectCount > 0);
-
+        if (projectCount == 0)
+        {
+            Logger.LogError("No projects found.");
+            return;
+        }
 
         static ProjectDatas GetProjects(
             ProjectNamesInfo projectNamesInfo, NamedLogger logger, ref InputMode inputMode)
