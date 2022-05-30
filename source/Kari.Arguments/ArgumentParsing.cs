@@ -337,12 +337,8 @@ namespace Kari.Arguments
 
             var type = objectToBeFilled.GetType();
 
-            foreach (var fieldInfo in GetFieldInfos(type))
-            foreach (var attr in fieldInfo.GetCustomAttributes(inherit: false))
+            foreach (var (fieldInfo, optionAttribute) in IterateOptions(type))
             {
-                if (!(attr is OptionAttribute optionAttribute))
-                    continue;
-
                 // Paths must be strings
                 Assert(!optionAttribute.IsPath 
                     || (fieldInfo.FieldType == typeof(string) 
@@ -585,11 +581,6 @@ namespace Kari.Arguments
             return result;
         }
 
-        private static FieldInfo[] GetFieldInfos(Type type)
-        {
-            return type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
-        }
-
         private static readonly TableColumn[] _Header = new TableColumn[] 
         { 
             new TableColumn("Option").Centered(),
@@ -598,6 +589,79 @@ namespace Kari.Arguments
             new TableColumn("Description").LeftAligned(),
         };
         private static readonly IRenderable[] _TableRowTemp = new IRenderable[4];
+
+
+        public IEnumerable<(FieldInfo, OptionAttribute)> IterateOptions(System.Type type)
+        {
+            static FieldInfo[] GetFieldInfos(Type type)
+            {
+                return type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+            }
+
+            foreach (var fieldInfo in GetFieldInfos(type))
+            foreach (var attr in fieldInfo.GetCustomAttributes(inherit: false))
+            {
+                if (!(attr is OptionAttribute optionAttribute))
+                    continue;
+
+                yield return (fieldInfo, optionAttribute);
+            }
+        }
+
+        private static void WriteOptionType(StringBuilder builder, FieldInfo fieldInfo, OptionAttribute optionAttribute, bool writeEnumAsString)
+        {
+            if (fieldInfo.FieldType.IsEnum)
+            {
+                // Could do an interface here, but for now just taking a string.
+                if (writeEnumAsString)
+                {
+                    builder.Append("string");
+                }
+                else
+                {
+                    var items = new List<string>(); 
+                    foreach (var name in Enum.GetNames(fieldInfo.FieldType))
+                    {
+                        if (fieldInfo.FieldType.GetField(name).GetCustomAttribute(typeof(HideOptionAttribute)) is null)
+                        {
+                            items.Add(name);
+                        }
+                    }
+                    builder.Append("{");
+                    builder.Append(string.Join(",\n", items));
+                    builder.Append("}");
+                }
+            }
+            // HashSet<string> or List<string>
+            else if (fieldInfo.FieldType.GenericTypeArguments.Length > 0)
+            {
+                var n = fieldInfo.FieldType.Name;
+                // This cuts off the ` and the number
+                builder.Append(n.AsSpan(0, n.Length - 2));
+                builder.Append("<"); 
+                // TODO: We only allow strings here, so I'm not looping over it.
+                if (optionAttribute.IsPath)
+                {
+                    builder.Append("Path");
+                }
+                else
+                {
+                    builder.Append(fieldInfo.FieldType.GenericTypeArguments[0].Name);
+                }
+                builder.Append(">");
+            }
+            // either a string or a string[]
+            else if (optionAttribute.IsPath)
+            {
+                builder.Append("Path");
+                if (fieldInfo.FieldType == typeof(string[]))
+                    builder.Append("[]");
+            }
+            else
+            {
+                builder.Append(fieldInfo.FieldType.Name);
+            }
+        }
 
 
         /// <summary>
@@ -610,60 +674,13 @@ namespace Kari.Arguments
             table.AddColumns(_Header);
             table.Width = 140;
 
-            foreach (var fieldInfo in GetFieldInfos(type))
-            foreach (var attr in fieldInfo.GetCustomAttributes(inherit: false))
+            foreach (var (fieldInfo, optionAttribute) in IterateOptions(type))
             {
-                if (!(attr is OptionAttribute optionAttribute))
-                    continue;
-                
                 Debug.Assert(!string.IsNullOrEmpty(optionAttribute.Help),
                     "If it's super obvious what the option does, set the help to \" \"");
 
                 var typeBuilder = new StringBuilder();
-
-                if (fieldInfo.FieldType.IsEnum)
-                {
-                    var items = new List<string>(); 
-                    foreach (var name in Enum.GetNames(fieldInfo.FieldType))
-                    {
-                        if (fieldInfo.FieldType.GetField(name).GetCustomAttribute(typeof(HideOptionAttribute)) is null)
-                        {
-                            items.Add(name);
-                        }
-                    }
-                    typeBuilder.Append("{");
-                    typeBuilder.Append(string.Join(",\n", items));
-                    typeBuilder.Append("}");
-                }
-                // HashSet<string> or List<string>
-                else if (fieldInfo.FieldType.GenericTypeArguments.Length > 0)
-                {
-                    var n = fieldInfo.FieldType.Name;
-                    // This cuts off the ` and the number
-                    typeBuilder.Append(n.AsSpan(0, n.Length - 2));
-                    typeBuilder.Append("<"); 
-                    // TODO: We only allow strings here, so I'm not looping over it.
-                    if (optionAttribute.IsPath)
-                    {
-                        typeBuilder.Append("Path");
-                    }
-                    else
-                    {
-                        typeBuilder.Append(fieldInfo.FieldType.GenericTypeArguments[0].Name);
-                    }
-                    typeBuilder.Append(">");
-                }
-                // either a string or a string[]
-                else if (optionAttribute.IsPath)
-                {
-                    typeBuilder.Append("Path");
-                    if (fieldInfo.FieldType == typeof(string[]))
-                        typeBuilder.Append("[]");
-                }
-                else
-                {
-                    typeBuilder.Append(fieldInfo.FieldType.Name);
-                }
+                WriteOptionType(typeBuilder, fieldInfo, optionAttribute, writeEnumAsString: false);                
 
                 var otherThings = new List<string>();
 
@@ -796,6 +813,61 @@ namespace Kari.Arguments
         {
             return $"File {Configurations[option.OriginConfigurationFileIndex].FileFullPath}, at {option.Property.Path}";
         }
+
+        public void GetNukeHelpFor(ref CodeBuilder builder, object t)
+        {
+            var listBuilder = new CodeListBuilder(CodeListBuilder.CommandSpaceSeparator);
+            builder.Append("[");
+            builder.IncreaseIndent();
+            builder.NewLine();
+
+            var type = t.GetType();
+            StringBuilder typeBuilder = new();
+
+            foreach (var (fieldInfo, optionAttribute) in IterateOptions(type))
+            {
+                listBuilder.MaybeAppendNewLineAndSeparatorOrSetHasWritten(ref builder);
+                OptionInfo info;
+
+                info.name = fieldInfo.Name;
+             
+                typeBuilder.Clear();
+                WriteOptionType(typeBuilder, fieldInfo, optionAttribute, writeEnumAsString: true);
+                info.type = typeBuilder.ToString();
+
+                info.format = "-" + info.name + " " + "{value}";
+                info.separator = ",";
+                info.createOverload = null;
+                info.help = optionAttribute.Help;
+
+                info.WriteJsonObject(ref builder);
+            }
+
+            builder.DecreaseIndent();
+            builder.NewLine();
+            builder.Append("]");
+        }
+    }
+
+    public struct OptionInfo
+    {
+        public string name;
+        public string type;
+        public string format;
+        public string separator;
+        public bool? createOverload;
+        public string help;
+    }
+
+    public struct CommandInfo
+    {
+        public string schema;
+        public string[] references;
+        public string name;
+        public string officialUrl;
+        public string help;
+        public bool customExecutable;
+        public string[] taskNames;
     }
 
     public static class ParserHelpers
@@ -862,6 +934,46 @@ namespace Kari.Arguments
             }
 
             return parser;
+        }
+
+
+        public static void AppendJSONKeyValue(ref CodeBuilder builder, ref CodeListBuilder listBuilder, string key, string value)
+        {
+            listBuilder.MaybeAppendNewLineAndSeparatorOrSetHasWritten(ref builder);
+            builder.Append("\"");
+            builder.Append(key);
+            builder.Append("\"");
+            builder.Append(": ");
+            builder.Append("\"");
+            builder.Append(value);
+            builder.Append("\"");
+        }
+
+        public static void WriteJsonObject(this in OptionInfo info, ref CodeBuilder builder)
+        {
+            builder.StartBlock();
+            var listBuilder = new CodeListBuilder(CodeListBuilder.CommandSpaceSeparator);
+
+            AppendJSONKeyValue(ref builder, ref listBuilder, nameof(info.name), info.name);
+            AppendJSONKeyValue(ref builder, ref listBuilder, nameof(info.type), info.type);
+            AppendJSONKeyValue(ref builder, ref listBuilder, nameof(info.format), info.format);
+            if (info.separator is not null)
+                AppendJSONKeyValue(ref builder, ref listBuilder, nameof(info.separator), info.separator);
+            if (info.createOverload.HasValue)
+                AppendJSONKeyValue(ref builder, ref listBuilder, nameof(info.createOverload), info.createOverload.Value.ToString());
+
+            builder.EndBlock();
+        }
+
+        public static void WriteJsonObject(this in CommandInfo info, ref CodeBuilder builder, IEnumerable<OptionInfo> optionInfos)
+        {
+            builder.StartBlock();
+            var listBuilder = new CodeListBuilder(CodeListBuilder.CommandSpaceSeparator);
+
+            AppendJSONKeyValue(ref builder, ref listBuilder, "$schema", info.schema);
+            AppendJSONKeyValue(ref builder, ref listBuilder, nameof(info.references), info.schema);
+
+            builder.EndBlock();
         }
     }
 }
