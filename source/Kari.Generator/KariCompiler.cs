@@ -137,6 +137,8 @@
                 return 0;
             }
 
+
+
             result = parser.MaybeParseConfiguration("kari");
             if (result.IsError)
             {
@@ -153,6 +155,23 @@
                     argumentLogger.LogError(e);
                 return (int) ExitCode.BadOptionValue;
             }
+
+            #if false
+            if (parser.IsHelpSet)
+            {
+                string jsonHelp = parser.GetNukeJSONHelpFor(ops, new CommandDescriptionInfo
+                {
+                    schema = "myurl",
+                    references = new[] { "myurl" },
+                    name = "kari",
+                    officialUrl = "https://github.com/AntonC9018/Kari",
+                    customExecutable = true,
+                    taskNames = new[] { "settingsClass" },
+                });
+                argumentLogger.LogInfo(jsonHelp);
+                return 0;
+            }
+            #endif
 
             var compiler = new KariCompiler();
             compiler._ops = ops;

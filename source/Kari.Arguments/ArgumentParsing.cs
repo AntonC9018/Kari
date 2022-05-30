@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using Kari.Utils;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -608,6 +609,19 @@ namespace Kari.Arguments
             }
         }
 
+        private string GetObjectHelpMessage(object command)
+        {
+            // No reason for it to be stored as a field.
+            var helpMessageProperty = command.GetType().GetProperty("HelpMessage", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
+            if (helpMessageProperty is not null && helpMessageProperty.GetMethod is not null)
+            {
+                var message = helpMessageProperty.GetMethod.Invoke(command, null);
+                if (message is string messageString)
+                    return messageString;
+            }
+            return "";
+        }
+
         private static void WriteOptionType(StringBuilder builder, FieldInfo fieldInfo, OptionAttribute optionAttribute, bool writeEnumAsString)
         {
             if (fieldInfo.FieldType.IsEnum)
@@ -737,24 +751,10 @@ namespace Kari.Arguments
                 table.AddEmptyRow();
             }
 
-            
-            string GetObjectHelpMessage()
-            {
-                // No reason for it to be stored as a field.
-                var helpMessageProperty = type.GetProperty("HelpMessage", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
-                if (helpMessageProperty is not null && helpMessageProperty.GetMethod is not null)
-                {
-                    var message = helpMessageProperty.GetMethod.Invoke(t, null);
-                    if (message is string messageString)
-                        return messageString;
-                }
-                return "";
-            }
-
             var style = new Style(Color.White, null, Decoration.Italic, 
                 // Link is interesting. Could use this for documentation.
                 link: null);
-            table.Title = new TableTitle(GetObjectHelpMessage(), style);
+            table.Title = new TableTitle(GetObjectHelpMessage(t), style);
 
             return table;
         }
@@ -814,8 +814,9 @@ namespace Kari.Arguments
             return $"File {Configurations[option.OriginConfigurationFileIndex].FileFullPath}, at {option.Property.Path}";
         }
 
-        public void GetNukeHelpFor(ref CodeBuilder builder, object t)
+        public string GetNukeJSONHelpFor(object t, CommandDescriptionInfo descriptionInfo)
         {
+            #if false
             var listBuilder = new CodeListBuilder(CodeListBuilder.CommandSpaceSeparator);
             builder.Append("[");
             builder.IncreaseIndent();
@@ -846,6 +847,40 @@ namespace Kari.Arguments
             builder.DecreaseIndent();
             builder.NewLine();
             builder.Append("]");
+            #endif
+
+            var type = t.GetType();
+            StringBuilder typeBuilder = new();
+            var optionInfos = IterateOptions(type).Select(a => 
+            {
+                var (fieldInfo, optionAttribute) = a;
+
+                OptionInfo info;
+
+                info.name = fieldInfo.Name;
+            
+                typeBuilder.Clear();
+                WriteOptionType(typeBuilder, fieldInfo, optionAttribute, writeEnumAsString: true);
+                info.type = typeBuilder.ToString();
+
+                info.format = "-" + info.name + " " + "{value}";
+                info.separator = ",";
+                info.createOverload = null;
+                info.help = optionAttribute.Help;
+
+                return info;
+            }).ToArray();
+            
+            {
+                var commandInfo = new CommandInfo
+                {
+                    help = GetObjectHelpMessage(t),
+                    descriptionInfo = descriptionInfo,
+                };
+                Assert(descriptionInfo.taskNames.Length == 1, "Only a single task is supported right now.");
+                var jobj = ParserHelpers.ConvertToJSONObject(commandInfo, optionInfos);
+                return jobj.ToString(Formatting.Indented);
+            }
         }
     }
 
@@ -859,15 +894,20 @@ namespace Kari.Arguments
         public string help;
     }
 
-    public struct CommandInfo
+    public struct CommandDescriptionInfo
     {
         public string schema;
         public string[] references;
         public string name;
         public string officialUrl;
-        public string help;
         public bool customExecutable;
         public string[] taskNames;
+    }
+
+    public struct CommandInfo
+    {
+        public string help;
+        public CommandDescriptionInfo descriptionInfo;
     }
 
     public static class ParserHelpers
@@ -963,17 +1003,78 @@ namespace Kari.Arguments
                 AppendJSONKeyValue(ref builder, ref listBuilder, nameof(info.createOverload), info.createOverload.Value.ToString());
 
             builder.EndBlock();
+
         }
 
+        #if false
         public static void WriteJsonObject(this in CommandInfo info, ref CodeBuilder builder, IEnumerable<OptionInfo> optionInfos)
         {
             builder.StartBlock();
             var listBuilder = new CodeListBuilder(CodeListBuilder.CommandSpaceSeparator);
 
-            AppendJSONKeyValue(ref builder, ref listBuilder, "$schema", info.schema);
+            AppendJSONKeyValue(ref builder, ref listBuilder, "$schema", info.desschema);
             AppendJSONKeyValue(ref builder, ref listBuilder, nameof(info.references), info.schema);
 
             builder.EndBlock();
+        }
+        #endif
+
+
+        public static JObject ConvertToJSONObject(this in OptionInfo info)
+        {
+            JObject jobj = new();
+
+            jobj[nameof(info.name)] = info.name;
+            jobj[nameof(info.type)] = info.type;
+            jobj[nameof(info.format)] = info.format;
+            if (info.separator is not null)
+                jobj[nameof(info.separator)] = ",";
+            if (info.createOverload.HasValue)
+                jobj[nameof(info.createOverload)] = info.createOverload.Value;
+
+            return jobj;
+        }
+
+        public static JObject ConvertToJSONObject(this in CommandInfo info, IEnumerable<OptionInfo>[] optionInfos)
+        {
+            JObject jobj = new();
+
+            ref readonly var descInfo = ref info.descriptionInfo;
+
+            jobj["$schema"] = descInfo.schema;
+            jobj[nameof(descInfo.name)] = descInfo.name;
+            jobj[nameof(descInfo.officialUrl)] = descInfo.officialUrl;
+            jobj[nameof(descInfo.references)] = new JArray(descInfo.references);
+            jobj[nameof(descInfo.customExecutable)] = descInfo.customExecutable;
+            jobj[nameof(descInfo.name)] = descInfo.name;
+            jobj[nameof(info.help)] = info.help;
+
+            {
+                var tasks = new JArray();
+                for (int i = 0; i < descInfo.taskNames.Length; i++)
+                {
+                    var taskOuterObj = new JObject();
+                    var taskObjInner = new JObject();
+                    var properties = new JArray();
+                    
+                    var taskName = descInfo.taskNames[i];
+                    taskOuterObj[taskName] = taskObjInner;
+                    taskObjInner["properties"] = properties;
+
+                    foreach (var optionInfo in optionInfos[i])
+                        properties.Add(ConvertToJSONObject(in optionInfo));
+                    
+                    tasks.Add(taskOuterObj);
+                }
+                jobj["tasks"] = tasks;
+            }
+
+            return jobj;
+        }
+
+        public static JObject ConvertToJSONObject(this in CommandInfo info, IEnumerable<OptionInfo> optionInfos)
+        {
+            return ConvertToJSONObject(info, new[]{ optionInfos });
         }
     }
 }
