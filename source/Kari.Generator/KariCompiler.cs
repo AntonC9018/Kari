@@ -5,6 +5,7 @@
     using System.IO;
     using System.Linq;
     using System.Runtime.Loader;
+    using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
     using System.Xml;
@@ -84,7 +85,11 @@
 
             [Option("Names of assemblies to load annotations from. These will be searched in the default location. Use `additionalAnnotationAssemblyPaths` to straight up load from paths. (Unimplemented)")] 
             public string[] additionalAnnotationAssemblyNames = null;
+
+            [Option("Gitignore template")]
+            public string gitignoreTemplate = "*\r\n!.gitignore";
         }
+
         private KariOptions _ops;
         private NamedLogger _logger;
 
@@ -510,6 +515,9 @@
             {
                 await master.GenerateCodeFragments();
 
+                GeneratedDirectorySharedInitializationContext GetGeneratedDirectoryInitializationContext() =>
+                    new GeneratedDirectorySharedInitializationContext(Encoding.UTF8.GetBytes(_ops.gitignoreTemplate));
+
                 switch (_ops.outputMode)
                 {
                     case MasterEnvironment.OutputMode.NestedFile:
@@ -526,7 +534,7 @@
 
                     case MasterEnvironment.OutputMode.NestedDirectory:
                     {
-                        foreach (var a in master.WriteCodeFiles_NestedDirectory(validOutputPath))
+                        foreach (var a in master.WriteCodeFiles_NestedDirectory(validOutputPath, GetGeneratedDirectoryInitializationContext()))
                         {
                             a.GeneratedPaths.RemoveCodeFilesThatWereNotGenerated();
                             await a.WriteOutputTask;
@@ -536,7 +544,7 @@
 
                     case MasterEnvironment.OutputMode.CentralDirectory:
                     {
-                        foreach (var a in master.WriteCodeFiles_CentralDirectory(validOutputPath))
+                        foreach (var a in master.WriteCodeFiles_CentralDirectory(validOutputPath, GetGeneratedDirectoryInitializationContext()))
                         {
                             a.GeneratedPaths.RemoveCodeFilesThatWereNotGenerated();
                             await a.WriteOutputTask;

@@ -1043,13 +1043,15 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
     /// <summary>
     /// </summary>
-    public SingleDirectoryOutputResult[] WriteCodeFiles_NestedDirectory(string generatedFolderRelativePath)
+    public SingleDirectoryOutputResult[] WriteCodeFiles_NestedDirectory(
+        string generatedFolderRelativePath, GeneratedDirectorySharedInitializationContext directoryInitializationContext)
     {
         SingleDirectoryOutputResult ProcessProject(ProjectEnvironmentData project)
         {
             // TODO: test if "" does not make it append /
             var outputDirectory = Path.Join(project.DirectoryFullPath, generatedFolderRelativePath);
-            CodeFileCommon.InitializeGeneratedDirectory(outputDirectory);
+            CodeFileCommon.InitializeGeneratedDirectory(
+                new(shared: directoryInitializationContext, directoryFullPath: outputDirectory));
             var fragments = CollectionsMarshal.AsSpan(project.CodeFragments);
             var fileNamesInfo = GeneratedFileNamesInfo.Create(fragments, Logger);
 
@@ -1068,12 +1070,14 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// 1. The project names correspond to namespaces. 
     /// 2. The project names are unique.
     /// </summary>
-    public SingleDirectoryOutputResult[] WriteCodeFiles_CentralDirectory(string generatedFolderFullPath)
+    public SingleDirectoryOutputResult[] WriteCodeFiles_CentralDirectory(
+        string generatedFolderFullPath, GeneratedDirectorySharedInitializationContext directoryInitializationContext)
     {
         SingleDirectoryOutputResult ProcessProject(ProjectEnvironmentData project)
         {
             var outputDirectory = Path.Join(generatedFolderFullPath, project.Name);
-            CodeFileCommon.InitializeGeneratedDirectory(outputDirectory);
+            CodeFileCommon.InitializeGeneratedDirectory(
+                new(shared: directoryInitializationContext, directoryFullPath: outputDirectory));
             var fragments = CollectionsMarshal.AsSpan(project.CodeFragments);
             var fileNamesInfo = GeneratedFileNamesInfo.Create(fragments, Logger);
 
