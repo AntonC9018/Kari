@@ -123,7 +123,7 @@ namespace Kari.GeneratorCore.Workflow
             {
                 var gitignoreFullPath = Path.Join(context.directoryFullPath, ".gitignore");
                 if (!File.Exists(gitignoreFullPath) && !Directory.Exists(gitignoreFullPath))
-                    File.WriteAllText(gitignoreFullPath, "*\r\n!.gitignore");
+                    File.WriteAllBytes(gitignoreFullPath, context.shared.gitignoreBytes);
             }
         }
 

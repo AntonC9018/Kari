@@ -516,7 +516,8 @@
                 await master.GenerateCodeFragments();
 
                 GeneratedDirectorySharedInitializationContext GetGeneratedDirectoryInitializationContext() =>
-                    new GeneratedDirectorySharedInitializationContext(Encoding.UTF8.GetBytes(_ops.gitignoreTemplate));
+                    new GeneratedDirectorySharedInitializationContext(
+                        string.IsNullOrEmpty(_ops.gitignoreTemplate) ? null : Encoding.UTF8.GetBytes(_ops.gitignoreTemplate));
 
                 switch (_ops.outputMode)
                 {
