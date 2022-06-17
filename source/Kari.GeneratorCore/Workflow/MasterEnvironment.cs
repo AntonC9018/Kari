@@ -369,29 +369,28 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     .Select(asmdefFullPath => 
                     {
                         var directory = Path.GetDirectoryName(asmdefFullPath);
+                        var asmdefJson = JObject.Parse(File.ReadAllText(asmdefFullPath));
 
-                        static string GetNamespaceName(string asmdefFullPath, NamedLogger logger)
+                        static string GetValue(JObject json, string key, NamedLogger logger)
                         {
-                            var asmdefJson = JObject.Parse(File.ReadAllText(asmdefFullPath));
-                            if (asmdefJson.TryGetValue("rootNamespace", out JToken rootNamespace))
+                            if (json.TryGetValue("name", out JToken value))
                             {
-                                if (rootNamespace.Type != JTokenType.String)
+                                if (value.Type != JTokenType.String)
                                 {
-                                    logger.LogError($"Expected to find a value of type String, but found {rootNamespace.Type.ToString()} instead, in the asmdef {asmdefFullPath}.");
+                                    logger.LogError($"Expected to find a value of type String, but found {value.Type.ToString()} instead, in the asmdef {json.Path}.");
                                 }
                                 else
                                 {
-                                    return rootNamespace.Value<string>();
+                                    return value.Value<string>();
                                 }
                             }
-                            return Path.GetFileNameWithoutExtension(asmdefFullPath);
+                            return null;
                         }
                         
-                            
-                        // So just get the name of the file ??????
-                        var namespaceName = GetNamespaceName(asmdefFullPath, logger);
+                        var projectName = GetValue(asmdefJson, "name", logger) ?? Path.GetFileNameWithoutExtension(asmdefFullPath);
+                        var namespaceName = GetValue(asmdefJson, "rootNamespace", logger) ?? projectName;
 
-                        return CreateProjectWithDefaultNamespace(namespaceName, directory, projectNamesInfo.GeneratedNamespaceSuffix); 
+                        return new ProjectEnvironmentData(projectName, directory, namespaceName.Join(projectNamesInfo.GeneratedNamespaceSuffix)); 
                     })
                     .ToArray();
 
@@ -412,6 +411,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     }
 
                     // TODO: Nesting asmdefs is never allowed
+                    // TODO: Actually, nesting them is allowed and should be supported...
                     // if (directories.Distinct().Count() == directories.Length)
                     // {
                     //     logger.LogError("Duplicate project folders were detected. Cannot continue.");
@@ -857,7 +857,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             return new GeneratedFileNamesInfo(fileNames, existingFileNamesToIndices, conflictingNames);
         }
     
-        public bool IsFileGenerated(string fileName)
+        public readonly bool IsFileGenerated(string fileName)
         {
             // If it has been used directly.
             return (ExistingFileNamesToIndices.TryGetValue(fileName, out int index) 
@@ -874,7 +874,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         if (length == 0 || bytes.TryGetNonEnumeratedCount(out int byteCount) && length != byteCount)
             return false;
 
-        const int bufferSize = 1024 * 4 * 16; 
+        const int bufferSize = 1024 * 4 * 16;
         byte[] readBytes = ArrayPool<byte>.Shared.Rent(bufferSize);
         long offsetInfoFile = 0;
         int difference = 0;
@@ -920,7 +920,10 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
         return difference == 0;
     }
 
-    internal static async Task<bool> IsFileEqualToContent(SafeFileHandle fileHandle, ArraySegment<byte> bytes, int byteOffsetFromStart, int byteOffsetFromEnd, CancellationToken cancellationToken)
+    internal static async Task<bool> IsFileEqualToContent(
+        SafeFileHandle fileHandle,
+        ArraySegment<byte> bytes, int byteOffsetFromStart, int byteOffsetFromEnd,
+        CancellationToken cancellationToken)
     {
         long length = RandomAccess.GetLength(fileHandle);
         if (length - byteOffsetFromEnd - byteOffsetFromStart != bytes.Count)
@@ -1043,13 +1046,15 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
 
     /// <summary>
     /// </summary>
-    public SingleDirectoryOutputResult[] WriteCodeFiles_NestedDirectory(string generatedFolderRelativePath)
+    public SingleDirectoryOutputResult[] WriteCodeFiles_NestedDirectory(
+        string generatedFolderRelativePath, GeneratedDirectorySharedInitializationContext directoryInitializationContext)
     {
         SingleDirectoryOutputResult ProcessProject(ProjectEnvironmentData project)
         {
             // TODO: test if "" does not make it append /
             var outputDirectory = Path.Join(project.DirectoryFullPath, generatedFolderRelativePath);
-            CodeFileCommon.InitializeGeneratedDirectory(outputDirectory);
+            CodeFileCommon.InitializeGeneratedDirectory(
+                new(shared: directoryInitializationContext, directoryFullPath: outputDirectory));
             var fragments = CollectionsMarshal.AsSpan(project.CodeFragments);
             var fileNamesInfo = GeneratedFileNamesInfo.Create(fragments, Logger);
 
@@ -1068,12 +1073,14 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
     /// 1. The project names correspond to namespaces. 
     /// 2. The project names are unique.
     /// </summary>
-    public SingleDirectoryOutputResult[] WriteCodeFiles_CentralDirectory(string generatedFolderFullPath)
+    public SingleDirectoryOutputResult[] WriteCodeFiles_CentralDirectory(
+        string generatedFolderFullPath, GeneratedDirectorySharedInitializationContext directoryInitializationContext)
     {
         SingleDirectoryOutputResult ProcessProject(ProjectEnvironmentData project)
         {
             var outputDirectory = Path.Join(generatedFolderFullPath, project.Name);
-            CodeFileCommon.InitializeGeneratedDirectory(outputDirectory);
+            CodeFileCommon.InitializeGeneratedDirectory(
+                new(shared: directoryInitializationContext, directoryFullPath: outputDirectory));
             var fragments = CollectionsMarshal.AsSpan(project.CodeFragments);
             var fileNamesInfo = GeneratedFileNamesInfo.Create(fragments, Logger);
 
