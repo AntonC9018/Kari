@@ -185,6 +185,7 @@ namespace Kari.Utils
 
     public struct CodeListBuilder
     {
+        public static readonly byte[] CommandSpaceSeparator = Encoding.UTF8.GetBytes(", ");
         public bool HasWritten;
         public readonly byte[] _separator;
 
@@ -203,17 +204,25 @@ namespace Kari.Utils
             return new CodeListBuilder(Encoding.UTF8.GetBytes(separator));
         }
 
-        private void AppendSeparator(ref CodeBuilder builder)
+        public void AppendSeparator(ref CodeBuilder builder)
         {
             builder.StringBuilder.AppendLiteral(_separator);
         }
 
-        /// <summary>
-        /// Appends the given characters to the output code builder.
-        /// The characters are placed on new line and with a separator, 
-        /// in case when the element is not the first one.
-        /// </summary>
-        public void AppendOnNewLine(ref CodeBuilder builder, ReadOnlySpan<char> a)
+        public bool MaybeAppendSeparator(ref CodeBuilder builder)
+        {
+            if (HasWritten)
+                AppendSeparator(ref builder);
+            return HasWritten;
+        }
+
+        public void MaybeAppendSeparatorOrSetHasWritten(ref CodeBuilder builder)
+        {
+            if (!MaybeAppendSeparator(ref builder))
+                HasWritten = true;
+        }
+
+        public bool MaybeAppendNewLineAndSeparator(ref CodeBuilder builder)
         {
             if (HasWritten)
             {
@@ -223,8 +232,24 @@ namespace Kari.Utils
                 builder.DecreaseIndent();
                 AppendSeparator(ref builder);
             }
+            return HasWritten;
+        }
+
+        public void MaybeAppendNewLineAndSeparatorOrSetHasWritten(ref CodeBuilder builder)
+        {
+            if (!MaybeAppendNewLineAndSeparator(ref builder))
+                HasWritten = true;
+        }
+
+        /// <summary>
+        /// Appends the given characters to the output code builder.
+        /// The characters are placed on new line and with a separator, 
+        /// in case when the element is not the first one.
+        /// </summary>
+        public void AppendOnNewLine(ref CodeBuilder builder, ReadOnlySpan<char> a)
+        {
+            MaybeAppendNewLineAndSeparatorOrSetHasWritten(ref builder);
             builder.Append(a);
-            HasWritten = true;
         }
 
         /// <summary>
@@ -234,10 +259,8 @@ namespace Kari.Utils
         /// </summary>
         public void AppendOnSameLine(ref CodeBuilder builder, ReadOnlySpan<char> a)
         {
-            if (HasWritten)
-                AppendSeparator(ref builder);
+            MaybeAppendSeparatorOrSetHasWritten(ref builder);
             builder.Append(a);
-            HasWritten = true;
         }
     }
 

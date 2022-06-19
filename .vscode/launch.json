@@ -2,13 +2,23 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Nuke debug",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "nuke",
+            "args": [],
+            "cwd": "",
+            "console": "internalConsole",
+            "stopAtEntry": false
+        },
+        {
             "name": "Launch Kari",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build_kari_debug",
             "program": "${workspaceFolder}/build_folder/bin/Kari.Generator/Debug/net6.0/Kari.Generator.dll",
-            "args": [],
-            "cwd": "${workspaceFolder}/../a-particular-project",
+            "args": ["-help"],
+            "cwd": "${workspaceFolder}",
             "console": "internalConsole",
             "stopAtEntry": false
         },
