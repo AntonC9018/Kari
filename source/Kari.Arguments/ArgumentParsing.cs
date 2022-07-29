@@ -402,7 +402,7 @@ namespace Kari.Arguments
                         {
                             result.Errors.Add($"Cannot deserialize value for {name} into type {fieldInfo.FieldType.Name}: {exception.Message}");
                         }
-                        break;
+                        continue;
                     }
                 }
 
@@ -483,7 +483,8 @@ namespace Kari.Arguments
                     return hasOption;
                 }
 
-                if (!Validate()) break;
+                if (!Validate())
+                    continue;
 
                 void AddErrorUnknownValue()
                 {
@@ -813,40 +814,6 @@ namespace Kari.Arguments
         {
             return $"File {Configurations[option.OriginConfigurationFileIndex].FileFullPath}, at {option.Property.Path}";
         }
-
-        public void GetNukeHelpFor(ref CodeBuilder builder, object t)
-        {
-            var listBuilder = new CodeListBuilder(CodeListBuilder.CommandSpaceSeparator);
-            builder.Append("[");
-            builder.IncreaseIndent();
-            builder.NewLine();
-
-            var type = t.GetType();
-            StringBuilder typeBuilder = new();
-
-            foreach (var (fieldInfo, optionAttribute) in IterateOptions(type))
-            {
-                listBuilder.MaybeAppendNewLineAndSeparatorOrSetHasWritten(ref builder);
-                OptionInfo info;
-
-                info.name = fieldInfo.Name;
-             
-                typeBuilder.Clear();
-                WriteOptionType(typeBuilder, fieldInfo, optionAttribute, writeEnumAsString: true);
-                info.type = typeBuilder.ToString();
-
-                info.format = "-" + info.name + " " + "{value}";
-                info.separator = ",";
-                info.createOverload = null;
-                info.help = optionAttribute.Help;
-
-                info.WriteJsonObject(ref builder);
-            }
-
-            builder.DecreaseIndent();
-            builder.NewLine();
-            builder.Append("]");
-        }
     }
 
     public struct OptionInfo
@@ -934,46 +901,6 @@ namespace Kari.Arguments
             }
 
             return parser;
-        }
-
-
-        public static void AppendJSONKeyValue(ref CodeBuilder builder, ref CodeListBuilder listBuilder, string key, string value)
-        {
-            listBuilder.MaybeAppendNewLineAndSeparatorOrSetHasWritten(ref builder);
-            builder.Append("\"");
-            builder.Append(key);
-            builder.Append("\"");
-            builder.Append(": ");
-            builder.Append("\"");
-            builder.Append(value);
-            builder.Append("\"");
-        }
-
-        public static void WriteJsonObject(this in OptionInfo info, ref CodeBuilder builder)
-        {
-            builder.StartBlock();
-            var listBuilder = new CodeListBuilder(CodeListBuilder.CommandSpaceSeparator);
-
-            AppendJSONKeyValue(ref builder, ref listBuilder, nameof(info.name), info.name);
-            AppendJSONKeyValue(ref builder, ref listBuilder, nameof(info.type), info.type);
-            AppendJSONKeyValue(ref builder, ref listBuilder, nameof(info.format), info.format);
-            if (info.separator is not null)
-                AppendJSONKeyValue(ref builder, ref listBuilder, nameof(info.separator), info.separator);
-            if (info.createOverload.HasValue)
-                AppendJSONKeyValue(ref builder, ref listBuilder, nameof(info.createOverload), info.createOverload.Value.ToString());
-
-            builder.EndBlock();
-        }
-
-        public static void WriteJsonObject(this in CommandInfo info, ref CodeBuilder builder, IEnumerable<OptionInfo> optionInfos)
-        {
-            builder.StartBlock();
-            var listBuilder = new CodeListBuilder(CodeListBuilder.CommandSpaceSeparator);
-
-            AppendJSONKeyValue(ref builder, ref listBuilder, "$schema", info.schema);
-            AppendJSONKeyValue(ref builder, ref listBuilder, nameof(info.references), info.schema);
-
-            builder.EndBlock();
         }
     }
 }

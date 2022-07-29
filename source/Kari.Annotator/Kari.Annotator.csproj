@@ -17,7 +17,7 @@
     <ProjectReference Include="$(KariRootPath)Kari.Utils\Kari.Utils.csproj" />
   </ItemGroup>
   
-  <Import Project="$(KariRootPath)RoslynReferences.props"/>
+  <Import Project="$(KariRootPath)RoslynReferences.targets"/>
 
   <ItemGroup>
     <!-- Make tests be able to call internal (not private?) methods. -->
