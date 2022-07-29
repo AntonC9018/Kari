@@ -8,11 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="$(KariRootPath)Kari.Arguments\Kari.Arguments.csproj"/>
-
-    <!-- Roslyn references. -->
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.10.0" />
-    <PackageReference Include="Microsoft.Build" Version="17.0.0" />
-    <PackageReference Include="System.CodeDom" Version="6.0.0" />
+    <ProjectReference Include="$(KariRootPath)RoslynReferences.proj"/>
   </ItemGroup>
 
 </Project>

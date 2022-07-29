@@ -329,7 +329,7 @@ namespace Kari.Arguments
         /// Fills in the given object fields via reflection with the parsed options.
         /// Fields take their value from the option with exactly the same name as that field.
         /// Shortened options like `-i` are not supported.
-        /// Only field types supported: string, int, bool, string[], List<string>, int[], HashSet<string>
+        /// Only field types supported: string, int, bool, string[], List[string], int[], HashSet[string]
         /// </summary>
         public MappingResult FillObjectWithOptionValues(object objectToBeFilled)
         {
@@ -679,7 +679,7 @@ namespace Kari.Arguments
 
 
         /// <summary>
-        /// Returns an even table willed with the information about options a given object takes.
+        /// Returns an even table filled with the information about options a given object takes.
         /// </summary>
         public Table GetHelpFor(object t)
         {
