@@ -90,7 +90,7 @@ namespace Kari.Annotator
         private class AttributeClassWalker : CSharpSyntaxRewriter
         {
             private Options _opts;
-            private readonly NamespaceDeclarationSyntax _clientNamespaceSubstitute;
+            private readonly NameSyntax _clientNamespaceSubstitute;
             public NamespaceDeclarationSyntax SourceNamespaceDeclaration { get; private set; }
             public List<ClassDeclarationSyntax> AttributeClasses { get; }
             
@@ -112,7 +112,7 @@ namespace Kari.Annotator
                         }
                         else
                         {
-                            _clientNamespaceSubstitute = SyntaxFactory.NamespaceDeclaration(nameSyntax);
+                            _clientNamespaceSubstitute = nameSyntax;
                         }
                     }
                 }
@@ -132,7 +132,9 @@ namespace Kari.Annotator
             public override SyntaxNode VisitNamespaceDeclaration(NamespaceDeclarationSyntax namespaceNode)
             {
                 SourceNamespaceDeclaration = namespaceNode;
-                return _clientNamespaceSubstitute ?? namespaceNode;
+                if (_clientNamespaceSubstitute is not null)
+                    namespaceNode = namespaceNode.WithName(_clientNamespaceSubstitute);
+                return base.VisitNamespaceDeclaration(namespaceNode);
             }
             
             public override SyntaxNode VisitClassDeclaration(ClassDeclarationSyntax classNode)
