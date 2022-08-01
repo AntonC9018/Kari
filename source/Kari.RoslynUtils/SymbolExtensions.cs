@@ -5,35 +5,50 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Xml;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using static System.Diagnostics.Debug;
 
 namespace Kari.GeneratorCore.Workflow
 {
     public static class SymbolExtensions
     {
-        public static string GetFullyQualifiedName(this ISymbol symbol)
+        internal static string GetFullyQualifiedName(this ISymbol symbol)
         {
+            if (symbol.Kind == SymbolKind.ErrorType
+                || symbol.ContainingNamespace is null
+                && symbol.ContainingType is null)
+            {
+                return symbol.Name;
+            }
             return $"{GetFullQualification(symbol)}.{symbol.Name}";
         }
 
-        public static string GetFullyQualifiedName(this ITypeSymbol symbol) => symbol.SpecialType switch 
+        public static string GetSpecialName(SpecialType specialType)
         {
-            SpecialType.System_SByte    => "sbyte",
-            SpecialType.System_Int16    => "short",
-            SpecialType.System_Int32    => "int",
-            SpecialType.System_Int64    => "long",
-            SpecialType.System_Byte     => "byte",
-            SpecialType.System_UInt16   => "ushort",
-            SpecialType.System_UInt32   => "uint",
-            SpecialType.System_UInt64   => "ulong",
-            SpecialType.System_Object   => "object",
-            SpecialType.System_Boolean  => "bool",
-            SpecialType.System_String   => "string",
-            SpecialType.System_Single   => "float",
-            SpecialType.System_Double   => "double",
-            SpecialType.System_Char     => "char",
-            _ => GetFullyQualifiedName((ISymbol) symbol),
-        };
+            return specialType switch 
+            {
+                SpecialType.System_SByte    => "sbyte",
+                SpecialType.System_Int16    => "short",
+                SpecialType.System_Int32    => "int",
+                SpecialType.System_Int64    => "long",
+                SpecialType.System_Byte     => "byte",
+                SpecialType.System_UInt16   => "ushort",
+                SpecialType.System_UInt32   => "uint",
+                SpecialType.System_UInt64   => "ulong",
+                SpecialType.System_Object   => "object",
+                SpecialType.System_Boolean  => "bool",
+                SpecialType.System_String   => "string",
+                SpecialType.System_Single   => "float",
+                SpecialType.System_Double   => "double",
+                SpecialType.System_Char     => "char",
+                _ => null,
+            };
+        }
+
+        public static string GetFullyQualifiedName(this ITypeSymbol symbol)
+        {
+            return GetSpecialName(symbol.SpecialType) ?? GetFullyQualifiedName((ISymbol) symbol);
+        }
 
         public static string GetFullQualification(this ISymbol symbol)
         {
@@ -89,11 +104,37 @@ namespace Kari.GeneratorCore.Workflow
 
         public static string ToFullyQualifiedText(this ITypeSymbol symbol)
         {
-            var sb_type = new StringBuilder();
-            sb_type.Append(symbol.GetFullQualification());
-            sb_type.Append(".");
+            StringBuilder t = new();
+            ToFullyQualifiedText(symbol, t);
+            return t.ToString();
+        }
+
+        public static void ToFullyQualifiedText(this ITypeSymbol symbol, StringBuilder sb_type)
+        {
+            string specialName = GetSpecialName(symbol.SpecialType);
+            if (specialName is not null)
+            {
+                sb_type.Append(specialName);
+                return;
+            }
+            
+            if (symbol.Kind == SymbolKind.ErrorType)
+            {
+                sb_type.Append(symbol.Name);
+                return;
+            }
+            var qualification = symbol.GetFullQualification();
+            if (qualification.Length > 0)
+            {
+                sb_type.Append(qualification);
+                sb_type.Append(".");
+            }
             TypeToTextUncertainBit(symbol, sb_type);
-            return sb_type.ToString();
+        }
+
+        public static string GetSimpleName(this ITypeSymbol symbol)
+        {
+            return GetSpecialName(symbol.SpecialType) ?? symbol.Name;
         }
 
         private static void TypeToTextUncertainBit(ITypeSymbol symbol, StringBuilder sb_type)
@@ -108,7 +149,7 @@ namespace Kari.GeneratorCore.Workflow
 
                     foreach (var t in named_symbol.TypeArguments)
                     {
-                        sb_type.Append(ToFullyQualifiedText((INamedTypeSymbol) t));
+                        ToFullyQualifiedText((INamedTypeSymbol) t, sb_type);
                         sb_type.Append(", ");
                     }
 

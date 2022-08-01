@@ -12,6 +12,7 @@ using Microsoft.CodeAnalysis;
 using static System.Diagnostics.Debug;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Kari.GeneratorCore.Workflow;
 
 // The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
 // CommandDotNet requires optional arguments to be marked with the question mark.
@@ -68,6 +69,13 @@ namespace Kari.Annotator
             public bool force { get; set; } = false;
         }
 
+        private static readonly CSharpCompilationOptions _CompilationOptions = new CSharpCompilationOptions(
+            outputKind: OutputKind.DynamicallyLinkedLibrary, 
+            allowUnsafe: true,
+            reportSuppressedDiagnostics: false,
+            concurrentBuild: true,
+            generalDiagnosticOption: ReportDiagnostic.Suppress);
+
         static int Main(string[] args)
         {
             var app = new AppRunner<Annotator>();
@@ -92,12 +100,10 @@ namespace Kari.Annotator
             private Options _opts;
             private readonly NameSyntax _clientNamespaceSubstitute;
             public NamespaceDeclarationSyntax SourceNamespaceDeclaration { get; private set; }
-            public List<ClassDeclarationSyntax> AttributeClasses { get; }
             
             public AttributeClassWalker(Options opts, NamedLogger errorLogger)
             {
                 _opts = opts;
-                AttributeClasses = new();
 
                 {
                     var a = opts.clientNamespaceSubstitute;
@@ -136,26 +142,64 @@ namespace Kari.Annotator
                     namespaceNode = namespaceNode.WithName(_clientNamespaceSubstitute);
                 return base.VisitNamespaceDeclaration(namespaceNode);
             }
-            
-            public override SyntaxNode VisitClassDeclaration(ClassDeclarationSyntax classNode)
+
+            public override SyntaxNode VisitUsingDirective(UsingDirectiveSyntax usingDirective)
+            {
+                if (usingDirective.Name.ToString().Contains("Microsoft.CodeAnalysis"))
+                    return null;
+                return usingDirective;
+            }
+
+            private SyntaxNode MaybeGetSystemType(SyntaxToken identifier)
+            {
+                if (identifier.Text is "ITypeSymbol" or "INamedTypeSymbol")
+                {
+                    return SyntaxFactory.QualifiedName(
+                        SyntaxFactory.IdentifierName("System"),
+                        SyntaxFactory.IdentifierName("Type"));
+                }
+                return null;
+            }
+
+            public override SyntaxNode VisitQualifiedName(QualifiedNameSyntax name)
+            {
+                return MaybeGetSystemType(name.Right.Identifier)?.WithTriviaFrom(name)
+                    ?? base.VisitQualifiedName(name);
+            }
+
+            public override SyntaxNode VisitIdentifierName(IdentifierNameSyntax name)
+            {
+                return MaybeGetSystemType(name.Identifier)?.WithTriviaFrom(name)
+                    ?? base.VisitIdentifierName(name);
+            }
+
+            public static bool IsAttribute(ClassDeclarationSyntax classNode)
             {
                 if (!classNode.Identifier.Text.EndsWith("Attribute"))
-                    return classNode;
+                    return false;
                 
                 var baseList = classNode.BaseList;
                 if (baseList is null)
-                    return classNode;
+                    return false;
 
                 var baseTypes = baseList.Types;
                 if (baseTypes.Count == 0)
-                    return classNode;
+                    return false;
 
                 var baseClass = baseTypes[0].Type;
                 {
                     bool isAttribute = baseClass.ToString() is "Attribute" or "System.Attribute";
                     if (!isAttribute)
-                        return classNode;
+                        return false;
                 }
+
+                return true;
+            }
+            
+            public override SyntaxNode VisitClassDeclaration(ClassDeclarationSyntax classNode)
+            {
+                if (!IsAttribute(classNode))
+                    return base.VisitClassDeclaration(classNode);
                 
                 ClassDeclarationSyntax result = classNode;
 
@@ -171,10 +215,7 @@ namespace Kari.Annotator
                         result = result.WithModifiers(modifiers);
                     }
                 }
-                
-                AttributeClasses.Add(result);
-                
-                return result;
+                return base.VisitClassDeclaration(result);
             }
         }
         
@@ -247,7 +288,19 @@ namespace Kari.Annotator
                 return generatedFilePath;
             }
             
-            var builder = CodeBuilder.Create();
+            var standardMetadataType = new[]
+            {
+                typeof(object),
+                typeof(System.Attribute),
+                typeof(INamedTypeSymbol),
+                typeof(ITypeSymbol),
+            };
+            var metadata = standardMetadataType
+                .Select(t => t.Assembly.Location)
+                .Distinct()
+                .Select(t => MetadataReference.CreateFromFile(t));
+                
+            var b = CodeBuilder.Create();
 
             foreach (var inputFilePath in opts.targetedFiles)
             {
@@ -267,31 +320,36 @@ namespace Kari.Annotator
                 var syntaxTree = CSharpSyntaxTree.ParseText(attributesText);
                 var syntaxWalker = new AttributeClassWalker(opts, logger);
                 var root = await syntaxTree.GetRootAsync();
-                var modifiedSyntaxTree = syntaxWalker.Visit(root);
-                var modifiedSyntaxTreeContent = modifiedSyntaxTree.ToString();
+                var modifiedSyntaxRoot = syntaxWalker.Visit(root);
+                var modifiedSyntaxTree = modifiedSyntaxRoot.SyntaxTree;
+                var modifiedSyntaxTreeContent = modifiedSyntaxRoot.ToString();
                 var attributesTextEscaped = modifiedSyntaxTreeContent.Replace("\"", "\"\"");
 
-                builder.Indent();
-                builder.Append("namespace ");
+                var compilation = CSharpCompilation.Create("Annotating", new[]{syntaxTree}, metadata, _CompilationOptions);
+                var semanticModel = compilation.GetSemanticModel(syntaxTree, ignoreAccessibility: true);
+
+                b.Indent();
+                b.Append("namespace ");
                 if (opts.pluginNamespaceSubstitute is not null)
-                    builder.Append(opts.pluginNamespaceSubstitute);
+                    b.Append(opts.pluginNamespaceSubstitute);
                 else
-                    builder.Append(syntaxWalker.SourceNamespaceDeclaration.Name.ToString());
-                builder.NewLine();
-                builder.StartBlock();
+                    b.Append(syntaxWalker.SourceNamespaceDeclaration.Name.ToString());
+                b.NewLine();
+                b.StartBlock();
 
                 string classname = Path.GetFileNameWithoutExtension(inputFilePath);
-                builder.AppendLine("using Kari.GeneratorCore.Workflow;");
-                builder.AppendLine("using Kari.Utils;");
-                builder.AppendLine($"{opts.classVisibility} static class Dummy{classname}");
-                builder.StartBlock();
+                b.AppendLine("using Kari.GeneratorCore.Workflow;");
+                b.AppendLine("using Kari.Utils;");
+                b.AppendLine("using Microsoft.CodeAnalysis;");
+                b.AppendLine($"{opts.classVisibility} static class Dummy{classname}");
+                b.StartBlock();
 
-                builder.Indent();
-                builder.Append($"{opts.classVisibility} const string Text = @\"");
-                builder.Append(attributesTextEscaped);
-                builder.Append("\";");
-                builder.NewLine();
-                builder.EndBlock();
+                b.Indent();
+                b.Append($"{opts.classVisibility} const string Text = @\"");
+                b.Append(attributesTextEscaped);
+                b.Append("\";");
+                b.NewLine();
+                b.EndBlock();
 
                 // XxxAttributes -> XxxSymbols
                 string GetSymbolsClassName()
@@ -307,40 +365,28 @@ namespace Kari.Annotator
                     }
                     return classname;
                 }
-                builder.AppendLine($"{opts.classVisibility} static partial class {GetSymbolsClassName()}");
-                builder.StartBlock();
+                b.AppendLine($"{opts.classVisibility} static partial class {GetSymbolsClassName()}");
+                b.StartBlock();
 
-                var initializeBuilder = builder.NewWithPreservedIndentation();
-                initializeBuilder.AppendLine(opts.classVisibility, " static void Initialize(NamedLogger logger)");
-                initializeBuilder.StartBlock();
-                initializeBuilder.AppendLine($"var compilation = MasterEnvironment.Instance.Compilation;");
-
-                foreach (var attributeClass in syntaxWalker.AttributeClasses)
+                foreach (var attributeClass in 
+                    syntaxTree.GetRoot()
+                    // modifiedSyntaxRoot
+                        .DescendantNodesAndSelf()
+                        .OfType<ClassDeclarationSyntax>()
+                        .Where(s => AttributeClassWalker.IsAttribute(s)))
                 {
-                    var attributeName = attributeClass.Identifier.ToString();
-                    Assert(!string.IsNullOrEmpty(attributeName));
-                    var type = $"AttributeSymbolWrapper<{attributeName}>";
-                    builder.AppendLine($"{opts.classVisibility} static {type} {attributeName} {{ get; private set; }}");
-                    initializeBuilder.AppendLine($"{attributeName} = new {type}(compilation, logger);");
+                    var typeSymbol = semanticModel.GetDeclaredSymbol(attributeClass);
+                    GenerateGetMethodsForAttributeType(typeSymbol, compilation, ref b);
                 }
 
-                initializeBuilder.EndBlock();
-                
-                builder.NewLine();
-                builder.Append(ref initializeBuilder);
-
-                // Apparently, one cannot both do `using` and pass as ref.
-                // I say that makes no sense whatsoever.
-                initializeBuilder.Dispose();
-
-                builder.EndBlock();
-                builder.EndBlock();
+                b.EndBlock();
+                b.EndBlock();
 
                 if (opts.singleFileOutputName is null)
                 {
                     await using (var fs = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write))
-                        fs.Write(builder.AsArraySegment());
-                    builder.Clear();
+                        fs.Write(b.AsArraySegment());
+                    b.Clear();
                 }
             }
 
@@ -363,10 +409,205 @@ namespace Kari.Annotator
             }
             else
             {
-                Assert(builder.StringBuilder.Length == 0);
+                Assert(b.StringBuilder.Length == 0);
             }
 
             return 0;
+        }
+
+        public static void GenerateGetMethodsForAttributeType(INamedTypeSymbol attributeType, Compilation compilation, ref CodeBuilder b)
+        {
+            b.AppendLine($"public static {attributeType.Name} Get{attributeType.Name}("
+                + "this ITypeSymbol type, Compilation compilation, System.Action<string> errorHandler)");
+            b.StartBlock();
+
+            string t = $@"
+                var attributeType = compilation.GetTypeByMetadataName(""{attributeType.GetFullyQualifiedName()}"");
+                if (attributeType is null)
+                {{
+                    errorHandler(""Attribute type {attributeType.Name} not found."");
+                    return null;
+                }}
+                var attributes = type.GetAttributes();
+
+                AttributeData attribute = null;
+                {{
+                    foreach (var a in attributes)
+                    {{
+                        if (a.AttributeClass == attributeType)
+                            attribute = a; 
+                    }}
+                    if (attribute is null)
+                        return null;
+                }}
+                var constructor = attribute.AttributeConstructor;
+                var constructors = attributeType.InstanceConstructors;
+                var args = attribute.ConstructorArguments;
+                var application = (Microsoft.CodeAnalysis.CSharp.Syntax.AttributeSyntax) attribute.ApplicationSyntaxReference.GetSyntax();
+                
+                if (constructor is null)
+                {{
+                    errorHandler($""No constructors matched at {{application.GetLocationInfo()}}."");
+                    return null;
+                }}
+                
+                {attributeType.Name} result;";
+            b.Append(t);
+            b.NewLine();
+
+            static bool IsType(string name)
+            {
+                return name == "INamedTypeSymbol" || name == "ITypeSymbol";
+            }
+
+            static void AppendGetParam(ref CodeBuilder b, ITypeSymbol type, string valueArgument)
+            {
+                if (type is IArrayTypeSymbol arrayType)
+                {
+                    var name = arrayType.ElementType.GetFullyQualifiedName();
+                    b.Append($"SyntaxHelper.Array<{name}>({valueArgument}, errorHandler)");
+                }
+                else
+                {
+                    b.Append($"({type.GetFullyQualifiedName()}) {valueArgument}.Value");
+                }
+                b.Append(";");
+                b.NewLine();
+            }
+
+            var constructors = attributeType.InstanceConstructors;
+
+            if (constructors.Length == 1
+                && constructors[0].IsImplicitlyDeclared)
+            {
+                b.AppendLine($"result = new {attributeType.Name}();");
+            }
+            else
+            {
+                for (int i = 0; i < constructors.Length; i++)
+                {
+                    b.Indent();
+                    if (i != 0)
+                        b.Append("else ");
+                    b.Append($"if (constructor == constructors[{i}])");
+                    b.NewLine();
+                    b.StartBlock();
+                    var constructor = constructors[i];
+
+                    string GetParamName(string name) =>  "_" + name;
+
+                    b.AppendLine("// get args");
+                    var parameters = constructor.Parameters;
+                    for (int argIndex = 0; argIndex < parameters.Length; argIndex++)
+                    {
+                        var p = parameters[argIndex];
+                        var paramName = GetParamName(p.Name);
+                        var paramType = p.Type;
+
+                        b.Indent();
+                        b.Append($"var {paramName} = ");
+                        AppendGetParam(ref b, paramType, $"args[{argIndex}]");
+                    }
+
+                    b.AppendLine();
+                    b.AppendLine("// construct");
+
+                    b.Indent();
+                    b.Append($"result = new {attributeType.Name}(");
+                    var list = CodeListBuilder.Create(", ");
+                    foreach (var p in parameters)
+                        list.AppendOnSameLine(ref b, GetParamName(p.Name));
+                    b.Append(");");
+                    b.NewLine();
+
+                    b.EndBlock();
+                }
+
+                b.AppendLine("else");
+                b.StartBlock();
+                b.AppendLine("errorHandler($\"No valid constructor overload at {application.GetLocationInfo()}.\");");
+                b.AppendLine("return null;");
+                b.EndBlock();
+            }
+
+            bool CheckAccessibility(Accessibility a)
+            {
+                return a is Accessibility.Public or Accessibility.Internal;
+            }
+
+            var setProperties = attributeType
+                .GetMembers()
+                .OfType<IPropertySymbol>()
+                .Where(p => p.SetMethod is not null
+                    && CheckAccessibility(p.DeclaredAccessibility));
+            var settableFields = attributeType
+                .GetMembers()
+                .OfType<IFieldSymbol>()
+                .Where(f => !f.IsReadOnly
+                    && CheckAccessibility(f.DeclaredAccessibility));
+
+            if (setProperties.Any() || settableFields.Any())
+            {
+                b.AppendLine("foreach (var namedArgument in attribute.NamedArguments)");
+                b.StartBlock();
+                b.AppendLine("switch (namedArgument.Key)");
+                b.StartBlock();
+                
+                b.AppendLine("default:");
+                b.StartBlock();
+                b.AppendLine("errorHandler($\"No such property {namedArgument.Key}.\");");
+                b.AppendLine("return null;");
+                b.EndBlock();
+
+                static void AppendCase(ref CodeBuilder b, ITypeSymbol type, string name)
+                {
+                    b.AppendLine("case nameof(result.", name, "): ");
+                    b.StartBlock();
+                    b.Indent();
+                    b.Append($"result.{name} = ");
+                    AppendGetParam(ref b, type, "namedArgument.Value");
+                    b.AppendLine("break;");
+                    b.EndBlock();
+                }
+
+                foreach (var p in setProperties)
+                    AppendCase(ref b, p.Type, p.Name);
+                foreach (var f in settableFields)
+                    AppendCase(ref b, f.Type, f.Name);
+                
+                b.EndBlock();
+                b.EndBlock();
+            }
+
+            b.AppendLine("return result;");
+            b.EndBlock();
+
+            // A bunch of overloads
+            b.AppendLine($"public static bool TryGet{attributeType.Name}("
+                + $"this ITypeSymbol type, Compilation compilation, NamedLogger logger, out {attributeType.Name} attr)");
+            b.StartBlock();
+            b.AppendLine($"attr = Get{attributeType.Name}(type, compilation, s => logger.LogError(s));");
+            b.AppendLine("return attr is not null;");
+            b.EndBlock();
+
+            b.AppendLine($"public static bool TryGet{attributeType.Name}("
+                + $"this ITypeSymbol type, Compilation compilation, out {attributeType.Name} attr)");
+            b.StartBlock();
+            b.AppendLine($"attr = Get{attributeType.Name}(type, compilation, s => System.Console.WriteLine(s));");
+            b.AppendLine("return attr is not null;");
+            b.EndBlock();
+
+            b.AppendLine($"public static {attributeType.Name} Get{attributeType.Name}("
+                + "this ITypeSymbol type, Compilation compilation)");
+            b.StartBlock();
+            b.AppendLine($"return Get{attributeType.Name}(type, compilation, s=>{{}});");
+            b.EndBlock();
+
+            b.AppendLine($"public static {attributeType.Name} Get{attributeType.Name}("
+                + "this ITypeSymbol type, Compilation compilation, NamedLogger logger)");
+            b.StartBlock();
+            b.AppendLine($"return Get{attributeType.Name}(type, compilation, s => logger.LogError(s));");
+            b.EndBlock();
         }
     }
 }

@@ -33,7 +33,7 @@ namespace Kari.Plugins.Terminal
             {
                 if (!method.IsStatic) continue;
                 
-                if (method.TryGetAttribute(CommandSymbols.CommandAttribute, _logger, out var commandAttribute))
+                if (method.TryGetCommandAttribute(environment.Compilation, out var commandAttribute))
                 {
                     var info = new CommandMethodInfo(method, commandAttribute, environment.Data.GeneratedNamespaceName);
                     info.Collect(environment);
@@ -41,7 +41,7 @@ namespace Kari.Plugins.Terminal
                     RegisterCommandName(info.Name);
                 }
                 
-                if (method.TryGetAttribute(CommandSymbols.FrontCommandAttribute, _logger, out var frontCommandAttribute))
+                if (method.TryGetFrontCommandAttribute(environment.Compilation, out var frontCommandAttribute))
                 {
                     var info = new FrontCommandMethodInfo(method, frontCommandAttribute, environment.Data.GeneratedNamespaceName);
                     _frontInfos.Add(info);
@@ -580,7 +580,7 @@ namespace Kari.Plugins.Terminal
             for (int i = 0; i < Symbol.Parameters.Length; i++)
             {
                 var parameter = Symbol.Parameters[i];
-                if (parameter.TryGetAttribute(CommandSymbols.ArgumentAttribute, environment.Logger, out var argumentAttribute))
+                if (parameter.TryGetArgumentAttribute(environment.Compilation, out var argumentAttribute))
                 {
                     var argInfo = new ArgumentInfo(parameter, argumentAttribute);
                     AddName(argInfo.Name);
@@ -595,7 +595,7 @@ namespace Kari.Plugins.Terminal
                     continue;
                 }
                 // TODO: check if the name is valid (unique among options)
-                if (parameter.TryGetAttribute(CommandSymbols.OptionAttribute, environment.Logger, out var optionAttribute))
+                if (parameter.TryGetOptionAttribute(environment.Compilation, out var optionAttribute))
                 {
                     var option = new OptionInfo(parameter, optionAttribute);
                     AddName(option.Name);

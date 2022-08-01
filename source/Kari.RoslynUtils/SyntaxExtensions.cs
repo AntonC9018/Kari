@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -187,6 +188,44 @@ namespace Kari.GeneratorCore.Workflow
                 closeBraceToken: SyntaxFactory.Token(SyntaxKind.CloseBraceToken),
                 semicolonToken: default,
                 name: name);
+        }
+
+        public static T[] Array<T>(TypedConstant constant, Action<string> errorHandler)
+        {
+            if (constant.Kind == TypedConstantKind.Array)
+            {
+                var values = constant.Values;
+                int length = values.Length;
+                var result = new T[length];
+                for (int i = 0; i < length; i++)
+                {
+                    if (values[i].Value is T t)
+                        result[i] = t;
+                    else
+                    {
+                        errorHandler("A value was not the expected " + typeof(T).Name);
+                        return null;
+                    }
+                }
+                return result;
+            }
+
+            // Single params arguments are sometimes passed not as an array.
+            {
+                if (constant.Value is T t)
+                    return new[] { t };
+                else
+                    errorHandler("A value was not the expected " + typeof(T).Name);
+            }
+            return null;
+        }
+
+        public static string GetLocationInfo(this SyntaxNode syntax)
+        {
+            var textSpan = syntax.Span;
+            var sourceTree = syntax.SyntaxTree;
+            var span = sourceTree.GetLineSpan(textSpan);
+            return $"{sourceTree.FilePath}:{span.StartLinePosition.Line + 1}:{span.StartLinePosition.Character + 1}";
         }
     }
 }

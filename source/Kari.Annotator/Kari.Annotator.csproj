@@ -15,9 +15,8 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
 
     <ProjectReference Include="$(KariRootPath)Kari.Utils\Kari.Utils.csproj" />
+    <ProjectReference Include="$(KariRootPath)Kari.RoslynUtils\Kari.RoslynUtils.csproj" />
   </ItemGroup>
-  
-  <Import Project="$(KariRootPath)RoslynReferences.targets"/>
 
   <ItemGroup>
     <!-- Make tests be able to call internal (not private?) methods. -->

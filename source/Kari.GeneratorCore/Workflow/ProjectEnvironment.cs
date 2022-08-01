@@ -105,5 +105,8 @@ namespace Kari.GeneratorCore.Workflow
                     .Where(t => t.GetAttributes().Length > 0);
             }
         }
+
+        // Probably temp thing, added for convenience.
+        public Compilation Compilation => MasterEnvironment.Instance.Compilation;
     }
 }

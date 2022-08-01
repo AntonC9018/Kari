@@ -8,8 +8,8 @@
 
   <ItemGroup>
     <ProjectReference Include="$(KariRootPath)Kari.Arguments\Kari.Arguments.csproj"/>
+    <ProjectReference Include="$(KariRootPath)Kari.Utils\Kari.Utils.csproj"/>
+    <ProjectReference Include="$(KariRootPath)Kari.RoslynUtils\Kari.RoslynUtils.csproj"/>
   </ItemGroup>
-
-  <Import Project="$(KariRootPath)RoslynReferences.targets"/>
 
 </Project>

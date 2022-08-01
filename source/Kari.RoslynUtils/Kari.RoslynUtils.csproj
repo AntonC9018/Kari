@@ -1,0 +1,9 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Kari.RoslynUtils</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Kari.Utils\Kari.Utils.csproj" Version="2.4.4" />
+  </ItemGroup>
+  <Import Project="$(KariRootPath)RoslynReferences.targets"/>
+</Project>
