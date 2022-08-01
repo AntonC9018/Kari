@@ -188,7 +188,8 @@ namespace Kari.Annotator
 
                 var baseClass = baseTypes[0].Type;
                 {
-                    bool isAttribute = baseClass.ToString() is "Attribute" or "System.Attribute";
+                    var b = baseClass.ToString();
+                    bool isAttribute = b.EndsWith("Attribute") || b.EndsWith("System.Attribute");
                     if (!isAttribute)
                         return false;
                 }
@@ -418,17 +419,19 @@ namespace Kari.Annotator
         public static void GenerateGetMethodsForAttributeType(INamedTypeSymbol attributeType, Compilation compilation, ref CodeBuilder b)
         {
             b.AppendLine($"public static {attributeType.Name} Get{attributeType.Name}("
-                + "this ITypeSymbol type, Compilation compilation, System.Action<string> errorHandler)");
+                + "this ISymbol thing, Compilation compilation, System.Action<string> errorHandler)");
             b.StartBlock();
 
+            var attributeTypeFullyQualifiedName = attributeType.GetFullyQualifiedName();
+
             string t = $@"
-                var attributeType = compilation.GetTypeByMetadataName(""{attributeType.GetFullyQualifiedName()}"");
+                var attributeType = compilation.GetTypeByMetadataName(""{attributeTypeFullyQualifiedName}"");
                 if (attributeType is null)
                 {{
                     errorHandler(""Attribute type {attributeType.Name} not found."");
                     return null;
                 }}
-                var attributes = type.GetAttributes();
+                var attributes = thing.GetAttributes();
 
                 AttributeData attribute = null;
                 {{
@@ -455,21 +458,16 @@ namespace Kari.Annotator
             b.Append(t);
             b.NewLine();
 
-            static bool IsType(string name)
-            {
-                return name == "INamedTypeSymbol" || name == "ITypeSymbol";
-            }
-
             static void AppendGetParam(ref CodeBuilder b, ITypeSymbol type, string valueArgument)
             {
                 if (type is IArrayTypeSymbol arrayType)
                 {
-                    var name = arrayType.ElementType.GetFullyQualifiedName();
+                    var name = arrayType.ElementType.ToFullyQualifiedText();
                     b.Append($"SyntaxHelper.Array<{name}>({valueArgument}, errorHandler)");
                 }
                 else
                 {
-                    b.Append($"({type.GetFullyQualifiedName()}) {valueArgument}.Value");
+                    b.Append($"({type.ToFullyQualifiedText()}) {valueArgument}.Value");
                 }
                 b.Append(";");
                 b.NewLine();
@@ -584,29 +582,40 @@ namespace Kari.Annotator
 
             // A bunch of overloads
             b.AppendLine($"public static bool TryGet{attributeType.Name}("
-                + $"this ITypeSymbol type, Compilation compilation, NamedLogger logger, out {attributeType.Name} attr)");
+                + $"this ISymbol thing, Compilation compilation, NamedLogger logger, out {attributeType.Name} attr)");
             b.StartBlock();
-            b.AppendLine($"attr = Get{attributeType.Name}(type, compilation, s => logger.LogError(s));");
+            b.AppendLine($"attr = Get{attributeType.Name}(thing, compilation, s => logger.LogError(s));");
             b.AppendLine("return attr is not null;");
             b.EndBlock();
 
             b.AppendLine($"public static bool TryGet{attributeType.Name}("
-                + $"this ITypeSymbol type, Compilation compilation, out {attributeType.Name} attr)");
+                + $"this ISymbol thing, Compilation compilation, out {attributeType.Name} attr)");
             b.StartBlock();
-            b.AppendLine($"attr = Get{attributeType.Name}(type, compilation, s => System.Console.WriteLine(s));");
+            b.AppendLine($"attr = Get{attributeType.Name}(thing, compilation, s => System.Console.WriteLine(s));");
             b.AppendLine("return attr is not null;");
             b.EndBlock();
 
             b.AppendLine($"public static {attributeType.Name} Get{attributeType.Name}("
-                + "this ITypeSymbol type, Compilation compilation)");
+                + "this ISymbol thing, Compilation compilation)");
             b.StartBlock();
-            b.AppendLine($"return Get{attributeType.Name}(type, compilation, s=>{{}});");
+            b.AppendLine($"return Get{attributeType.Name}(thing, compilation, s=>{{}});");
             b.EndBlock();
 
             b.AppendLine($"public static {attributeType.Name} Get{attributeType.Name}("
-                + "this ITypeSymbol type, Compilation compilation, NamedLogger logger)");
+                + "this ISymbol thing, Compilation compilation, NamedLogger logger)");
             b.StartBlock();
-            b.AppendLine($"return Get{attributeType.Name}(type, compilation, s => logger.LogError(s));");
+            b.AppendLine($"return Get{attributeType.Name}(thing, compilation, s => logger.LogError(s));");
+            b.EndBlock();
+
+            b.AppendLine($"public static INamedTypeSymbol Get{attributeType.Name}Symbol(this Compilation compilation)");
+            b.StartBlock();
+            b.AppendLine($"return compilation.GetTypeByMetadataName(\"{attributeTypeFullyQualifiedName}\");");
+            b.EndBlock();
+
+            b.AppendLine($"public static bool Has{attributeType.Name}("
+                + "this ISymbol thing, Compilation compilation)");
+            b.StartBlock();
+            b.AppendLine($"return thing.HasAttribute(Get{attributeType.Name}Symbol(compilation));");
             b.EndBlock();
         }
     }

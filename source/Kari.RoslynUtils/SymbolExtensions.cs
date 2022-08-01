@@ -12,7 +12,7 @@ namespace Kari.GeneratorCore.Workflow
 {
     public static class SymbolExtensions
     {
-        internal static string GetFullyQualifiedName(this ISymbol symbol)
+        public static string GetFullyQualifiedName(this ISymbol symbol)
         {
             if (symbol.Kind == SymbolKind.ErrorType
                 || symbol.ContainingNamespace is null

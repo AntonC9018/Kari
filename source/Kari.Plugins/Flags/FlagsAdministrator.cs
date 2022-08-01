@@ -12,7 +12,6 @@ namespace Kari.Plugins.Flags
         public void Initialize() 
         {
             AdministratorHelpers.Initialize(ref _analyzers);
-            FlagsSymbols.Initialize(_logger);
         }
         public Task Collect()
         {

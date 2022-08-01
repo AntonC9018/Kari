@@ -28,8 +28,6 @@ namespace Kari.Plugins.Terminal
                 return;
             }
 
-            ParserSymbols.Initialize(_logger);
-            CommandSymbols.Initialize(_logger);
             AdministratorHelpers.Initialize(ref _parserAnalyzers);
             AdministratorHelpers.Initialize(ref _commandAnalyzers);
             ParserDatabase.InitializeSingleton(new ParserDatabase(TerminalProject));
