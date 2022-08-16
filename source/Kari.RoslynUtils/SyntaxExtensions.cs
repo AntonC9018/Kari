@@ -30,8 +30,25 @@ namespace Kari.GeneratorCore.Workflow
             NameSyntax result = IdentifierName(above[^1].Name);
             for (int i = above.Count - 2; i >= 0; i--)
                 result = QualifiedName(result, IdentifierName(above[i].Name));
-            
-            result = QualifiedName(result, IdentifierName(type.Name));
+
+            var ident = Identifier(type.Name);
+            SimpleNameSyntax rhs;
+
+            if (type is INamedTypeSymbol namedType
+                && namedType.IsGenericType)
+            {
+                var types = namedType.TypeArguments.Select(t => (TypeSyntax) GetFullyQualifiedNameSyntax(t));
+                var args = TypeArgumentList(SeparatedList(types));
+                var g = GenericName(ident, args);
+                rhs = g;
+            }
+            else
+            {
+                rhs = IdentifierName(ident);
+            }
+
+            result = QualifiedName(result, rhs);
+
             return result;
         }
 
