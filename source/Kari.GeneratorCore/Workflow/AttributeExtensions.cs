@@ -124,7 +124,12 @@ namespace Kari.GeneratorCore.Workflow
 
         public static AttributeConversionResult<T> GetAttributeConversionResult<T>(this ISymbol symbol, AttributeSymbolWrapper<T> attributeSymbolWrapper) where T : System.Attribute
         {
-            if (TryGetAttributeData(symbol, attributeSymbolWrapper.symbol, out var attributeData))
+            return GetAttributeConversionResult<T>(symbol, attributeSymbolWrapper.symbol);
+        }
+
+        public static AttributeConversionResult<T> GetAttributeConversionResult<T>(this ISymbol symbol, INamedTypeSymbol attributeSymbol) where T : System.Attribute
+        {
+            if (TryGetAttributeData(symbol, attributeSymbol, out var attributeData))
             {
                 T attribute;
                 try
@@ -142,7 +147,12 @@ namespace Kari.GeneratorCore.Workflow
 
         public static bool TryGetAttribute<T>(this ISymbol symbol, AttributeSymbolWrapper<T> attributeSymbolWrapper, NamedLogger logger, out T attribute) where T : System.Attribute
         {
-            var result = GetAttributeConversionResult<T>(symbol, attributeSymbolWrapper);
+            return TryGetAttribute(symbol, attributeSymbolWrapper.symbol, logger, out attribute);
+        }
+
+        public static bool TryGetAttribute<T>(this ISymbol symbol, INamedTypeSymbol attributeSymbol, NamedLogger logger, out T attribute) where T : System.Attribute
+        {
+            var result = GetAttributeConversionResult<T>(symbol, attributeSymbol);
             if (result.IsError) logger.LogError($"Invalid attribute usage at {symbol.Name}: {result.Message}");
             attribute = result.Result;
             return result.IsSuccess;

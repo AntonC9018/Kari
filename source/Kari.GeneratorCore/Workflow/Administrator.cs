@@ -1,9 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Microsoft.CodeAnalysis.Formatting;
 using System.Text;
 using System.Threading.Tasks;
 using Cysharp.Text;
 using Kari.Utils;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using static System.Diagnostics.Debug;
 
 namespace Kari.GeneratorCore.Workflow
@@ -64,6 +69,14 @@ namespace Kari.GeneratorCore.Workflow
         void GenerateCode(ProjectEnvironmentData project, ref CodeBuilder codeBuilder);
     }
 
+    public interface IGenerateSyntax
+    {
+        /// <summary>
+        /// Used to output the code of a given code generator (analyzer/template)
+        /// </summary>
+        IEnumerable<MemberDeclarationSyntax> GenerateSyntax(ProjectEnvironmentData project);
+    }
+
     public static class AdministratorHelpers
     {
         public static void Initialize<T>(ref T[] collectors) where T : ICollectSymbols, new()
@@ -113,6 +126,33 @@ namespace Kari.GeneratorCore.Workflow
                     });
                 }
             }
+        }
+
+        public static Task[] GenerateSyntax<T>(T[] generators, string fileName)
+            where T : IGenerateSyntax
+        {
+            var projects = MasterEnvironment.Instance.Projects;
+
+            var tasks = new Task[generators.Length];
+            for (int i = 0; i < generators.Length; i++)
+            {
+                var generator = generators[i];
+                var project = projects[i];
+                tasks[i] = Task.Run(() => Run(project.Data, generator, fileName));
+                
+                static void Run(ProjectEnvironmentData project, IGenerateSyntax generator, string fileName)
+                {
+                    var nodes = generator.GenerateSyntax(project);
+                    if (!nodes.Any())
+                        return;
+                    var compilationUnit = SyntaxFactory.CompilationUnit().WithMembers(new(nodes));
+                    var workspace = new AdhocWorkspace();
+                    compilationUnit = (CompilationUnitSyntax) Formatter.Format(compilationUnit, workspace);
+                    AdministratorHelpers.AddCodeString(project, fileName, typeof(T).Name, compilationUnit.ToString()); 
+                }
+            }
+
+            return tasks;
         }
 
         // NOTE: We always do \r\n not \n

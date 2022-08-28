@@ -244,5 +244,25 @@ namespace Kari.GeneratorCore.Workflow
             var span = sourceTree.GetLineSpan(textSpan);
             return $"{sourceTree.FilePath}:{span.StartLinePosition.Line + 1}:{span.StartLinePosition.Character + 1}";
         }
+
+        public static (FieldDeclarationSyntax Field, VariableDeclarationSyntax Variable, VariableDeclaratorSyntax Declarator) AsFieldSyntaxes(this SyntaxNode syntaxNode)
+        {
+            VariableDeclarationSyntax variableDeclaration;
+            VariableDeclaratorSyntax declarator;
+            {
+                variableDeclaration = syntaxNode as VariableDeclarationSyntax;
+                if (variableDeclaration is null)
+                {
+                    declarator = (VariableDeclaratorSyntax) syntaxNode;
+                    variableDeclaration = (VariableDeclarationSyntax) declarator.Parent;
+                }
+                else
+                {
+                    declarator = variableDeclaration.Variables[0];
+                }
+            }
+            var fieldDeclaration = (FieldDeclarationSyntax) variableDeclaration.Parent;
+            return (fieldDeclaration, variableDeclaration, declarator);
+        }
     }
 }

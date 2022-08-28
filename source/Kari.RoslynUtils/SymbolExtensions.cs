@@ -299,6 +299,11 @@ namespace Kari.GeneratorCore.Workflow
             return symbol.GetFields().Where(f => f.IsStatic);
         }
 
+        public static bool IsCompilerGenerated(this IFieldSymbol field)
+        {
+            return field.AssociatedSymbol is not null;
+        }
+
         public static string CommaJoin<T>(this IEnumerable<T> things, System.Func<T, string> func)
         {
             return System.String.Join(", ", things.Select(func));
