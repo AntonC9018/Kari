@@ -76,6 +76,28 @@ namespace Kari.GeneratorCore.Workflow
         #endif
     }
 
+    public struct GeneratedDirectorySharedInitializationContext
+    {
+        public byte[] gitignoreBytes;
+
+        public GeneratedDirectorySharedInitializationContext(byte[] gitignoreBytes)
+        {
+            this.gitignoreBytes = gitignoreBytes;
+        }
+    }
+
+    public struct GeneratedDirectoryInitializationContext
+    {
+        public string directoryFullPath;
+        public GeneratedDirectorySharedInitializationContext shared;
+
+        public GeneratedDirectoryInitializationContext(string directoryFullPath, GeneratedDirectorySharedInitializationContext shared)
+        {
+            this.directoryFullPath = directoryFullPath;
+            this.shared = shared;
+        }
+    }
+
     /// <summary>
     /// Data common to all writers, such as the header and the footer of the generated files.
     /// </summary>
@@ -93,13 +115,15 @@ namespace Kari.GeneratorCore.Workflow
         public const string FooterString = "\r\n#pragma warning restore\r\n";
         public static readonly byte[] FooterBytes = Encoding.UTF8.GetBytes(FooterString); 
 
-        public static void InitializeGeneratedDirectory(string directory)
+        public static void InitializeGeneratedDirectory(GeneratedDirectoryInitializationContext context)
         {
-            Directory.CreateDirectory(directory);
-            var gitignore = Path.Join(directory, ".gitignore");
-            if (!File.Exists(gitignore) && !Directory.Exists(gitignore))
+            Directory.CreateDirectory(context.directoryFullPath);
+
+            if (context.shared.gitignoreBytes != null)
             {
-                File.WriteAllText(gitignore, "*\r\n!.gitignore");
+                var gitignoreFullPath = Path.Join(context.directoryFullPath, ".gitignore");
+                if (!File.Exists(gitignoreFullPath) && !Directory.Exists(gitignoreFullPath))
+                    File.WriteAllBytes(gitignoreFullPath, context.shared.gitignoreBytes);
             }
         }
 

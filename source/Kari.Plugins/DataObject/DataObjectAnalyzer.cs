@@ -17,7 +17,7 @@ namespace Kari.Plugins.DataObject
         {
             foreach (var type in environment.TypesWithAttributes)
             {
-                if (type.HasAttribute(DataObjectSymbols.DataObjectAttribute.symbol))
+                if (type.HasDataObjectAttribute(environment.Compilation))
                 {
                     var syntax = type.DeclaringSyntaxReferences[0].GetSyntax() as TypeDeclarationSyntax;
                     if (!syntax.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))

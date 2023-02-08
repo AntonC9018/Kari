@@ -14,7 +14,6 @@ namespace Kari.Plugins.DataObject
         public void Initialize()
         {
             AdministratorHelpers.Initialize(ref _analyzers);
-            DataObjectSymbols.Initialize(new NamedLogger("DataObject"));
         }
         
         public Task Collect()

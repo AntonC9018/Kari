@@ -28,7 +28,7 @@ namespace Kari.Plugins.Flags
         {
             foreach (var t in environment.TypesWithAttributes)
             {
-                if (t.HasAttribute(FlagsSymbols.NiceFlagsAttribute.symbol))
+                if (t.HasNiceFlagsAttribute(environment.Compilation))
                 {
                     _infos.Add(new FlagsInfo(t));
                 }

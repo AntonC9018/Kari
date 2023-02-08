@@ -328,7 +328,7 @@ namespace Kari.Arguments
         /// Fills in the given object fields via reflection with the parsed options.
         /// Fields take their value from the option with exactly the same name as that field.
         /// Shortened options like `-i` are not supported.
-        /// Only field types supported: string, int, bool, string[], List<string>, int[], HashSet<string>
+        /// Only field types supported: string, int, bool, string[], List[string], int[], HashSet[string]
         /// </summary>
         public MappingResult FillObjectWithOptionValues(object objectToBeFilled)
         {
@@ -337,12 +337,8 @@ namespace Kari.Arguments
 
             var type = objectToBeFilled.GetType();
 
-            foreach (var fieldInfo in GetFieldInfos(type))
-            foreach (var attr in fieldInfo.GetCustomAttributes(inherit: false))
+            foreach (var (fieldInfo, optionAttribute) in IterateOptions(type))
             {
-                if (!(attr is OptionAttribute optionAttribute))
-                    continue;
-
                 // Paths must be strings
                 Assert(!optionAttribute.IsPath 
                     || (fieldInfo.FieldType == typeof(string) 
@@ -406,7 +402,7 @@ namespace Kari.Arguments
                         {
                             result.Errors.Add($"Cannot deserialize value for {name} into type {fieldInfo.FieldType.Name}: {exception.Message}");
                         }
-                        break;
+                        continue;
                     }
                 }
 
@@ -487,7 +483,8 @@ namespace Kari.Arguments
                     return hasOption;
                 }
 
-                if (!Validate()) break;
+                if (!Validate())
+                    continue;
 
                 void AddErrorUnknownValue()
                 {
@@ -585,11 +582,6 @@ namespace Kari.Arguments
             return result;
         }
 
-        private static FieldInfo[] GetFieldInfos(Type type)
-        {
-            return type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
-        }
-
         private static readonly TableColumn[] _Header = new TableColumn[] 
         { 
             new TableColumn("Option").Centered(),
@@ -600,28 +592,33 @@ namespace Kari.Arguments
         private static readonly IRenderable[] _TableRowTemp = new IRenderable[4];
 
 
-        /// <summary>
-        /// Returns an even table willed with the information about options a given object takes.
-        /// </summary>
-        public Table GetHelpFor(object t)
+        public IEnumerable<(FieldInfo, OptionAttribute)> IterateOptions(System.Type type)
         {
-            var type = t.GetType();
-            var table = new Table();
-            table.AddColumns(_Header);
-            table.Width = 140;
+            static FieldInfo[] GetFieldInfos(Type type)
+            {
+                return type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+            }
 
             foreach (var fieldInfo in GetFieldInfos(type))
             foreach (var attr in fieldInfo.GetCustomAttributes(inherit: false))
             {
                 if (!(attr is OptionAttribute optionAttribute))
                     continue;
-                
-                Debug.Assert(!string.IsNullOrEmpty(optionAttribute.Help),
-                    "If it's super obvious what the option does, set the help to \" \"");
 
-                var typeBuilder = new StringBuilder();
+                yield return (fieldInfo, optionAttribute);
+            }
+        }
 
-                if (fieldInfo.FieldType.IsEnum)
+        private static void WriteOptionType(StringBuilder builder, FieldInfo fieldInfo, OptionAttribute optionAttribute, bool writeEnumAsString)
+        {
+            if (fieldInfo.FieldType.IsEnum)
+            {
+                // Could do an interface here, but for now just taking a string.
+                if (writeEnumAsString)
+                {
+                    builder.Append("string");
+                }
+                else
                 {
                     var items = new List<string>(); 
                     foreach (var name in Enum.GetNames(fieldInfo.FieldType))
@@ -631,39 +628,60 @@ namespace Kari.Arguments
                             items.Add(name);
                         }
                     }
-                    typeBuilder.Append("{");
-                    typeBuilder.Append(string.Join(",\n", items));
-                    typeBuilder.Append("}");
+                    builder.Append("{");
+                    builder.Append(string.Join(",\n", items));
+                    builder.Append("}");
                 }
-                // HashSet<string> or List<string>
-                else if (fieldInfo.FieldType.GenericTypeArguments.Length > 0)
+            }
+            // HashSet<string> or List<string>
+            else if (fieldInfo.FieldType.GenericTypeArguments.Length > 0)
+            {
+                var n = fieldInfo.FieldType.Name;
+                // This cuts off the ` and the number
+                builder.Append(n.AsSpan(0, n.Length - 2));
+                builder.Append("<"); 
+                // TODO: We only allow strings here, so I'm not looping over it.
+                if (optionAttribute.IsPath)
                 {
-                    var n = fieldInfo.FieldType.Name;
-                    // This cuts off the ` and the number
-                    typeBuilder.Append(n.AsSpan(0, n.Length - 2));
-                    typeBuilder.Append("<"); 
-                    // TODO: We only allow strings here, so I'm not looping over it.
-                    if (optionAttribute.IsPath)
-                    {
-                        typeBuilder.Append("Path");
-                    }
-                    else
-                    {
-                        typeBuilder.Append(fieldInfo.FieldType.GenericTypeArguments[0].Name);
-                    }
-                    typeBuilder.Append(">");
-                }
-                // either a string or a string[]
-                else if (optionAttribute.IsPath)
-                {
-                    typeBuilder.Append("Path");
-                    if (fieldInfo.FieldType == typeof(string[]))
-                        typeBuilder.Append("[]");
+                    builder.Append("Path");
                 }
                 else
                 {
-                    typeBuilder.Append(fieldInfo.FieldType.Name);
+                    builder.Append(fieldInfo.FieldType.GenericTypeArguments[0].Name);
                 }
+                builder.Append(">");
+            }
+            // either a string or a string[]
+            else if (optionAttribute.IsPath)
+            {
+                builder.Append("Path");
+                if (fieldInfo.FieldType == typeof(string[]))
+                    builder.Append("[]");
+            }
+            else
+            {
+                builder.Append(fieldInfo.FieldType.Name);
+            }
+        }
+
+
+        /// <summary>
+        /// Returns an even table filled with the information about options a given object takes.
+        /// </summary>
+        public Table GetHelpFor(object t)
+        {
+            var type = t.GetType();
+            var table = new Table();
+            table.AddColumns(_Header);
+            table.Width = 140;
+
+            foreach (var (fieldInfo, optionAttribute) in IterateOptions(type))
+            {
+                Debug.Assert(!string.IsNullOrEmpty(optionAttribute.Help),
+                    "If it's super obvious what the option does, set the help to \" \"");
+
+                var typeBuilder = new StringBuilder();
+                WriteOptionType(typeBuilder, fieldInfo, optionAttribute, writeEnumAsString: false);                
 
                 var otherThings = new List<string>();
 
@@ -796,6 +814,27 @@ namespace Kari.Arguments
         {
             return $"File {Configurations[option.OriginConfigurationFileIndex].FileFullPath}, at {option.Property.Path}";
         }
+    }
+
+    public struct OptionInfo
+    {
+        public string name;
+        public string type;
+        public string format;
+        public string separator;
+        public bool? createOverload;
+        public string help;
+    }
+
+    public struct CommandInfo
+    {
+        public string schema;
+        public string[] references;
+        public string name;
+        public string officialUrl;
+        public string help;
+        public bool customExecutable;
+        public string[] taskNames;
     }
 
     public static class ParserHelpers

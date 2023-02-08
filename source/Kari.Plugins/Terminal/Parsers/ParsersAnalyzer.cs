@@ -14,10 +14,11 @@ namespace Kari.Plugins.Terminal
         public void CollectSymbols(ProjectEnvironment environment)
         {
             string parsersFullyQualifiedClassName = ParserDatabase.GetFullyQualifiedParsersClassNameForProject(environment.Data);
+            var logger = environment.Logger;
 
             foreach (var type in environment.TypesWithAttributes)
             {
-                if (type.TryGetAttribute(ParserSymbols.ParserAttribute, environment.Logger, out var parserAttribute))
+                if (type.TryGetParserAttribute(environment.Compilation, logger, out var parserAttribute))
                 {
                     var info = new CustomParserInfo(type, parserAttribute, parsersFullyQualifiedClassName);
                     _customParserInfos.Add(info);
@@ -29,7 +30,7 @@ namespace Kari.Plugins.Terminal
             {
                 if (!method.IsStatic) continue;
 
-                if (method.TryGetAttribute(ParserSymbols.ParserAttribute, environment.Logger, out var parserAttribute))
+                if (method.TryGetParserAttribute(environment.Compilation, logger, out var parserAttribute))
                 {
                     var info = new CustomParserInfo(method, parserAttribute, parsersFullyQualifiedClassName);
                     _customParserFunctionInfos.Add(info);

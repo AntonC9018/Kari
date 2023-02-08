@@ -15,9 +15,12 @@
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all"
                       ExcludeAssets="runtime" />
+
+    <ProjectReference Include="$(KariRootPath)Kari.RoslynUtils\Kari.RoslynUtils.csproj"
+                      ExcludeAssets="runtime"/>
   </ItemGroup>
 
-  <Target Name="RunAnnotator" 
+  <Target Name="RunAnnotator"
           AfterTargets="ResolveProjectReferences">
 
     <PropertyGroup>

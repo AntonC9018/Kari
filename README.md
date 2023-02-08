@@ -277,16 +277,14 @@ To query symbols using these attributes, use `TryGetAttribute()` extension metho
 // The logger used to output errors, e.g. invalid syntax. 
 var logger = new Logger("MyLogger");
 // TryGetAttribute returns true if the symbol contained the given attribute
-if (symbol.TryGetAttribute(Symbols.MyAttribute, logger, out MyAttribute attribute)
+if (symbol.TryGetMyAttribute(compilation, out MyAttribute attribute)
 {
     // attribute contains an instance of your attribute, just like you would have in the customer code.
 }
 ```
 
-Currently, it does not support arrays other than string arrays, but I have not yet had a use case for that.
-
-> I will generate wrappers that resolve the actual attribute instantiation syntax instead.
-> The reflection I had to use for `TryGetAttributes` has been extremely nasty and fragile.
+It supports any kinds of array, and maps `System.Type` into type symbols.
+The annotator will replace `ITypeSymbol` and `INamedTypeSymbol` with `System.Type` in the client code.
 
 
 ### Getting command line options
