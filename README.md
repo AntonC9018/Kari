@@ -53,7 +53,7 @@ To make your life easier, I have made a couple of helper D scripts, so [install 
 `dotnet tool restore` followed by `dotnet build` should build all projects in the solution.
 
 `Kari.Generator.exe` can be run on its own. 
-It's located in `build_folder\bin\Kari.Generator\Debug\net6.0\Kari.Generator.exe`. 
+It's located in `build_folder\bin\Kari.Generator\Debug\net8.0\Kari.Generator.exe`. 
 
 
 ### Helper D scripts
@@ -117,7 +117,7 @@ The configuration files are searched for relative to the folder of the configura
 Calling Kari without any arguments (in a folder without kari.json) gives the following help message:
 
 ```
-$ .\build_folder\bin\Kari.Generator\Debug\net6.0\Kari.Generator.exe
+$ .\build_folder\bin\Kari.Generator\Debug\net8.0\Kari.Generator.exe
                                                 Use Kari to generate code for a C# project.
 ┌───────────────────────────────────┬───────────────────┬─────────────────┬────────────────────────────────────────────────────────────────┐
 │              Option               │       Type        │ Default/Config  │ Description                                                    │
@@ -201,7 +201,7 @@ $ .\build_folder\bin\Kari.Generator\Debug\net6.0\Kari.Generator.exe
 To see help from plugins, you need to pass the location of the plugin (any path to it) as an argument.
 
 ```
-$ .\build_folder\bin\Kari.Generator\Debug\net6.0\Kari.Generator.exe -pluginPaths "build_folder\bin\Terminal\Debug\net6.0\Kari.Plugins.Terminal.dll" -help
+$ .\build_folder\bin\Kari.Generator\Debug\net8.0\Kari.Generator.exe -pluginPaths "build_folder\bin\Terminal\Debug\net8.0\Kari.Plugins.Terminal.dll" -help
 
 ...
 

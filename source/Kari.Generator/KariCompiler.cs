@@ -328,7 +328,7 @@
                     var id = idAttribute.Value;
 
                     var targetFrameworkAttribute = attributes.Where(a => a.Name.LocalName == "targetFramework").FirstOrDefault();
-                    var targetFramework = targetFrameworkAttribute?.Value ?? "net6.0";
+                    var targetFramework = targetFrameworkAttribute?.Value ?? "net8.0";
 
                     string packageDirectoryName;
 

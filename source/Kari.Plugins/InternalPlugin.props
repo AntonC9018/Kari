@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <OutputType>Library</OutputType>
     <!-- RS1024 is Compare Symbols correctly, making me use `SymbolComparison.Default.Equals()` instead of `==` -->
     <!-- <NoWarn>$(NoWarn);RS1024</NoWarn> -->
@@ -21,7 +21,7 @@
           AfterTargets="ResolveProjectReferences">
 
     <PropertyGroup>
-      <KariAnnotatorPath>$(KariOutputPath)Kari.Annotator\$(Configuration)\net6.0\Kari.Annotator</KariAnnotatorPath>
+      <KariAnnotatorPath>$(KariOutputPath)Kari.Annotator\$(Configuration)\net8.0\Kari.Annotator</KariAnnotatorPath>
     </PropertyGroup>
     <Exec Command="&quot;$([MSBuild]::NormalizePath('$(KariAnnotatorPath)'))&quot; $(AnnotatorArguments)" />
     <CallTarget Targets="ReIncludeCompilationItems" />

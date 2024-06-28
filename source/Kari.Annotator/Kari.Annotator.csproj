@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>Kari.Annotator</AssemblyName>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>kari-annotator</ToolCommandName>
