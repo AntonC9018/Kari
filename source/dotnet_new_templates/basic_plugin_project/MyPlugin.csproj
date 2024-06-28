@@ -23,7 +23,7 @@
 
   <!-- 
     Includes the packaging configuration. 
-    This sets the target framework to net6.0.
+    This sets the target framework to net8.0.
     
     You may have to adjust the exact sdk version numbers to be able to test things.
     You'll have to find the exact number within the output packages if 

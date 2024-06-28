@@ -106,8 +106,8 @@ public static class ReflectedFileStreamHelpers
     static ReflectedFileStreamHelpers()
     {
         SetFileLength = typeof(FileStream).Assembly
-            .GetType("System.IO.Strategies.FileStreamHelpers")
-            .GetMethod("SetFileLength", BindingFlags.Static|BindingFlags.NonPublic)
+            .GetType("System.IO.RandomAccess")!
+            .GetMethod("SetFileLength", BindingFlags.Static|BindingFlags.NonPublic)!
             .CreateDelegate<Action<SafeFileHandle, long>>();
             
         Assert(SetFileLength is not null);
@@ -634,7 +634,7 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
                     if (ShouldIgnoreFile(filePath, pathPrefixLength, projectNamesInfo.IgnoredNames, projectNamesInfo.IgnoredFullPaths))
                         continue;
 
-                    var text = await File.ReadAllTextAsync(filePath);
+                    var text = await File.ReadAllTextAsync(filePath, cancellationToken: CancellationToken);
                     var task = StartParseTask(text, filePath, CancellationToken);
                     listOfTasks.Add(task);
 
@@ -710,14 +710,14 @@ public class MasterEnvironment : Singleton<MasterEnvironment>
             for (int projectIndex = 0; projectIndex < projectCount; projectIndex++)
             {
                 var trees = syntaxTreesArrays[projectIndex];
-                symbolCollectionTasks[projectIndex] = Task.Run(() => Collect(trees, compilation));
+                symbolCollectionTasks[projectIndex] = Task.Run(() => Collect(trees, compilation, CancellationToken), CancellationToken);
                 
-                static async Task<INamedTypeSymbol[]> Collect(SyntaxTree[] syntaxTrees, Compilation compilation)
+                static async Task<INamedTypeSymbol[]> Collect(SyntaxTree[] syntaxTrees, Compilation compilation, CancellationToken cancellationToken)
                 {
                     var result = new HashSet<INamedTypeSymbol>();
                     foreach (var syntaxTree in syntaxTrees)
                     {
-                        var root = await syntaxTree.GetRootAsync();
+                        var root = await syntaxTree.GetRootAsync(cancellationToken);
                         var model = compilation.GetSemanticModel(syntaxTree, ignoreAccessibility: true);
                         foreach (var node in root.DescendantNodes())
                         {

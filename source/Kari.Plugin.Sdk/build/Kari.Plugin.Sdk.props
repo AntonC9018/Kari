@@ -24,7 +24,7 @@
     <OutputType>Library</OutputType>
 
     <!-- Kari is net 6. TODO: this should be generalized. -->
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
 
     <!-- 
       TODO: Add the ability to test plugins, but that's extremely 

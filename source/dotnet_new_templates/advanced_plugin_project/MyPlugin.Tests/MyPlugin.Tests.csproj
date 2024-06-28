@@ -10,7 +10,7 @@
      
     -->
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>Kari.Plugins.MyPlugin.Tests</AssemblyName>
   </PropertyGroup>
 
